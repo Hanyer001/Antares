@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 128 128">
+  <!-- Icono de Antares: la inicial con una onda de sonido cruzándola.
+       Fuente única de todos los tamaños: `npx tauri icon assets/branding/icon.svg`. -->
+  <rect width="128" height="128" rx="28" fill="#0E1116"/>
+  <path d="M34 102 L64 26 L94 102" fill="none" stroke="#93B4DD" stroke-width="11"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M44 74 h8 l5 -9 l7 17 l7 -17 l5 9 h8" fill="none" stroke="#E0533D" stroke-width="6"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

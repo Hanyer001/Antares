@@ -1,0 +1,1609 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- La fuente va dentro de la app (src/fonts): sin internet se ve igual. -->
+    <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="styles.css" />
+    <!-- El tema guardado, antes de pintar nada: sin esto la app abriría un
+         instante en Grafito antes de pasar al tema del usuario. -->
+    <script src="boot-theme.js"></script>
+    <title>Antares</title>
+    <script type="module" src="/main.js" defer></script>
+  </head>
+
+  <body>
+    <!-- Fondo con la carátula o con una imagen propia (Ajustes › Apariencia). -->
+    <div class="backdrop" aria-hidden="true"></div>
+
+    <!-- Tres columnas: navegación, la vista activa y lo que suena. -->
+    <div class="app">
+      <!-- ── Barra lateral ────────────────────────────────────────── -->
+      <aside class="sidebar">
+        <div class="brand">
+          <h1 class="wordmark">ANTARES</h1>
+          <span class="engine" id="engine" data-state="idle" title="Estado del motor">
+            <span class="engine__dot"></span>
+          </span>
+        </div>
+
+        <nav class="nav" id="tabs" aria-label="Secciones">
+          <button class="tab" data-tab="home" type="button" title="Inicio">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9v11h5v-6h4v6h5V9" /></svg>
+            <span>Inicio</span>
+          </button>
+          <button class="tab" data-tab="results" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
+            <span>Buscar</span>
+          </button>
+          <button class="tab" data-tab="discover" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" /><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" /></svg>
+            <span>Descubrir</span>
+          </button>
+          <button class="tab" data-tab="queue" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h13M3 12h13M3 18h9" /><path d="M17 15v6l4-3z" /></svg>
+            <span>Cola</span><span class="tab__count" id="queue-count"></span>
+          </button>
+          <button class="tab" data-tab="history" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l3 2" /></svg>
+            <span>Reciente</span>
+          </button>
+          <button class="tab" data-tab="lists" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg>
+            <span>Listas</span>
+          </button>
+          <button class="tab" data-tab="summary" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>
+            <span>Resumen</span>
+          </button>
+        </nav>
+
+        <div class="sidebar__section">
+          <div class="sidebar__heading">
+            <span>Tus listas</span>
+            <button class="btn btn--icon btn--tiny" id="new-list-button" type="button"
+                    aria-label="Nueva lista o importar" title="Nueva lista o importar" aria-haspopup="menu">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12" /></svg>
+            </button>
+          </div>
+          <ul class="sidebar__lists" id="sidebar-lists"></ul>
+        </div>
+
+        <!-- Quién escucha y con qué perfil: cambiar de uno a otro a un clic. -->
+        <button class="tab tab--people" id="people-button" type="button"
+                aria-haspopup="menu" aria-expanded="false" title="Usuario y perfil">
+          <span class="avatar" id="people-avatar" aria-hidden="true">P</span>
+          <span class="people-button__text">
+            <span class="people-button__name" id="people-name">Principal</span>
+            <span class="people-button__profile" id="people-profile"></span>
+          </span>
+        </button>
+
+        <button class="tab tab--settings" data-tab="settings" id="settings-button" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="3.1" />
+            <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5v.2a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1h.2a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z" />
+          </svg>
+          <span>Ajustes</span>
+        </button>
+      </aside>
+
+      <!-- ── Vista central ────────────────────────────────────────── -->
+      <main class="main">
+        <form class="search" id="search-form" autocomplete="off">
+          <div class="field">
+            <svg class="field__icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M20 20l-3.5-3.5" />
+            </svg>
+            <input
+              class="field__input"
+              id="search-input"
+              type="text"
+              placeholder="Buscar una canción o pegar un enlace de YouTube"
+              aria-label="Buscar canción"
+              spellcheck="false"
+            />
+          </div>
+
+          <button class="btn btn--search" id="search-button" type="submit">
+            <span class="btn__label">Buscar</span>
+            <span class="btn__spinner" aria-hidden="true"></span>
+          </button>
+        </form>
+
+        <header class="view-head">
+          <div class="view-head__text">
+            <h2 class="view-title" id="view-title"></h2>
+            <p class="view-meta" id="view-meta"></p>
+          </div>
+          <!-- Acciones de la vista (guardar la cola, crear una lista...). -->
+          <div class="panel-head" id="panel-head" hidden></div>
+
+          <!-- Buscador de ajustes: solo en la vista de Ajustes. -->
+          <div class="field settings-search" id="settings-search-box" hidden>
+            <svg class="field__icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M20 20l-3.5-3.5" />
+            </svg>
+            <input class="field__input" id="settings-search" type="search"
+                   placeholder="Buscar un ajuste" aria-label="Buscar un ajuste"
+                   spellcheck="false" autocomplete="off" />
+          </div>
+        </header>
+
+        <!-- Inicio: estanterías de música (ver home.js). -->
+        <section class="home" id="home" hidden></section>
+
+        <!-- Descubrir: cómo recomienda y sus dos controles. -->
+        <section class="discover" id="discover" hidden>
+          <div class="discover__card">
+            <p class="discover__text">
+              Mezcla lo que más escuchas con canciones nuevas relacionadas. Aprende de
+              lo que terminas y de lo que saltas, y no repite lo que acaba de sonar.
+            </p>
+
+            <div class="discover__controls">
+              <label class="slider-field">
+                <span class="slider-field__label">
+                  Aventura
+                  <span class="slider-field__value" id="adventure-value">30 %</span>
+                </span>
+                <input class="range" id="adventure" type="range" min="0" max="100" step="5" value="30"
+                       aria-describedby="adventure-hint" />
+                <span class="slider-field__ends" id="adventure-hint">
+                  <span>Lo conocido</span><span>Lo nuevo</span>
+                </span>
+              </label>
+
+              <label class="switch">
+                <input type="checkbox" id="autoplay" checked />
+                <span class="switch__track" aria-hidden="true"></span>
+                <span class="switch__text">
+                  Seguir con recomendaciones al acabar la cola
+                </span>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <!-- Ajustes: cuatro grupos. Los controles con `data-pref` se enlazan
+             solos con su preferencia (ver settings.js); `data-when` muestra una
+             fila solo cuando otra preferencia tiene cierto valor. -->
+        <section class="settings" id="settings" hidden>
+          <p class="settings__none" id="settings-none" hidden></p>
+
+          <!-- ── Apariencia ─────────────────────────────────────── -->
+          <section class="settings__group" data-group="appearance">
+            <header class="settings__head">
+              <h3 class="settings__title">Apariencia</h3>
+              <button class="btn btn--link" type="button" data-reset="appearance">Restablecer</button>
+            </header>
+
+            <div class="settings__card">
+              <div class="setting setting--column" data-keywords="tema colores oscuro claro negro modo noche windows">
+                <div class="setting__text">
+                  <span class="setting__label">Tema</span>
+                  <span class="setting__value">Los colores de toda la app</span>
+                </div>
+                <div class="themes" id="theme-picker" role="radiogroup" aria-label="Tema"></div>
+              </div>
+
+              <div class="setting" data-when="appearance.theme==artwork"
+                   data-keywords="carátula color portada tema intensidad tinte">
+                <div class="setting__text">
+                  <span class="setting__label">Color de la carátula</span>
+                  <span class="setting__value">Cuánto se tiñe la app con la portada que suena</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Intensidad del color de la carátula">
+                  <label><input type="radio" name="art-tint" value="soft" data-pref="appearance.artTint" /><span>Suave</span></label>
+                  <label><input type="radio" name="art-tint" value="medium" data-pref="appearance.artTint" /><span>Media</span></label>
+                  <label><input type="radio" name="art-tint" value="strong" data-pref="appearance.artTint" /><span>Intensa</span></label>
+                </div>
+              </div>
+
+              <div class="setting setting--column" data-when="appearance.theme==custom"
+                   data-keywords="tema personalizado colores propios fondo tarjetas texto">
+                <div class="setting__text">
+                  <span class="setting__label">Tus colores</span>
+                  <span class="setting__value">El fondo, las tarjetas y el texto. Lo demás se calcula a partir de ellos.</span>
+                </div>
+                <div class="colors">
+                  <label class="color-field">
+                    <input class="color-input" type="color" data-pref="appearance.custom.bg" /> Fondo
+                  </label>
+                  <label class="color-field">
+                    <input class="color-input" type="color" data-pref="appearance.custom.surface" /> Tarjetas
+                  </label>
+                  <label class="color-field">
+                    <input class="color-input" type="color" data-pref="appearance.custom.text" /> Texto
+                  </label>
+                </div>
+                <p class="setting__warning" id="contrast-warning" hidden>
+                  Poco contraste entre el texto y las tarjetas: puede costar leerlo.
+                </p>
+              </div>
+
+              <div class="setting setting--column" data-keywords="acento color carátula portada fijo neutro gris resaltado">
+                <div class="setting__row">
+                  <div class="setting__text">
+                    <span class="setting__label">Color de acento</span>
+                    <span class="setting__value" id="accent-hint"></span>
+                  </div>
+                  <div class="segmented" role="radiogroup" aria-label="Color de acento">
+                    <label><input type="radio" name="accent-mode" value="artwork" data-pref="appearance.accentMode" /><span>De la carátula</span></label>
+                    <label><input type="radio" name="accent-mode" value="fixed" data-pref="appearance.accentMode" /><span>Fijo</span></label>
+                    <label><input type="radio" name="accent-mode" value="mono" data-pref="appearance.accentMode" /><span>Neutro</span></label>
+                  </div>
+                </div>
+                <div class="swatches" id="accent-swatches" data-when="appearance.accentMode==fixed">
+                  <input class="color-input" type="color" data-pref="appearance.accentColor"
+                         aria-label="Otro color" title="Otro color" />
+                </div>
+              </div>
+
+              <div class="setting setting--column" data-keywords="fondo imagen carátula portada wallpaper desenfoque oscurecer">
+                <div class="setting__row">
+                  <div class="setting__text">
+                    <span class="setting__label">Fondo</span>
+                    <span class="setting__value">Lo que se ve detrás de las columnas</span>
+                  </div>
+                  <div class="segmented" role="radiogroup" aria-label="Fondo">
+                    <label><input type="radio" name="background" value="plain" data-pref="appearance.background" /><span>Liso</span></label>
+                    <label><input type="radio" name="background" value="artwork" data-pref="appearance.background" /><span>Carátula</span></label>
+                    <label><input type="radio" name="background" value="image" data-pref="appearance.background" /><span>Imagen</span></label>
+                  </div>
+                </div>
+
+                <div class="setting__row" data-when="appearance.background==image">
+                  <div class="setting__text">
+                    <span class="setting__value" id="wallpaper-state">Ninguna imagen elegida</span>
+                  </div>
+                  <div class="setting__actions">
+                    <button class="btn btn--mini" id="wallpaper-pick" type="button">Elegir imagen…</button>
+                    <button class="btn btn--mini" id="wallpaper-clear" type="button">Quitar</button>
+                  </div>
+                  <input id="wallpaper-input" type="file" accept="image/*" hidden />
+                </div>
+
+                <div class="sliders" data-when="appearance.background!=plain">
+                  <label class="eq__band">
+                    <span class="eq__name">Oscurecer</span>
+                    <span class="eq__value" data-pref-value="appearance.backgroundDim" data-unit=" %"></span>
+                    <input class="range" type="range" min="0" max="95" step="5" data-pref="appearance.backgroundDim" />
+                  </label>
+                  <label class="eq__band">
+                    <span class="eq__name">Desenfoque</span>
+                    <span class="eq__value" data-pref-value="appearance.backgroundBlur" data-unit=" px"></span>
+                    <input class="range" type="range" min="0" max="80" step="5" data-pref="appearance.backgroundBlur" />
+                  </label>
+                </div>
+              </div>
+
+              <div class="setting desktop-only" data-keywords="tamaño zoom escala grande pequeño letra texto">
+                <div class="setting__text">
+                  <span class="setting__label">Tamaño de la interfaz</span>
+                  <span class="setting__value">Todo más grande o más pequeño, texto incluido</span>
+                </div>
+                <select class="select" data-pref="appearance.scale" aria-label="Tamaño de la interfaz">
+                  <option value="0.9">90 %</option>
+                  <option value="1">100 %</option>
+                  <option value="1.1">110 %</option>
+                  <option value="1.25">125 %</option>
+                  <option value="1.4">140 %</option>
+                </select>
+              </div>
+
+              <div class="setting" data-keywords="densidad compacta amplia espacio filas">
+                <div class="setting__text">
+                  <span class="setting__label">Densidad</span>
+                  <span class="setting__value">Cuánto espacio hay entre las filas</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Densidad">
+                  <label><input type="radio" name="density" value="compact" data-pref="appearance.density" /><span>Compacta</span></label>
+                  <label><input type="radio" name="density" value="normal" data-pref="appearance.density" /><span>Normal</span></label>
+                  <label><input type="radio" name="density" value="comfortable" data-pref="appearance.density" /><span>Amplia</span></label>
+                </div>
+              </div>
+
+              <div class="setting" data-keywords="esquinas bordes redondeadas rectas forma">
+                <div class="setting__text">
+                  <span class="setting__label">Esquinas</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Esquinas">
+                  <label><input type="radio" name="corners" value="sharp" data-pref="appearance.corners" /><span>Rectas</span></label>
+                  <label><input type="radio" name="corners" value="soft" data-pref="appearance.corners" /><span>Suaves</span></label>
+                  <label><input type="radio" name="corners" value="round" data-pref="appearance.corners" /><span>Redondas</span></label>
+                </div>
+              </div>
+
+              <div class="setting" data-keywords="animaciones movimiento transiciones efectos">
+                <div class="setting__text">
+                  <span class="setting__label">Animaciones</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Animaciones">
+                  <label><input type="radio" name="motion" value="full" data-pref="appearance.motion" /><span>Todas</span></label>
+                  <label><input type="radio" name="motion" value="reduced" data-pref="appearance.motion" /><span>Pocas</span></label>
+                  <label><input type="radio" name="motion" value="none" data-pref="appearance.motion" /><span>Ninguna</span></label>
+                </div>
+              </div>
+
+              <div class="setting setting--column" data-keywords="tipografía fuente letra serif mono moderna elegante mano máquina">
+                <div class="setting__text">
+                  <span class="setting__label">Tipografía</span>
+                  <span class="setting__value">Cada una se ve escrita en su propia letra</span>
+                </div>
+                <div class="font-grid" role="radiogroup" aria-label="Tipografía">
+                  <label><input type="radio" name="font" value="inter" data-pref="appearance.font" /><span data-font="inter"><b>Aa</b>Inter</span></label>
+                  <label><input type="radio" name="font" value="system" data-pref="appearance.font" /><span data-font="system"><b>Aa</b>Sistema</span></label>
+                  <label><input type="radio" name="font" value="modern" data-pref="appearance.font" /><span data-font="modern"><b>Aa</b>Moderna</span></label>
+                  <label><input type="radio" name="font" value="humanist" data-pref="appearance.font" /><span data-font="humanist"><b>Aa</b>Humanista</span></label>
+                  <label><input type="radio" name="font" value="soft" data-pref="appearance.font" /><span data-font="soft"><b>Aa</b>Suave</span></label>
+                  <label><input type="radio" name="font" value="classic" data-pref="appearance.font" /><span data-font="classic"><b>Aa</b>Clásica</span></label>
+                  <label><input type="radio" name="font" value="serif" data-pref="appearance.font" /><span data-font="serif"><b>Aa</b>Serif</span></label>
+                  <label><input type="radio" name="font" value="editorial" data-pref="appearance.font" /><span data-font="editorial"><b>Aa</b>Editorial</span></label>
+                  <label><input type="radio" name="font" value="elegant" data-pref="appearance.font" /><span data-font="elegant"><b>Aa</b>Elegante</span></label>
+                  <label><input type="radio" name="font" value="mono" data-pref="appearance.font" /><span data-font="mono"><b>Aa</b>Mono</span></label>
+                  <label><input type="radio" name="font" value="typewriter" data-pref="appearance.font" /><span data-font="typewriter"><b>Aa</b>Máquina de escribir</span></label>
+                  <label><input type="radio" name="font" value="handwritten" data-pref="appearance.font" /><span data-font="handwritten"><b>Aa</b>A mano</span></label>
+                </div>
+              </div>
+
+              <div class="setting desktop-only" data-keywords="compartir tema exportar importar archivo">
+                <div class="setting__text">
+                  <span class="setting__label">Compartir el tema</span>
+                  <span class="setting__value">Guárdalo en un archivo para llevarlo a otro equipo o pasárselo a alguien</span>
+                </div>
+                <div class="setting__actions">
+                  <button class="btn btn--mini" id="export-theme" type="button">Exportar</button>
+                  <button class="btn btn--mini" data-import type="button">Importar…</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── Diseño: cómo se reparte la ventana ─────────────── -->
+          <section class="settings__group" data-group="layout">
+            <header class="settings__head">
+              <h3 class="settings__title">Diseño</h3>
+              <button class="btn btn--link" type="button" data-reset="layout">Restablecer</button>
+            </header>
+
+            <div class="settings__card">
+              <div class="setting desktop-only" data-keywords="barra lateral navegación iconos estrecha">
+                <div class="setting__text">
+                  <span class="setting__label">Barra lateral</span>
+                  <span class="setting__value">Solo iconos deja más sitio a la vista central</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Barra lateral">
+                  <label><input type="radio" name="sidebar" value="full" data-pref="layout.sidebar" /><span>Completa</span></label>
+                  <label><input type="radio" name="sidebar" value="icons" data-pref="layout.sidebar" /><span>Solo iconos</span></label>
+                </div>
+              </div>
+
+              <div class="setting desktop-only" data-keywords="disposición espejo izquierda derecha columnas invertir">
+                <div class="setting__text">
+                  <span class="setting__label">Disposición</span>
+                  <span class="setting__value">En espejo, lo que suena va a la izquierda y la navegación a la derecha</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Disposición">
+                  <label><input type="radio" name="mirrored" value="false" data-pref="layout.mirrored" /><span>Normal</span></label>
+                  <label><input type="radio" name="mirrored" value="true" data-pref="layout.mirrored" /><span>En espejo</span></label>
+                </div>
+              </div>
+
+              <div class="setting desktop-only" data-keywords="ancho columnas tamaño arrastrar">
+                <div class="setting__text">
+                  <span class="setting__label">Ancho de las columnas</span>
+                  <span class="setting__value">Arrastra el borde de una columna para cambiarlo; doble clic en el borde lo devuelve</span>
+                </div>
+                <button class="btn btn--mini" id="reset-widths" type="button">Anchos de serie</button>
+              </div>
+
+              <div class="setting setting--column" data-keywords="pestañas orden ocultar navegación secciones menú">
+                <div class="setting__text">
+                  <span class="setting__label">Pestañas</span>
+                  <span class="setting__value">Cuáles se ven y en qué orden</span>
+                </div>
+                <ul class="order-list" id="tab-order"></ul>
+              </div>
+
+              <div class="setting" data-keywords="abrir inicio arranque pestaña primera">
+                <div class="setting__text">
+                  <span class="setting__label">Al abrir, mostrar</span>
+                </div>
+                <select class="select" data-pref="layout.startTab" aria-label="Pestaña al abrir">
+                  <option value="last">Donde lo dejé</option>
+                  <option value="home">Inicio</option>
+                  <option value="results">Buscar</option>
+                  <option value="discover">Descubrir</option>
+                  <option value="queue">Cola</option>
+                  <option value="history">Reciente</option>
+                  <option value="lists">Listas</option>
+                  <option value="summary">Resumen</option>
+                </select>
+              </div>
+
+              <div class="setting" data-keywords="carátula portada tamaño consola imagen">
+                <div class="setting__text">
+                  <span class="setting__label">Carátula en la consola</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Carátula en la consola">
+                  <label><input type="radio" name="artwork" value="hidden" data-pref="layout.artwork" /><span>Sin</span></label>
+                  <label><input type="radio" name="artwork" value="small" data-pref="layout.artwork" /><span>Pequeña</span></label>
+                  <label><input type="radio" name="artwork" value="medium" data-pref="layout.artwork" /><span>Mediana</span></label>
+                  <label><input type="radio" name="artwork" value="large" data-pref="layout.artwork" /><span>Grande</span></label>
+                </div>
+              </div>
+
+              <div class="setting setting--column" data-keywords="botones consola me gusta radio temporizador aleatorio repetir volumen">
+                <div class="setting__text">
+                  <span class="setting__label">Botones de la consola</span>
+                  <span class="setting__value">Quita los que no uses</span>
+                </div>
+                <div class="checks">
+                  <label class="check"><input type="checkbox" data-pref="layout.showRate" /><span>Me gusta / No me gusta</span></label>
+                  <label class="check"><input type="checkbox" data-pref="layout.showRadio" /><span>Radio</span></label>
+                  <label class="check"><input type="checkbox" data-pref="layout.showSleep" /><span>Temporizador</span></label>
+                  <label class="check"><input type="checkbox" data-pref="layout.showModes" /><span>Aleatorio y repetir</span></label>
+                  <label class="check"><input type="checkbox" data-pref="layout.showVolume" /><span>Volumen</span></label>
+                </div>
+              </div>
+
+              <div class="setting" data-keywords="a continuación letra columna derecha abajo">
+                <div class="setting__text">
+                  <span class="setting__label">«A continuación» y letra</span>
+                  <span class="setting__value">Debajo de la consola</span>
+                </div>
+                <label class="switch switch--bare">
+                  <input type="checkbox" data-pref="layout.upnext" />
+                  <span class="switch__track" aria-hidden="true"></span>
+                  <span class="sr-only">Mostrar «A continuación» y letra</span>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── Reproductor: la barra de abajo y el mini ────────── -->
+          <section class="settings__group desktop-only" data-group="player">
+            <header class="settings__head">
+              <h3 class="settings__title">Reproductor</h3>
+              <button class="btn btn--link" type="button" data-reset="player layout.miniOnTop">Restablecer</button>
+            </header>
+
+            <div class="settings__card">
+              <p class="settings__subhead">Barra de reproducción</p>
+
+              <div class="setting" data-keywords="barra reproducción abajo controles youtube spotify">
+                <div class="setting__text">
+                  <span class="setting__label">Mostrar la barra</span>
+                  <span class="setting__value">Los controles a lo ancho de la ventana, siempre a mano</span>
+                </div>
+                <label class="switch switch--bare">
+                  <input type="checkbox" data-pref="player.bar" />
+                  <span class="switch__track" aria-hidden="true"></span>
+                  <span class="sr-only">Mostrar la barra de reproducción</span>
+                </label>
+              </div>
+
+              <div class="setting" data-keywords="barra diseño estilo progreso línea centrado" data-when="player.bar==true">
+                <div class="setting__text">
+                  <span class="setting__label">Diseño</span>
+                  <span class="setting__value" data-when="player.barProgress==edge">Los controles a la izquierda y el progreso como una línea fina en el borde</span>
+                  <span class="setting__value" data-when="player.barProgress==inline">Los controles en el medio, con el progreso debajo entre los dos tiempos</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Diseño de la barra">
+                  <label><input type="radio" name="bar-progress" value="edge" data-pref="player.barProgress" /><span>Línea arriba</span></label>
+                  <label><input type="radio" name="bar-progress" value="inline" data-pref="player.barProgress" /><span>Centrado</span></label>
+                </div>
+              </div>
+
+              <div class="setting" data-keywords="barra forma flotante isla redondeada ancho" data-when="player.bar==true">
+                <div class="setting__text">
+                  <span class="setting__label">Forma</span>
+                  <span class="setting__value">Flotante la separa del borde, con las esquinas redondeadas</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Forma de la barra">
+                  <label><input type="radio" name="bar-shape" value="full" data-pref="player.barShape" /><span>A lo ancho</span></label>
+                  <label><input type="radio" name="bar-shape" value="floating" data-pref="player.barShape" /><span>Flotante</span></label>
+                </div>
+              </div>
+
+              <div class="setting" data-keywords="barra botón play círculo icono" data-when="player.bar==true">
+                <div class="setting__text">
+                  <span class="setting__label">Botón de play</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Botón de play">
+                  <label><input type="radio" name="bar-play" value="auto" data-pref="player.barPlay" /><span>El del diseño</span></label>
+                  <label><input type="radio" name="bar-play" value="circle" data-pref="player.barPlay" /><span>Círculo</span></label>
+                  <label><input type="radio" name="bar-play" value="plain" data-pref="player.barPlay" /><span>Solo el icono</span></label>
+                </div>
+              </div>
+
+              <div class="setting" data-keywords="barra color progreso acento neutro blanco" data-when="player.bar==true">
+                <div class="setting__text">
+                  <span class="setting__label">Color del progreso</span>
+                  <span class="setting__value">El de la canción que suena, o neutro</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Color del progreso">
+                  <label><input type="radio" name="bar-accent" value="artwork" data-pref="player.barAccent" /><span>De la canción</span></label>
+                  <label><input type="radio" name="bar-accent" value="neutral" data-pref="player.barAccent" /><span>Neutro</span></label>
+                </div>
+              </div>
+
+              <div class="setting" data-keywords="barra posición arriba abajo" data-when="player.bar==true">
+                <div class="setting__text">
+                  <span class="setting__label">Posición</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Posición de la barra">
+                  <label><input type="radio" name="bar-position" value="bottom" data-pref="player.barPosition" /><span>Abajo</span></label>
+                  <label><input type="radio" name="bar-position" value="top" data-pref="player.barPosition" /><span>Arriba</span></label>
+                </div>
+              </div>
+
+              <div class="setting" data-keywords="barra tamaño alto compacta grande" data-when="player.bar==true">
+                <div class="setting__text">
+                  <span class="setting__label">Tamaño</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Tamaño de la barra">
+                  <label><input type="radio" name="bar-size" value="compact" data-pref="player.barSize" /><span>Compacta</span></label>
+                  <label><input type="radio" name="bar-size" value="normal" data-pref="player.barSize" /><span>Normal</span></label>
+                  <label><input type="radio" name="bar-size" value="large" data-pref="player.barSize" /><span>Grande</span></label>
+                </div>
+              </div>
+
+              <div class="setting" data-keywords="barra fondo estilo cristal translúcida carátula color" data-when="player.bar==true">
+                <div class="setting__text">
+                  <span class="setting__label">Fondo</span>
+                  <span class="setting__value">Cristal deja ver lo de detrás; Carátula la tiñe con la portada que suena</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Fondo de la barra">
+                  <label><input type="radio" name="bar-style" value="solid" data-pref="player.barStyle" /><span>Sólido</span></label>
+                  <label><input type="radio" name="bar-style" value="glass" data-pref="player.barStyle" /><span>Cristal</span></label>
+                  <label><input type="radio" name="bar-style" value="artwork" data-pref="player.barStyle" /><span>Carátula</span></label>
+                </div>
+              </div>
+
+              <div class="setting setting--column" data-keywords="barra botones mostrar ocultar volumen me gusta álbum" data-when="player.bar==true">
+                <div class="setting__text">
+                  <span class="setting__label">Qué se ve en la barra</span>
+                </div>
+                <div class="checks">
+                  <label class="check"><input type="checkbox" data-pref="player.barArtwork" /><span>Carátula</span></label>
+                  <label class="check"><input type="checkbox" data-pref="player.barAlbum" /><span>Álbum</span></label>
+                  <label class="check"><input type="checkbox" data-pref="player.barRate" /><span>Me gusta / No me gusta</span></label>
+                  <label class="check"><input type="checkbox" data-pref="player.barVolume" /><span>Volumen</span></label>
+                  <label class="check"><input type="checkbox" data-pref="player.barModes" /><span>Aleatorio y repetir</span></label>
+                  <label class="check"><input type="checkbox" data-pref="player.barExtras" /><span>Letra, cola, mini y modo escucha</span></label>
+                </div>
+              </div>
+
+              <div class="setting" data-keywords="consola derecha controles repetidos barra" data-when="player.bar==true">
+                <div class="setting__text">
+                  <span class="setting__label">Controles también en la consola</span>
+                  <span class="setting__value">Apagado, la columna derecha queda solo con la carátula, la letra y la cola</span>
+                </div>
+                <label class="switch switch--bare">
+                  <input type="checkbox" data-pref="player.consoleControls" />
+                  <span class="switch__track" aria-hidden="true"></span>
+                  <span class="sr-only">Controles también en la consola</span>
+                </label>
+              </div>
+
+              <p class="settings__subhead">Mini reproductor</p>
+
+              <div class="setting" data-keywords="mini reproductor estilo carátula completa compacto">
+                <div class="setting__text">
+                  <span class="setting__label">Estilo</span>
+                  <span class="setting__value">La carátula llenando la ventana, o una tira compacta</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Estilo del mini">
+                  <label><input type="radio" name="mini-style" value="artwork" data-pref="player.miniStyle" /><span>Carátula completa</span></label>
+                  <label><input type="radio" name="mini-style" value="compact" data-pref="player.miniStyle" /><span>Compacto</span></label>
+                </div>
+              </div>
+
+              <div class="setting" data-keywords="mini tamaño pequeño grande ventana">
+                <div class="setting__text">
+                  <span class="setting__label">Tamaño</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Tamaño del mini">
+                  <label><input type="radio" name="mini-size" value="small" data-pref="player.miniSize" /><span>Pequeño</span></label>
+                  <label><input type="radio" name="mini-size" value="medium" data-pref="player.miniSize" /><span>Mediano</span></label>
+                  <label><input type="radio" name="mini-size" value="large" data-pref="player.miniSize" /><span>Grande</span></label>
+                </div>
+              </div>
+
+              <div class="setting" data-keywords="mini controles pasar ratón siempre">
+                <div class="setting__text">
+                  <span class="setting__label">Controles</span>
+                  <span class="setting__value">Al pasar el ratón, la carátula se ve limpia el resto del tiempo</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Controles del mini">
+                  <label><input type="radio" name="mini-controls" value="hover" data-pref="player.miniControls" /><span>Al pasar el ratón</span></label>
+                  <label><input type="radio" name="mini-controls" value="always" data-pref="player.miniControls" /><span>Siempre</span></label>
+                </div>
+              </div>
+
+              <div class="setting" data-keywords="mini texto alineación centrado izquierda título" data-when="player.miniStyle==artwork">
+                <div class="setting__text">
+                  <span class="setting__label">Texto</span>
+                  <span class="setting__value">El título y el artista, centrados o a la izquierda</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Alineación del texto del mini">
+                  <label><input type="radio" name="mini-align" value="center" data-pref="player.miniAlign" /><span>Centrado</span></label>
+                  <label><input type="radio" name="mini-align" value="left" data-pref="player.miniAlign" /><span>A la izquierda</span></label>
+                </div>
+              </div>
+
+              <div class="setting" data-keywords="mini velo sombra oscuro contraste" data-when="player.miniStyle==artwork">
+                <div class="setting__text">
+                  <span class="setting__label">Velo bajo los controles</span>
+                  <span class="setting__value">Intenso se lee mejor sobre una portada clara</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Velo del mini">
+                  <label><input type="radio" name="mini-shade" value="soft" data-pref="player.miniShade" /><span>Suave</span></label>
+                  <label><input type="radio" name="mini-shade" value="strong" data-pref="player.miniShade" /><span>Intenso</span></label>
+                </div>
+              </div>
+
+              <div class="setting" data-keywords="mini letra karaoke verso" data-when="player.miniStyle==artwork">
+                <div class="setting__text">
+                  <span class="setting__label">Letra en el mini</span>
+                  <span class="setting__value">El verso que suena sobre la carátula (también con su botón)</span>
+                </div>
+                <label class="switch switch--bare">
+                  <input type="checkbox" data-pref="player.miniLyrics" />
+                  <span class="switch__track" aria-hidden="true"></span>
+                  <span class="sr-only">Letra en el mini reproductor</span>
+                </label>
+              </div>
+
+              <div class="setting" data-keywords="modo mini ventana pequeña encima flotante">
+                <div class="setting__text">
+                  <span class="setting__label">Encima de las demás ventanas</span>
+                  <span class="setting__value">El mini se queda a la vista aunque uses otra app</span>
+                </div>
+                <label class="switch switch--bare">
+                  <input type="checkbox" data-pref="layout.miniOnTop" />
+                  <span class="switch__track" aria-hidden="true"></span>
+                  <span class="sr-only">Mini encima de las demás ventanas</span>
+                </label>
+                <button class="btn btn--mini" id="try-mini" type="button">Probar</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── Inicio: estanterías y géneros ──────────────────── -->
+          <section class="settings__group" data-group="home">
+            <header class="settings__head">
+              <h3 class="settings__title">Inicio</h3>
+              <button class="btn btn--link" type="button" data-reset="home">Restablecer</button>
+            </header>
+
+            <div class="settings__card">
+              <div class="setting setting--column" data-keywords="inicio secciones estanterías orden ocultar">
+                <div class="setting__text">
+                  <span class="setting__label">Secciones</span>
+                  <span class="setting__value">Cuáles se ven en Inicio y en qué orden</span>
+                </div>
+                <ul class="order-list" id="shelf-order"></ul>
+              </div>
+
+              <div class="setting setting--column" data-keywords="géneros música estilo reggaetón trap rock pop">
+                <div class="setting__text">
+                  <span class="setting__label">Tus géneros</span>
+                  <span class="setting__value" id="genres-hint"></span>
+                </div>
+                <div class="genre-chips" id="genre-chips"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── Reproducción ───────────────────────────────────── -->
+          <section class="settings__group" data-group="behavior">
+            <header class="settings__head">
+              <h3 class="settings__title">Reproducción</h3>
+              <button class="btn btn--link" type="button" data-reset="behavior lyrics playback.quality">Restablecer</button>
+            </header>
+
+            <div class="settings__card">
+              <div class="setting" data-keywords="clic canción fila poner cola siguiente">
+                <div class="setting__text">
+                  <span class="setting__label">Al hacer clic en una canción</span>
+                  <span class="setting__value">En Inicio, Buscar, Reciente y Resumen</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Al hacer clic en una canción">
+                  <label><input type="radio" name="row-click" value="now" data-pref="behavior.rowClick" /><span>Ponerla ya</span></label>
+                  <label><input type="radio" name="row-click" value="next" data-pref="behavior.rowClick" /><span>A continuación</span></label>
+                  <label><input type="radio" name="row-click" value="add" data-pref="behavior.rowClick" /><span>A la cola</span></label>
+                </div>
+              </div>
+
+              <div class="setting setting--column desktop-only" data-keywords="saltar segundos flechas avanzar retroceder volumen paso">
+                <div class="sliders">
+                  <label class="eq__band">
+                    <span class="eq__name">Salto con ← y →</span>
+                    <span class="eq__value" data-pref-value="behavior.skipSeconds" data-unit=" s"></span>
+                    <input class="range" type="range" min="5" max="30" step="5" data-pref="behavior.skipSeconds" />
+                  </label>
+                  <label class="eq__band">
+                    <span class="eq__name">Paso del volumen</span>
+                    <span class="eq__value" data-pref-value="behavior.volumeStep" data-unit=" %"></span>
+                    <input class="range" type="range" min="1" max="20" step="1" data-pref="behavior.volumeStep" />
+                  </label>
+                </div>
+              </div>
+
+              <div class="setting" data-keywords="abrir arranque retomar sesión mezcla vacío">
+                <div class="setting__text">
+                  <span class="setting__label">Al abrir la app</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Al abrir la app">
+                  <label><input type="radio" name="startup" value="resume" data-pref="behavior.startup" /><span>Retomar</span></label>
+                  <label><input type="radio" name="startup" value="mix" data-pref="behavior.startup" /><span>Mezcla nueva</span></label>
+                  <label><input type="radio" name="startup" value="empty" data-pref="behavior.startup" /><span>Empezar vacía</span></label>
+                </div>
+              </div>
+
+              <div class="setting" data-keywords="calidad audio datos ahorro kbps">
+                <div class="setting__text">
+                  <span class="setting__label">Calidad del audio</span>
+                  <span class="setting__value">El ahorro de datos gasta menos de la mitad, con algo menos de calidad</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Calidad del audio">
+                  <label><input type="radio" name="quality" value="high" data-pref="playback.quality" /><span>Alta</span></label>
+                  <label><input type="radio" name="quality" value="saver" data-pref="playback.quality" /><span>Ahorro de datos</span></label>
+                </div>
+              </div>
+
+              <div class="setting desktop-only" data-keywords="aviso notificación windows canción cambiar">
+                <div class="setting__text">
+                  <span class="setting__label">Aviso al cambiar de canción</span>
+                  <span class="setting__value">Una notificación de Windows, solo si Antares no está delante</span>
+                </div>
+                <label class="switch switch--bare">
+                  <input type="checkbox" data-pref="behavior.notify" />
+                  <span class="switch__track" aria-hidden="true"></span>
+                  <span class="sr-only">Aviso al cambiar de canción</span>
+                </label>
+              </div>
+
+              <div class="setting" data-keywords="incógnito privado historial estadísticas guardar">
+                <div class="setting__text">
+                  <span class="setting__label">Modo incógnito</span>
+                  <span class="setting__value">Lo que escuches no va al historial ni a las recomendaciones. Dura hasta cerrar la app.</span>
+                </div>
+                <label class="switch switch--bare">
+                  <input type="checkbox" id="incognito-toggle" />
+                  <span class="switch__track" aria-hidden="true"></span>
+                  <span class="sr-only">Modo incógnito</span>
+                </label>
+              </div>
+
+              <div class="setting" data-keywords="letra tamaño texto grande">
+                <div class="setting__text">
+                  <span class="setting__label">Letra: tamaño</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Tamaño de la letra">
+                  <label><input type="radio" name="lyrics-size" value="small" data-pref="lyrics.size" /><span>Pequeña</span></label>
+                  <label><input type="radio" name="lyrics-size" value="medium" data-pref="lyrics.size" /><span>Mediana</span></label>
+                  <label><input type="radio" name="lyrics-size" value="large" data-pref="lyrics.size" /><span>Grande</span></label>
+                </div>
+              </div>
+
+              <div class="setting" data-keywords="letra alineación centrada izquierda">
+                <div class="setting__text">
+                  <span class="setting__label">Letra: alineación</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Alineación de la letra">
+                  <label><input type="radio" name="lyrics-align" value="left" data-pref="lyrics.align" /><span>A la izquierda</span></label>
+                  <label><input type="radio" name="lyrics-align" value="center" data-pref="lyrics.align" /><span>Centrada</span></label>
+                </div>
+              </div>
+
+              <div class="setting setting--column" data-keywords="letra sincronía adelantada atrasada desfase">
+                <label class="eq__band">
+                  <span class="eq__name">Letra: sincronía</span>
+                  <span class="eq__value" id="lyrics-offset-setting"></span>
+                  <input class="range" type="range" min="-5" max="5" step="0.5" data-pref="lyrics.offset" />
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── Recomendaciones: el recomendador en lenguaje normal ── -->
+          <section class="settings__group" data-group="discovery">
+            <header class="settings__head">
+              <h3 class="settings__title">Recomendaciones</h3>
+              <button class="btn btn--link" type="button"
+                      data-reset="discovery.variety discovery.freshHours discovery.minSeconds discovery.maxMinutes discovery.excludeWords discovery.blockedChannels">Restablecer</button>
+            </header>
+
+            <div class="settings__card">
+              <div class="setting" data-keywords="variedad artistas repetir canal seguidos">
+                <div class="setting__text">
+                  <span class="setting__label">Variedad de artistas</span>
+                  <span class="setting__value">Cuánto evita poner seguidas canciones del mismo artista</span>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Variedad de artistas">
+                  <label><input type="radio" name="variety" value="low" data-pref="discovery.variety" /><span>Poca</span></label>
+                  <label><input type="radio" name="variety" value="normal" data-pref="discovery.variety" /><span>Normal</span></label>
+                  <label><input type="radio" name="variety" value="high" data-pref="discovery.variety" /><span>Mucha</span></label>
+                </div>
+              </div>
+
+              <div class="setting setting--column" data-keywords="repetir volver sonar horas días frescura">
+                <label class="eq__band">
+                  <span class="eq__name">Una canción que ya sonó vuelve a salir tras</span>
+                  <span class="eq__value" id="fresh-hours-value"></span>
+                  <input class="range" type="range" min="1" max="168" step="1" data-pref="discovery.freshHours" />
+                </label>
+              </div>
+
+              <div class="setting setting--column" data-keywords="duración mínima máxima larga corta minutos segundos">
+                <div class="sliders">
+                  <label class="eq__band">
+                    <span class="eq__name">Duración mínima</span>
+                    <span class="eq__value" id="min-seconds-value"></span>
+                    <input class="range" type="range" min="0" max="300" step="15" data-pref="discovery.minSeconds" />
+                  </label>
+                  <label class="eq__band">
+                    <span class="eq__name">Duración máxima</span>
+                    <span class="eq__value" data-pref-value="discovery.maxMinutes" data-unit=" min"></span>
+                    <input class="range" type="range" min="3" max="60" step="1" data-pref="discovery.maxMinutes" />
+                  </label>
+                </div>
+              </div>
+
+              <div class="setting setting--column" data-keywords="palabras excluir live remix sped up filtro">
+                <div class="setting__text">
+                  <span class="setting__label">No recomendar canciones con estas palabras</span>
+                  <span class="setting__value">En el título. Por ejemplo: live, sped up, karaoke, 8d</span>
+                </div>
+                <div class="tags" id="exclude-words"></div>
+              </div>
+
+              <div class="setting setting--column" data-keywords="canales bloquear artistas no recomendar">
+                <div class="setting__text">
+                  <span class="setting__label">Canales que no se recomiendan</span>
+                  <span class="setting__value">También desde el menú «Más» de cualquier canción</span>
+                </div>
+                <div class="tags" id="blocked-channels"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── Atajos de teclado ──────────────────────────────── -->
+          <section class="settings__group desktop-only" data-group="shortcuts">
+            <header class="settings__head">
+              <h3 class="settings__title">Atajos de teclado</h3>
+              <button class="btn btn--link" type="button" data-reset="shortcuts">Restablecer</button>
+            </header>
+
+            <div class="settings__card">
+              <div class="setting setting--column" data-keywords="atajos teclado teclas dentro app">
+                <div class="setting__text">
+                  <span class="setting__label">Dentro de Antares</span>
+                  <span class="setting__value">Clic en una tecla para cambiarla. Supr la deja sin atajo; Esc cancela.</span>
+                </div>
+                <ul class="keys" id="local-keys"></ul>
+              </div>
+
+              <div class="setting setting--column" data-keywords="atajos globales windows minimizada segundo plano">
+                <div class="setting__row">
+                  <div class="setting__text">
+                    <span class="setting__label">En todo Windows</span>
+                    <span class="setting__value">Funcionan con Antares minimizada o en la bandeja. Necesitan Ctrl, Alt o Win.</span>
+                  </div>
+                  <label class="switch switch--bare">
+                    <input type="checkbox" data-pref="shortcuts.globalEnabled" />
+                    <span class="switch__track" aria-hidden="true"></span>
+                    <span class="sr-only">Atajos en todo Windows</span>
+                  </label>
+                </div>
+                <ul class="keys" id="global-keys" data-when="shortcuts.globalEnabled==true"></ul>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── Sonido: todo pasa por la Web Audio API (ver sound.js) ── -->
+          <section class="settings__group desktop-only" data-group="sound">
+            <header class="settings__head">
+              <h3 class="settings__title">Sonido</h3>
+              <button class="btn btn--link" type="button" data-reset="sound">Restablecer</button>
+            </header>
+
+            <div class="settings__card">
+              <div class="setting" data-keywords="nivelar volumen normalizar compresor">
+                <div class="setting__text">
+                  <span class="setting__label">Nivelar volumen</span>
+                  <span class="setting__value">Iguala canciones que suenan muy alto o muy bajo</span>
+                </div>
+                <label class="switch switch--bare">
+                  <input type="checkbox" id="level-toggle" checked />
+                  <span class="switch__track" aria-hidden="true"></span>
+                  <span class="sr-only">Nivelar volumen</span>
+                </label>
+              </div>
+
+              <div class="setting setting--column" data-keywords="ecualizador graves medios agudos bajos eq">
+                <div class="setting__row">
+                  <div class="setting__text">
+                    <span class="setting__label">Ecualizador</span>
+                  </div>
+                  <!-- Las opciones las pone sound.js: las de serie y las tuyas. -->
+                  <select class="select" id="eq-preset" aria-label="Preajuste del ecualizador"></select>
+                  <div class="setting__actions">
+                    <button class="btn btn--mini" id="eq-save" type="button">Guardar como…</button>
+                    <button class="btn btn--mini btn--danger" id="eq-delete" type="button" hidden>Borrar</button>
+                  </div>
+                </div>
+                <!-- Diez bandas, de graves a agudos. Las construye sound.js. -->
+                <div class="eq10" id="eq-bands"></div>
+              </div>
+
+              <div class="setting setting--column" data-keywords="transición fundido crossfade mezcla entre canciones">
+                <div class="setting__row">
+                  <div class="setting__text">
+                    <span class="setting__label">Transición entre canciones</span>
+                    <span class="setting__value" id="crossfade-value">Sin transición</span>
+                  </div>
+                </div>
+                <input class="range" id="crossfade" type="range" min="0" max="12" step="1" value="0"
+                       aria-label="Segundos de transición entre canciones" />
+              </div>
+            </div>
+          </section>
+
+          <!-- ── Sistema ────────────────────────────────────────── -->
+          <section class="settings__group desktop-only" data-group="system">
+            <header class="settings__head">
+              <h3 class="settings__title">Sistema</h3>
+              <button class="btn btn--link" type="button" data-reset="system">Restablecer</button>
+            </header>
+
+            <div class="settings__card">
+              <div class="setting" data-keywords="bandeja cerrar ventana segundo plano minimizar">
+                <div class="setting__text">
+                  <span class="setting__label">Bandeja del sistema</span>
+                  <span class="setting__value">Al cerrar la ventana, la música sigue en la bandeja</span>
+                </div>
+                <label class="switch switch--bare">
+                  <input type="checkbox" data-pref="system.closeToTray" />
+                  <span class="switch__track" aria-hidden="true"></span>
+                  <span class="sr-only">Seguir en la bandeja al cerrar</span>
+                </label>
+              </div>
+
+              <div class="setting" data-keywords="iniciar windows arranque encender automático">
+                <div class="setting__text">
+                  <span class="setting__label">Abrir al iniciar Windows</span>
+                </div>
+                <label class="switch switch--bare">
+                  <input type="checkbox" data-pref="system.autostart" />
+                  <span class="switch__track" aria-hidden="true"></span>
+                  <span class="sr-only">Abrir al iniciar Windows</span>
+                </label>
+              </div>
+
+              <div class="setting" data-when="system.autostart==true"
+                   data-keywords="iniciar windows bandeja oculta minimizada">
+                <div class="setting__text">
+                  <span class="setting__label">…y quedarse en la bandeja</span>
+                  <span class="setting__value">Sin abrir la ventana: la música está a un clic en el icono</span>
+                </div>
+                <label class="switch switch--bare">
+                  <input type="checkbox" data-pref="system.startHidden" />
+                  <span class="switch__track" aria-hidden="true"></span>
+                  <span class="sr-only">Quedarse en la bandeja al iniciar Windows</span>
+                </label>
+              </div>
+
+              <div class="setting" data-keywords="pantalla completa f11 ventana">
+                <div class="setting__text">
+                  <span class="setting__label">Pantalla completa</span>
+                  <span class="setting__value">F11 la activa o la quita</span>
+                </div>
+                <button class="btn btn--mini" id="fullscreen-button" type="button">Alternar</button>
+              </div>
+
+              <div class="setting" data-keywords="motor yt-dlp actualizar versión youtube">
+                <div class="setting__text">
+                  <span class="setting__label">Motor de reproducción</span>
+                  <span class="setting__value" id="engine-version">Comprobando…</span>
+                </div>
+                <button class="btn btn--mini" id="update-button" type="button">Buscar actualización</button>
+              </div>
+
+              <div class="setting" data-keywords="versión antares actualizar nueva actualización app">
+                <div class="setting__text">
+                  <span class="setting__label">Versión de Antares</span>
+                  <span class="setting__value" id="app-version">…</span>
+                </div>
+                <button class="btn btn--mini" id="app-update-button" type="button">Buscar versión nueva</button>
+              </div>
+
+              <div class="setting" data-keywords="actualizaciones automáticas avisar versión nueva al abrir">
+                <div class="setting__text">
+                  <span class="setting__label">Avisar de versiones nuevas</span>
+                  <span class="setting__value">Al abrir, mira si hay una y te pregunta si quieres instalarla</span>
+                </div>
+                <label class="switch switch--bare">
+                  <input type="checkbox" data-pref="system.updateCheck" />
+                  <span class="switch__track" aria-hidden="true"></span>
+                  <span class="sr-only">Avisar de versiones nuevas</span>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── Perfiles y usuarios ────────────────────────────── -->
+          <section class="settings__group" data-group="people">
+            <header class="settings__head">
+              <h3 class="settings__title">Perfiles y usuarios</h3>
+            </header>
+
+            <div class="settings__card">
+              <div class="setting setting--column" data-keywords="perfiles trabajo fiesta guardar ajustes cambiar">
+                <div class="setting__row">
+                  <div class="setting__text">
+                    <span class="setting__label">Perfiles</span>
+                    <span class="setting__value">Guardan el aspecto, el diseño, Inicio, el sonido, las recomendaciones y la reproducción, para cambiarlo todo de un clic («Trabajo», «Fiesta»…)</span>
+                  </div>
+                  <button class="btn btn--mini" id="profile-new" type="button">Guardar como perfil…</button>
+                </div>
+                <ul class="people" id="profile-list"></ul>
+              </div>
+
+              <div class="setting setting--column desktop-only" data-keywords="usuarios personas cuenta familia compartir pc">
+                <div class="setting__row">
+                  <div class="setting__text">
+                    <span class="setting__label">Usuarios</span>
+                    <span class="setting__value">Cada persona con su historial, sus listas, sus gustos y sus ajustes. Al cambiar, la app se reinicia.</span>
+                  </div>
+                  <button class="btn btn--mini" id="user-new" type="button">Añadir usuario…</button>
+                </div>
+                <ul class="people" id="user-list"></ul>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── Datos ──────────────────────────────────────────── -->
+          <section class="settings__group" data-group="data">
+            <header class="settings__head">
+              <h3 class="settings__title">Tus datos</h3>
+            </header>
+
+            <div class="settings__card">
+              <div class="setting" data-keywords="historial reciente borrar vaciar">
+                <div class="setting__text">
+                  <span class="setting__label">Historial</span>
+                  <span class="setting__value" id="history-count">Sin pistas guardadas</span>
+                </div>
+                <button class="btn btn--mini btn--danger" id="clear-history-button" type="button">
+                  Vaciar
+                </button>
+              </div>
+
+              <div class="setting setting--backup" data-keywords="copia completa listas favoritos historial seguridad restaurar respaldo backup">
+                <div class="setting__text">
+                  <span class="setting__label">Copia completa del usuario actual</span>
+                  <span class="setting__value">Listas, favoritos, estadísticas, ajustes, perfiles, portadas, cola y momentos. Copia automática cada 15 minutos y recuperación del último archivo válido si alguno se daña.</span>
+                  <span class="setting__value" id="backup-status" role="status"></span>
+                </div>
+                <div class="setting__actions library-tools__row">
+                  <button class="btn btn--mini" id="backup-now" type="button">Guardar copia ahora</button>
+                  <button class="btn btn--mini desktop-only" id="export-backup" type="button">Exportar copia completa</button>
+                  <button class="btn btn--mini" id="import-backup" type="button">Restaurar archivo…</button>
+                  <select id="backup-list" aria-label="Copias automáticas guardadas"></select>
+                  <button class="btn btn--mini" id="restore-auto" type="button">Restaurar copia guardada…</button>
+                  <input id="backup-input" type="file" accept=".json,application/json" hidden />
+                </div>
+              </div>
+              <div class="setting desktop-only" data-keywords="copia seguridad exportar importar ajustes respaldo backup">
+                <div class="setting__text">
+                  <span class="setting__label">Copia de los ajustes</span>
+                  <span class="setting__value">Todos tus ajustes en un archivo, para guardarlos o pasarlos a otro equipo</span>
+                </div>
+                <div class="setting__actions">
+                  <button class="btn btn--mini" id="export-settings" type="button">Exportar</button>
+                  <button class="btn btn--mini" data-import type="button">Importar…</button>
+                </div>
+              </div>
+
+              <div class="setting" data-keywords="restablecer todo reiniciar por defecto fábrica">
+                <div class="setting__text">
+                  <span class="setting__label">Restablecer todo</span>
+                  <span class="setting__value">Todos los ajustes como recién instalada. Tus listas, el historial y lo que has escuchado no se tocan.</span>
+                </div>
+                <button class="btn btn--mini btn--danger" id="reset-all" type="button">Restablecer</button>
+              </div>
+            </div>
+
+            <input id="import-input" type="file" accept=".json,application/json" hidden />
+          </section>
+        </section>
+
+        <!-- Tu resumen: cifras y artistas. Las canciones van en la lista de abajo. -->
+        <section class="summary" id="summary" hidden>
+          <div class="metrics" id="metrics"></div>
+          <div class="summary__artists">
+            <p class="summary__heading">Tus artistas</p>
+            <ul class="artists" id="artists"></ul>
+          </div>
+          <p class="summary__heading">Lo que más escuchas</p>
+        </section>
+
+        <section class="results" id="results">
+          <ul class="results__list" id="results-list"></ul>
+        </section>
+
+        <!-- Un artista, un álbum o una lista de YouTube (ver artist.js): la
+             cabecera, sus canciones y sus estanterías, en un solo scroll. -->
+        <section class="artist-page" id="artist" hidden>
+          <div class="artist-page__top" id="artist-top"></div>
+          <ul class="results__list artist-page__songs" id="artist-songs"></ul>
+          <div class="artist-page__shelves" id="artist-shelves"></div>
+        </section>
+      </main>
+
+      <!-- ── Lo que suena ─────────────────────────────────────────── -->
+      <aside class="nowplaying">
+        <section class="console">
+          <div class="console__glow" aria-hidden="true"></div>
+
+          <!-- Salir del modo mini o del modo escucha: solo se ve en ellos. -->
+          <button class="btn btn--icon mode-exit" id="mode-exit" type="button"
+                  aria-label="Volver a la ventana normal" title="Volver a la ventana normal (Esc)">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
+            </svg>
+          </button>
+
+          <div class="track">
+            <div class="artwork" id="artwork">
+              <img class="artwork__img" id="artwork-img" alt="" />
+              <!-- Marcador cuando no hay miniatura: un disco, no un icono de rotura. -->
+              <svg class="artwork__blank" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="8.2" />
+                <circle cx="12" cy="12" r="2.1" />
+              </svg>
+              <div class="meter" id="meter" aria-hidden="true">
+                <i></i><i></i><i></i><i></i>
+              </div>
+            </div>
+
+            <!-- Título y artista entre los botones de valorar, como en YouTube
+                 Music (👎 título 👍) o el corazón de Spotify junto al nombre:
+                 al lado de la canción que valoran, no perdidos en las esquinas.
+                 Sin pista se ocultan, pero guardan su hueco para que el título
+                 no se mueva. -->
+            <div class="track__head">
+              <button class="btn btn--icon rate rate--dislike" id="dislike-button" type="button"
+                      aria-label="No me gusta" aria-pressed="false" title="No me gusta" disabled>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M17 14V2" />
+                  <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z" />
+                </svg>
+              </button>
+
+              <div class="track__text">
+                <p class="track__title" id="track-title">Sin reproducción</p>
+                <!-- El artista: lleva a su página. -->
+                <p class="track__by" id="track-by" role="button" tabindex="0" title="Ir al artista"></p>
+              </div>
+
+              <button class="btn btn--icon rate rate--like" id="like-button" type="button"
+                      aria-label="Me gusta" aria-pressed="false" title="Me gusta" disabled>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+                </svg>
+              </button>
+            </div>
+
+            <div class="chips">
+              <button class="btn btn--chip" id="radio-button" type="button" hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4.9 19.1a10 10 0 0 1 0-14.2M7.8 16.2a6 6 0 0 1 0-8.4M16.2 7.8a6 6 0 0 1 0 8.4M19.1 4.9a10 10 0 0 1 0 14.2" />
+                  <circle cx="12" cy="12" r="2" />
+                </svg>
+                Radio
+              </button>
+
+              <button class="btn btn--chip" id="sleep-button" type="button"
+                      aria-haspopup="menu" aria-expanded="false" title="Temporizador para dormir">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />
+                </svg>
+                <span id="sleep-label">Temporizador</span>
+              </button>
+
+              <!-- Solo mientras el modo incógnito está activo: recuerda que lo
+                   está y lo quita con un clic. -->
+              <button class="btn btn--chip is-active" id="incognito-chip" type="button" hidden
+                      title="Lo que escuchas no se guarda. Clic para desactivarlo.">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 3l18 18" />
+                  <path d="M10.6 5.1A10 10 0 0 1 12 5c5 0 9 4.5 10 7a13 13 0 0 1-2.7 3.9M6.6 6.6A13 13 0 0 0 2 12c1 2.5 5 7 10 7a9.8 9.8 0 0 0 5.4-1.6" />
+                  <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+                </svg>
+                Incógnito
+              </button>
+
+              <button class="btn btn--chip btn--chip-icon" id="focus-button" type="button"
+                      aria-pressed="false" title="Modo escucha (F)" aria-label="Modo escucha">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                </svg>
+              </button>
+
+              <button class="btn btn--chip btn--chip-icon" id="mini-button" type="button"
+                      title="Modo mini (Ctrl+M)" aria-label="Modo mini">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="2.5" y="4.5" width="19" height="15" rx="2" />
+                  <rect x="12" y="12" width="7" height="5" rx="1" class="fill" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="timeline">
+            <input
+              class="scrub"
+              id="scrub"
+              type="range"
+              min="0"
+              max="1000"
+              value="0"
+              step="1"
+              aria-label="Posición de la pista"
+              disabled
+            />
+            <div class="timeline__times">
+              <span id="time-current">0:00</span>
+              <span id="time-total">--:--</span>
+            </div>
+          </div>
+
+          <!-- Aleatorio · anterior · play · siguiente · repetir. Los modos a los
+               lados del grupo central, como en casi cualquier reproductor. -->
+          <div class="transport">
+            <button class="btn btn--icon mode" id="shuffle-button" type="button"
+                    aria-label="Aleatorio" aria-pressed="false" title="Aleatorio (S)">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22" />
+                <path d="m18 2 4 4-4 4" />
+                <path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2" />
+                <path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8" />
+                <path d="m18 14 4 4-4 4" />
+              </svg>
+            </button>
+
+            <div class="transport__main">
+              <button class="btn btn--ghost" id="prev-button" type="button"
+                      aria-label="Pista anterior" disabled>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M18 6.5v11L10 12z" class="fill" />
+                  <path d="M7.5 6.5v11" />
+                </svg>
+              </button>
+
+              <button class="btn btn--play" id="play-button" type="button"
+                      aria-label="Reproducir" disabled>
+                <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 5.5v13l11-6.5z" />
+                </svg>
+                <svg class="icon-pause is-hidden" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8.5 5.5h3v13h-3zM12.5 5.5h3v13h-3z" />
+                </svg>
+              </button>
+
+              <button class="btn btn--ghost" id="next-button" type="button"
+                      aria-label="Pista siguiente" disabled>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 6.5v11L14 12z" class="fill" />
+                  <path d="M16.5 6.5v11" />
+                </svg>
+              </button>
+            </div>
+
+            <button class="btn btn--icon mode" id="repeat-button" type="button"
+                    aria-label="Repetir: no" data-repeat="off" title="Repetir (R)">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m17 2 4 4-4 4" />
+                <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+                <path d="m7 22-4-4 4-4" />
+                <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+                <path class="mode__one" d="M11 10h1v4" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Volumen en su propia fila y siempre visible: desplegado al pasar
+               el ratón, en el borde de la ventana se salía de la tarjeta. -->
+          <div class="volume">
+            <button class="btn btn--icon" id="mute-button" type="button"
+                    aria-label="Silenciar" title="Silenciar (M)">
+              <svg class="icon-vol" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 9.5h3L12 6v12l-4-3.5H5z" />
+                <path d="M15.5 9.8a3.2 3.2 0 0 1 0 4.4" />
+                <path d="M17.8 7.5a6.5 6.5 0 0 1 0 9" />
+              </svg>
+              <svg class="icon-mute is-hidden" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 9.5h3L12 6v12l-4-3.5H5z" />
+                <path d="M16 10l4 4M20 10l-4 4" />
+              </svg>
+            </button>
+            <input
+              class="vol-slider"
+              id="volume"
+              type="range"
+              min="0"
+              max="100"
+              value="80"
+              step="1"
+              aria-label="Volumen"
+              title="Volumen (↑ / ↓)"
+            />
+            <span class="volume__value" id="volume-value" aria-hidden="true">80</span>
+          </div>
+        </section>
+
+        <!-- Lo que viene, o la letra de lo que suena: dos pestañas sobre el
+             mismo hueco de la columna. -->
+        <section class="upnext">
+          <div class="upnext__head">
+            <div class="side-tabs" role="tablist">
+              <button class="side-tab" id="upnext-tab" type="button" role="tab" aria-selected="true">
+                A continuación
+              </button>
+              <button class="side-tab" id="lyrics-tab" type="button" role="tab" aria-selected="false">
+                Letra
+              </button>
+            </div>
+            <button class="btn btn--link" id="upnext-more" type="button">Ver cola</button>
+          </div>
+          <ul class="upnext__list" id="upnext-list"></ul>
+          <div class="lyrics" id="lyrics" hidden></div>
+
+          <!-- Sincronía de la letra: para cuando va adelantada o atrasada. -->
+          <div class="lyrics-sync" id="lyrics-sync" hidden>
+            <span class="lyrics-sync__label">Sincronía</span>
+            <button class="btn btn--link" id="lyrics-later" type="button"
+                    title="La letra va antes que la voz: retrasarla medio segundo">−0,5 s</button>
+            <span class="lyrics-sync__value" id="lyrics-offset">0 s</span>
+            <button class="btn btn--link" id="lyrics-earlier" type="button"
+                    title="La letra va detrás de la voz: adelantarla medio segundo">+0,5 s</button>
+          </div>
+        </section>
+      </aside>
+
+      <!-- Tiradores para cambiar el ancho de las columnas arrastrando. -->
+      <div class="resizer resizer--sidebar" data-resize="sidebar" role="separator"
+           aria-orientation="vertical" aria-label="Ancho de la barra lateral"
+           title="Arrastra para cambiar el ancho · doble clic: el de serie"></div>
+      <div class="resizer resizer--nowplaying" data-resize="nowplaying" role="separator"
+           aria-orientation="vertical" aria-label="Ancho de la columna de lo que suena"
+           title="Arrastra para cambiar el ancho · doble clic: el de serie"></div>
+
+      <!-- Motor de audio: dos "platos", para poder fundir una canción con la
+           siguiente. Suena uno; el otro espera a la próxima transición. Sin
+           `controls`: la interfaz la dibujamos nosotros. -->
+      <audio id="reproductor-audio" preload="auto" referrerpolicy="no-referrer"></audio>
+      <audio id="reproductor-audio-b" preload="auto" referrerpolicy="no-referrer"></audio>
+    </div>
+
+    <!-- ── Barra de reproducción ─────────────────────────────────────
+         A lo ancho de la ventana, abajo (o arriba), como en YouTube Music o
+         Spotify. Copia lo que enseña la consola y sus botones son los de ella
+         (ver playerbar.js). Todo se elige en Ajustes › Reproductor. -->
+    <footer class="playerbar" id="playerbar" hidden>
+      <div class="pbar__controls">
+        <button class="pb-btn pbar__mode pbar__mode--center" data-act="shuffle" type="button" aria-label="Aleatorio" title="Aleatorio">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22" /><path d="m18 2 4 4-4 4" /><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2" /><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8" /><path d="m18 14 4 4-4 4" /></svg>
+        </button>
+        <button class="pb-btn" data-act="prev" type="button" aria-label="Anterior" title="Anterior">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6.5v11L10 12z" class="fill" /><path d="M7.5 6.5v11" /></svg>
+        </button>
+        <button class="pb-btn pb-play" data-act="toggle" type="button" aria-label="Reproducir" title="Reproducir">
+          <svg class="pb-icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" class="fill" /></svg>
+          <svg class="pb-icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5h3v13H8zM13 5.5h3v13h-3z" class="fill" /></svg>
+        </button>
+        <button class="pb-btn" data-act="next" type="button" aria-label="Siguiente" title="Siguiente">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6.5v11L14 12z" class="fill" /><path d="M16.5 6.5v11" /></svg>
+        </button>
+        <button class="pb-btn pbar__mode pbar__mode--center pb-repeat" data-act="repeat" type="button" aria-label="Repetir" title="Repetir">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m17 2 4 4-4 4" /><path d="M3 11v-1a4 4 0 0 1 4-4h14" /><path d="m7 22-4-4 4-4" /><path d="M21 13v1a4 4 0 0 1-4 4H3" /><path class="pb-repeat-one" d="M11 10h1v4" /></svg>
+        </button>
+      </div>
+
+      <div class="pbar__seek">
+        <span class="pbar__time" id="pbar-current">0:00</span>
+        <input class="pbar__scrub" id="pbar-scrub" type="range" min="0" max="1000" value="0" step="1"
+               aria-label="Posición de la canción" />
+        <span class="pbar__time pbar__time--total" id="pbar-total">0:00</span>
+      </div>
+
+      <div class="pbar__meta">
+        <button class="pbar__art" data-act="expand" type="button" aria-label="Ver lo que suena en grande" title="Ver en grande">
+          <img id="pbar-art" alt="" />
+        </button>
+        <div class="pbar__text">
+          <p class="pbar__title" id="pbar-title">Sin reproducción</p>
+          <p class="pbar__sub">
+            <button class="pbar__artist" id="pbar-artist" data-act="artist" type="button" title="Ir al artista"></button>
+            <span class="pbar__album" id="pbar-album"></span>
+          </p>
+        </div>
+        <div class="pbar__rate">
+          <button class="pb-btn pb-like" data-act="like" type="button" aria-label="Me gusta" title="Me gusta">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" /></svg>
+          </button>
+          <button class="pb-btn pb-dislike" data-act="dislike" type="button" aria-label="No me gusta" title="No me gusta">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 14V2" /><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z" /></svg>
+          </button>
+        </div>
+        <button class="pb-btn pbar__more" data-act="more" type="button" aria-label="Más opciones" title="Más opciones" aria-haspopup="menu">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.6" class="fill" /><circle cx="12" cy="12" r="1.6" class="fill" /><circle cx="12" cy="19" r="1.6" class="fill" /></svg>
+        </button>
+      </div>
+
+      <div class="pbar__side">
+        <div class="pbar__volume">
+          <button class="pb-btn pb-mute" data-act="mute" type="button" aria-label="Silenciar" title="Silenciar">
+            <svg class="pb-icon-vol" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5h3L12 6v12l-4-3.5H5z" /><path d="M15.5 9.8a3.2 3.2 0 0 1 0 4.4" /><path d="M17.8 7.5a6.5 6.5 0 0 1 0 9" /></svg>
+            <svg class="pb-icon-muted" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5h3L12 6v12l-4-3.5H5z" /><path d="M16 10l4 4M20 10l-4 4" /></svg>
+          </button>
+          <input class="pbar__vol" id="pbar-volume" type="range" min="0" max="100" value="80" step="1" aria-label="Volumen" />
+        </div>
+        <button class="pb-btn pbar__mode pbar__mode--side pb-repeat" data-act="repeat" type="button" aria-label="Repetir" title="Repetir">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m17 2 4 4-4 4" /><path d="M3 11v-1a4 4 0 0 1 4-4h14" /><path d="m7 22-4-4 4-4" /><path d="M21 13v1a4 4 0 0 1-4 4H3" /><path class="pb-repeat-one" d="M11 10h1v4" /></svg>
+        </button>
+        <button class="pb-btn pbar__mode pbar__mode--side" data-act="shuffle" type="button" aria-label="Aleatorio" title="Aleatorio">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22" /><path d="m18 2 4 4-4 4" /><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2" /><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8" /><path d="m18 14 4 4-4 4" /></svg>
+        </button>
+        <div class="pbar__extras">
+          <button class="pb-btn" data-act="lyrics" type="button" aria-label="Letra" title="Letra">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M8 8.5h8M8 12.5h5" /></svg>
+          </button>
+          <button class="pb-btn" data-act="queue" type="button" aria-label="Cola" title="Cola">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h13M3 12h9M3 18h9" /><path d="M16 13.5v7l5-3.5z" class="fill" /></svg>
+          </button>
+          <button class="pb-btn" data-act="mini" type="button" aria-label="Mini reproductor" title="Mini reproductor (Ctrl+M)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="15" rx="2" /><rect x="12" y="12" width="7" height="5" rx="1" class="fill" /></svg>
+          </button>
+          <button class="pb-btn" data-act="expand" type="button" aria-label="Modo escucha" title="Modo escucha (F)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>
+          </button>
+        </div>
+      </div>
+    </footer>
+
+    <!-- ── Mini reproductor ──────────────────────────────────────────
+         La ventana pequeña (Ctrl+M), como la de Apple Music: la carátula a
+         toda la ventana y los controles encima al pasar el ratón, o una tira
+         compacta. Sin barra de título: se arrastra desde cualquier sitio.
+         Ver miniplayer.js. -->
+    <section class="miniplayer" id="miniplayer" hidden>
+      <div class="mini__bg" id="mini-bg" aria-hidden="true"></div>
+      <div class="mini__shade" aria-hidden="true"></div>
+
+      <div class="mini__top">
+        <button class="pb-btn mini__style" data-act="style" type="button" aria-label="Cambiar el estilo del mini" title="Carátula completa o compacto">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="3" /><path d="M3.5 15.5h17" /></svg>
+        </button>
+        <span class="mini__grow"></span>
+        <button class="pb-btn" data-act="restore" type="button" aria-label="Volver a la ventana normal" title="Volver a la ventana normal (Esc)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>
+        </button>
+        <button class="pb-btn" data-act="close" type="button" aria-label="Cerrar" title="Cerrar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" /></svg>
+        </button>
+      </div>
+
+      <div class="mini__art" aria-hidden="true"><img id="mini-art" alt="" /></div>
+
+      <div class="mini__lyrics" id="mini-lyrics" aria-live="off">
+        <p class="mini__line" id="mini-line"></p>
+        <p class="mini__line mini__line--next" id="mini-line-next"></p>
+      </div>
+
+      <div class="mini__info">
+        <p class="mini__title" id="mini-title">Sin reproducción</p>
+        <p class="mini__artist" id="mini-artist"></p>
+      </div>
+
+      <div class="mini__seek">
+        <span class="mini__time" id="mini-current">0:00</span>
+        <input class="mini__scrub" id="mini-scrub" type="range" min="0" max="1000" value="0" step="1"
+               aria-label="Posición de la canción" />
+        <span class="mini__time" id="mini-remaining">-0:00</span>
+      </div>
+
+      <div class="mini__controls">
+        <button class="pb-btn mini__side" data-act="volume" type="button" aria-label="Volumen" title="Volumen">
+          <svg class="pb-icon-vol" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5h3L12 6v12l-4-3.5H5z" /><path d="M15.5 9.8a3.2 3.2 0 0 1 0 4.4" /><path d="M17.8 7.5a6.5 6.5 0 0 1 0 9" /></svg>
+          <svg class="pb-icon-muted" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5h3L12 6v12l-4-3.5H5z" /><path d="M16 10l4 4M20 10l-4 4" /></svg>
+        </button>
+        <button class="pb-btn mini__side" data-act="more" type="button" aria-label="Más opciones" title="Más opciones" aria-haspopup="menu">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6" class="fill" /><circle cx="12" cy="12" r="1.6" class="fill" /><circle cx="19" cy="12" r="1.6" class="fill" /></svg>
+        </button>
+        <button class="pb-btn mini__skip" data-act="prev" type="button" aria-label="Anterior" title="Anterior">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.5 6v12L3 12zM21 6v12l-8.5-6z" class="fill" /></svg>
+        </button>
+        <button class="pb-btn mini__play" data-act="toggle" type="button" aria-label="Reproducir" title="Reproducir">
+          <svg class="pb-icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z" class="fill" /></svg>
+          <svg class="pb-icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 4.5h4v15h-4zM13.5 4.5h4v15h-4z" class="fill" /></svg>
+        </button>
+        <button class="pb-btn mini__skip" data-act="next" type="button" aria-label="Siguiente" title="Siguiente">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6v12l8.5-6zM12.5 6v12l8.5-6z" class="fill" /></svg>
+        </button>
+        <button class="pb-btn mini__side" data-act="lyrics" type="button" aria-label="Letra" title="Letra">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M8 8.5h8M8 12.5h5" /></svg>
+        </button>
+        <button class="pb-btn mini__side" data-act="queue" type="button" aria-label="Cola" title="Ver la cola">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h13M3 12h9M3 18h9" /><path d="M16 13.5v7l5-3.5z" class="fill" /></svg>
+        </button>
+      </div>
+
+      <!-- El volumen, en lugar de los controles mientras se ajusta. -->
+      <div class="mini__volume" id="mini-volume" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5h3L12 6v12l-4-3.5H5z" /></svg>
+        <input class="mini__vol" id="mini-vol" type="range" min="0" max="100" value="80" step="1" aria-label="Volumen" />
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5h3L12 6v12l-4-3.5H5z" /><path d="M15.5 9.8a3.2 3.2 0 0 1 0 4.4" /><path d="M17.8 7.5a6.5 6.5 0 0 1 0 9" /></svg>
+      </div>
+    </section>
+
+    <!-- Diálogo propio para pedir un nombre o confirmar algo. Un prompt() nativo
+         delataría que debajo hay un navegador. -->
+    <dialog class="dialog" id="dialog">
+      <form class="dialog__box" id="dialog-form" method="dialog">
+        <p class="dialog__title" id="dialog-title"></p>
+        <p class="dialog__text" id="dialog-text"></p>
+        <input class="field__input dialog__input" id="dialog-input" type="text"
+               spellcheck="false" autocomplete="off" />
+        <div class="dialog__actions">
+          <button class="btn btn--mini" id="dialog-cancel" type="button">Cancelar</button>
+          <button class="btn btn--mini btn--primary" id="dialog-ok" type="submit" value="ok">
+            Aceptar
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Importar una lista de otra app (ver importlist.js): un enlace, o las
+         canciones pegadas, o un CSV exportado. -->
+    <dialog class="dialog dialog--wide" id="import-dialog">
+      <form class="dialog__box" id="import-form" method="dialog">
+        <p class="dialog__title">Importar una lista</p>
+        <p class="dialog__text">
+          Pega el enlace de una lista o un álbum de YouTube, YouTube Music, Spotify,
+          Deezer o Apple Music.
+        </p>
+        <textarea class="field__input dialog__area" id="import-text" rows="4" spellcheck="false"
+                  autocomplete="off" placeholder="https://open.spotify.com/playlist/…"></textarea>
+        <p class="dialog__hint" id="import-hint">
+          ¿De otra app (Tidal, Amazon Music, SoundCloud…)? Pega sus canciones, una por
+          línea como «Artista - Canción», o abre el CSV que exporta.
+        </p>
+        <input class="field__input dialog__input" id="import-name" type="text" spellcheck="false"
+               autocomplete="off" placeholder="Nombre de la lista" hidden />
+        <div class="dialog__actions">
+          <button class="btn btn--mini" id="import-file" type="button">Abrir CSV…</button>
+          <span class="dialog__spacer"></span>
+          <button class="btn btn--mini" id="import-cancel" type="button">Cancelar</button>
+          <button class="btn btn--mini btn--primary" id="import-ok" type="submit" value="ok" disabled>
+            Importar
+          </button>
+        </div>
+        <input id="import-csv" type="file" accept=".csv,.txt,text/csv,text/plain" hidden />
+      </form>
+    </dialog>
+
+    <!-- Avisos abajo a la derecha, como los de Windows: ver toast.js. -->
+    <div class="toasts" id="toasts"></div>
+  </body>
+</html>

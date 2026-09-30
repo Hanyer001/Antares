@@ -1,0 +1,54 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# `tauri icon` deja una copia de los iconos de movil aqui; los que usa el APK
+# son los de gen/android/app/src/main/res.
+src-tauri/icons/android/
+src-tauri/icons/ios/
+
+# La clave con la que se firma el APK: nunca al repositorio (ver README).
+*.jks
+*.keystore
+src-tauri/gen/android/keystore.properties
+
+# yt-dlp: ~18 MB y cambia cada pocas semanas. Se descarga aparte (ver README).
+src-tauri/binaries/
+src-tauri/yt-dlp.exe
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Configuración local, firmas y paquetes generados
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+contrasena.txt
+*.apk
+*.aab
+*.exe
+*.msi
+*.sig
+*.bundle
+*.zip
+/publicar/

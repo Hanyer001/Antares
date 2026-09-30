@@ -1,0 +1,5303 @@
+/* Estilos de Antares. Los temas y preferencias ajustan las variables de
+   color, densidad, bordes y tipografía definidas en este bloque. */
+
+/* Inter local, dividida en latín básico y extendido. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 300 600;
+  font-display: swap;
+  src: url("fonts/inter-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 300 600;
+  font-display: swap;
+  src: url("fonts/inter-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+:root {
+  /* Superficies, de más profunda a más elevada. Tres niveles bastan para dar
+     jerarquía sin que la interfaz parezca acolchada. */
+  --bg:            #08090b;
+  --surface:       #101216;
+  --surface-2:     #14171c;
+  --surface-3:     #1a1e24;
+
+  /* Bordes: uno casi invisible para separar, otro para el estado hover. */
+  --line:          #21252c;
+  --line-strong:   #2d323b;
+
+  /* Texto */
+  --text:          #e7e9ec;
+  --text-dim:      #939aa5;
+  --text-faint:    #626974;
+
+  /* El brillo de arriba del fondo, y las pistas de los deslizadores: vacía,
+     lo descargado y la del volumen silenciado. */
+  --glow:           #12151a;
+  --track:          #1d2127;
+  --track-buffered: #2b313a;
+  --track-muted:    #3a414b;
+
+  /* Acento: azul acero desaturado. Legible sobre negro sin gritar.
+     Se declara por partes para que el color dominante de la carátula (o el que
+     elija el usuario) solo tenga que reescribir tono y saturación.
+     La LUMINOSIDAD la pone el tono del tema, no el color — es lo que garantiza
+     que el acento se lea sobre el fondo sea cual sea la portada, y que el
+     icono del botón de play nunca pierda contraste. */
+  --accent-h: 213;
+  --accent-s: 49%;
+  --accent-l: 71%;
+  --accent-bright-l: 79%;
+  --accent-deep-l:   51%;
+
+  --accent:        hsl(var(--accent-h) var(--accent-s) var(--accent-l));
+  --accent-bright: hsl(var(--accent-h) calc(var(--accent-s) * 1.12) var(--accent-bright-l));
+  --accent-deep:   hsl(var(--accent-h) calc(var(--accent-s) * 0.57) var(--accent-deep-l));
+  --accent-wash:   hsl(var(--accent-h) var(--accent-s) var(--accent-l) / 0.10);
+  --accent-ring:   hsl(var(--accent-h) var(--accent-s) var(--accent-l) / 0.22);
+
+  /* El color de lo que va encima de un relleno de acento o de peligro. */
+  --on-accent:     #0a0d11;
+  --on-danger:     #1a0f0f;
+
+  --danger:        #d98f8f;
+  --ok:            #8fd9a8;
+
+  /* Las columnas laterales dejan ver un poco el fondo (y la imagen, si hay). */
+  --panel: color-mix(in srgb, var(--bg) 55%, transparent);
+
+  /* Personalización de la forma: multiplicadores que leen los rellenos de las
+     filas y los radios de las esquinas. 1 es el diseño original. */
+  --density: 1;
+  --round: 1;
+  --font-ui: "Inter", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+
+  /* Fondo con carátula o imagen: cuánto se oscurece y cuánto se desenfoca. */
+  --backdrop-dim: 70%;
+  --backdrop-blur: 40px;
+
+  /* Una sola curva de easing para toda la app: la coherencia del movimiento
+     es lo que hace que una interfaz se sienta cara. */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --fast: 140ms;
+  --med:  220ms;
+
+  --radius:    calc(10px * var(--round));
+  --radius-lg: calc(16px * var(--round));
+
+  /* Sombras muy tenues: una línea de contacto y un halo amplio y difuso.
+     Nada de sombras duras, que envejecen mal. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.35);
+
+  color-scheme: dark;
+}
+
+/* Temas claros: el acento se oscurece para leerse sobre blanco, lo que va
+   encima de él pasa a blanco, y las sombras se aligeran (una sombra negra al
+   50 % sobre fondo claro parece una mancha). */
+:root[data-tone="light"] {
+  --accent-l: 42%;
+  --accent-bright-l: 35%;
+  --accent-deep-l: 50%;
+  --on-accent: #ffffff;
+  --on-danger: #ffffff;
+  --shadow-sm: 0 1px 2px rgb(20 25 35 / 0.08);
+  --shadow-md: 0 1px 2px rgb(20 25 35 / 0.06), 0 10px 30px rgb(20 25 35 / 0.09);
+
+  color-scheme: light;
+}
+
+/* Animaciones: "reducidas" acorta las transiciones y quita lo decorativo que
+   se mueve solo; "ninguna" lo quita todo. */
+:root[data-motion="reduced"] {
+  --fast: 70ms;
+  --med: 110ms;
+  transition: none;
+}
+
+:root[data-motion="reduced"] .meter i,
+:root[data-motion="reduced"] .engine__dot {
+  animation: none !important;
+}
+
+:root[data-motion="none"] *,
+:root[data-motion="none"] *::before,
+:root[data-motion="none"] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+:root[data-motion="none"] { transition: none; }
+
+/* Registrar el tono y la saturación los vuelve animables: sin @property, un
+   custom property cambia de golpe. Con esto el acento se desliza hasta el color
+   de la carátula nueva en vez de saltar. El JS ajusta el tono por el arco corto
+   para que la transición no barra medio círculo cromático de paso. */
+@property --accent-h {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 213;
+}
+
+@property --accent-s {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 49%;
+}
+
+/* Los colores del tema, registrados por lo mismo: con el tema "Carátula" la
+   interfaz entera se desliza al color de la canción nueva en vez de saltar. */
+@property --bg        { syntax: "<color>"; inherits: true; initial-value: #08090b; }
+@property --surface   { syntax: "<color>"; inherits: true; initial-value: #101216; }
+@property --surface-2 { syntax: "<color>"; inherits: true; initial-value: #14171c; }
+@property --surface-3 { syntax: "<color>"; inherits: true; initial-value: #1a1e24; }
+@property --line      { syntax: "<color>"; inherits: true; initial-value: #21252c; }
+@property --line-strong { syntax: "<color>"; inherits: true; initial-value: #2d323b; }
+@property --glow      { syntax: "<color>"; inherits: true; initial-value: #12151a; }
+@property --panel     { syntax: "<color>"; inherits: true; initial-value: transparent; }
+
+:root {
+  transition:
+    --accent-h 600ms var(--ease),
+    --accent-s 600ms var(--ease),
+    --bg 900ms var(--ease),
+    --surface 900ms var(--ease),
+    --surface-2 900ms var(--ease),
+    --surface-3 900ms var(--ease),
+    --line 900ms var(--ease),
+    --line-strong 900ms var(--ease),
+    --glow 900ms var(--ease),
+    --panel 900ms var(--ease);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+
+  /* Es una app de escritorio, no una página web: el cursor de texto y la
+     selección accidental delatan enseguida que por debajo hay un navegador. */
+  cursor: default;
+  user-select: none;
+}
+
+/* Degradado del fondo principal. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(120% 80% at 50% 0%, var(--glow) 0%, var(--bg) 62%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Fondo con la carátula de lo que suena o con una imagen propia: por detrás de
+   todo, desenfocado y oscurecido con el color del tema para que el texto se
+   siga leyendo. Las columnas laterales son translúcidas y lo dejan ver. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  display: none;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+:root[data-background="artwork"] .backdrop,
+:root[data-background="image"] .backdrop {
+  display: block;
+}
+
+:root[data-background="artwork"] { --backdrop-image: var(--art-url, none); }
+:root[data-background="image"]   { --backdrop-image: var(--wallpaper-url, none); }
+
+/* El desenfoque deja bordes transparentes: la capa se agranda para que no se
+   vean. */
+.backdrop::before {
+  content: "";
+  position: absolute;
+  inset: calc(var(--backdrop-blur) * -2);
+  background: var(--backdrop-image) center / cover no-repeat;
+  filter: blur(var(--backdrop-blur)) saturate(1.1);
+  transition: background-image 900ms var(--ease);
+}
+
+.backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--bg) var(--backdrop-dim), transparent);
+}
+
+/* Tres columnas a toda la ventana: navegación, la vista activa y lo que suena.
+   Cada columna scrollea por dentro; la página nunca, para que la consola y la
+   barra lateral estén siempre a la vista. */
+.app {
+  position: relative;
+  height: 100%;
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr) var(--nowplaying-w);
+  /* Los anchos elegidos (Ajustes › Diseño, o arrastrando el borde). */
+  --sidebar-w: var(--sidebar-pref, 236px);
+  --nowplaying-w: var(--nowplaying-pref, 360px);
+}
+
+/* En ventanas estrechas, los anchos elegidos se recortan para que la vista
+   central no se quede sin sitio. */
+@media (max-width: 1180px) {
+  .app {
+    --sidebar-w: min(var(--sidebar-pref, 236px), 208px);
+    --nowplaying-w: min(var(--nowplaying-pref, 360px), 320px);
+  }
+}
+
+/* ── Diseño: espejo, barra de iconos y tiradores ──────────────────────── */
+
+:root[data-mirrored] .app {
+  grid-template-columns: var(--nowplaying-w) minmax(0, 1fr) var(--sidebar-w);
+}
+
+:root[data-mirrored] .sidebar {
+  order: 3;
+  border-right: none;
+  border-left: 1px solid var(--line);
+}
+
+:root[data-mirrored] .main { order: 2; }
+
+:root[data-mirrored] .nowplaying {
+  order: 1;
+  border-left: none;
+  border-right: 1px solid var(--line);
+}
+
+:root[data-sidebar="icons"] .app { --sidebar-w: 68px; }
+
+:root[data-sidebar="icons"] .sidebar {
+  align-items: center;
+  padding-inline: 10px;
+}
+
+:root[data-sidebar="icons"] .wordmark,
+:root[data-sidebar="icons"] .tab span:not(.avatar),
+:root[data-sidebar="icons"] .sidebar__section { display: none; }
+
+:root[data-sidebar="icons"] .brand { padding: 6px 0 4px; }
+
+:root[data-sidebar="icons"] .tab {
+  justify-content: center;
+  width: 44px;
+  padding: 10px;
+}
+
+.tab[hidden] { display: none; }
+
+/* El borde de una columna se arrastra para cambiar su ancho. La zona de
+   agarre es ancha; lo que se ve, una línea de acento al acercarse. */
+.resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 5;
+  width: 9px;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 2px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity var(--fast) var(--ease);
+}
+
+.resizer:hover::after,
+.resizer:focus-visible::after,
+:root.is-resizing .resizer:active::after { opacity: 0.7; }
+
+.resizer--sidebar    { left: calc(var(--sidebar-w) - 5px); }
+.resizer--nowplaying { right: calc(var(--nowplaying-w) - 5px); }
+
+:root[data-mirrored] .resizer--sidebar {
+  left: auto;
+  right: calc(var(--sidebar-w) - 5px);
+}
+
+:root[data-mirrored] .resizer--nowplaying {
+  right: auto;
+  left: calc(var(--nowplaying-w) - 5px);
+}
+
+:root[data-sidebar="icons"] .resizer--sidebar,
+:root[data-mini] .resizer,
+:root[data-focus] .resizer { display: none; }
+
+/* Mientras se arrastra, el cursor no parpadea al pasar por encima de otras
+   cosas, ni se selecciona texto. */
+:root.is-resizing,
+:root.is-resizing * {
+  cursor: col-resize !important;
+  user-select: none;
+}
+
+/* ── Barra lateral ────────────────────────────────────────────────────── */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-height: 0;
+  padding: 24px 14px 18px;
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 10px 4px;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Un elemento de navegación: icono y texto, con la marca de "aquí estás" en
+   raíl de acento, como la fila que suena. */
+.tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: calc(8px * var(--density)) 10px;
+  border: none;
+  border-radius: calc(8px * var(--round));
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+  transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+
+.tab svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tab:hover { background: var(--surface-2); color: var(--text); }
+.tab:focus-visible { box-shadow: 0 0 0 3px var(--accent-ring); }
+
+.tab[aria-current="page"] {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.tab[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--accent);
+}
+
+.tab[aria-current="page"] svg { color: var(--accent); }
+
+.tab__count {
+  margin-left: auto;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+.tab__count:empty { display: none; }
+
+/* Acceso a Ajustes al pie de la barra lateral. */
+.tab--settings { margin-top: auto; }
+
+.sidebar__section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  flex: 1;
+}
+
+.sidebar__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 0 10px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.btn--tiny {
+  width: 26px;
+  height: 26px;
+  border-radius: calc(6px * var(--round));
+}
+
+.btn--tiny svg { width: 15px; height: 15px; }
+
+.sidebar__lists {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.side-list {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: calc(6px * var(--density)) 10px;
+  border: none;
+  border-radius: calc(7px * var(--round));
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+  transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+
+.side-list svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: var(--text-faint);
+}
+
+.side-list--likes svg { color: var(--accent); fill: currentColor; }
+
+.side-list:hover { background: var(--surface-2); color: var(--text); }
+.side-list:focus-visible { box-shadow: 0 0 0 3px var(--accent-ring); }
+
+.side-list[aria-current="true"] {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.side-list__name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.side-list__count {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Vista central ────────────────────────────────────────────────────── */
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+  min-height: 0;
+  padding: 24px 32px 20px;
+}
+
+.view-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 6px;
+}
+
+.view-head__text {
+  min-width: 0;
+}
+
+.view-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.view-meta {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.view-meta:empty { display: none; }
+
+/* ── Columna de lo que suena ──────────────────────────────────────────── */
+
+.nowplaying {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 0;
+  padding: 24px 22px 18px;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.wordmark {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  /* El tracking ancho en mayúsculas pequeñas es lo que da el aire editorial. */
+  letter-spacing: 0.34em;
+  text-indent: 0.34em;
+  color: var(--text-dim);
+}
+
+.engine__dot {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--line-strong);
+  transition: background var(--med) var(--ease), box-shadow var(--med) var(--ease);
+}
+
+.engine[data-state="busy"] .engine__dot {
+  background: var(--accent);
+  animation: pulse 1.4s var(--ease) infinite;
+}
+
+.engine[data-state="playing"] .engine__dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+
+.engine[data-state="error"] .engine__dot {
+  background: var(--danger);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1;   box-shadow: 0 0 0 0 var(--accent-ring); }
+  50%      { opacity: 0.5; box-shadow: 0 0 0 5px transparent; }
+}
+
+/* ── Búsqueda ─────────────────────────────────────────────────────────── */
+
+.search {
+  display: flex;
+  gap: 10px;
+}
+
+.field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.field__icon {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--text-faint);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  pointer-events: none;
+  transition: stroke var(--med) var(--ease);
+}
+
+.field__input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px 0 38px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: text;
+  user-select: text;
+  outline: none;
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color var(--med) var(--ease),
+    background    var(--med) var(--ease),
+    box-shadow    var(--med) var(--ease);
+}
+
+.field__input::placeholder {
+  color: var(--text-faint);
+}
+
+.field:hover .field__input {
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+}
+
+/* El anillo de foco se dibuja con box-shadow, no con outline: así respeta el
+   border-radius y se puede animar. */
+.field__input:focus {
+  border-color: var(--accent-deep);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-sm), 0 0 0 3px var(--accent-ring);
+}
+
+.field__input:focus + .field__icon,
+.field:focus-within .field__icon {
+  stroke: var(--accent);
+}
+
+/* ── Botones ──────────────────────────────────────────────────────────── */
+
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  font: inherit;
+  cursor: pointer;
+  outline: none;
+  /* Sin transition en `all`: enumerar las propiedades evita animar cosas que
+     no queremos (como el layout) y es bastante más barato de pintar. */
+  transition:
+    background   var(--fast) var(--ease),
+    border-color var(--fast) var(--ease),
+    color        var(--fast) var(--ease),
+    box-shadow   var(--fast) var(--ease),
+    transform    var(--fast) var(--ease),
+    opacity      var(--fast) var(--ease);
+}
+
+.btn:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.btn:disabled {
+  opacity: 0.34;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Botón de búsqueda ---------------------------------------------------- */
+
+.btn--search {
+  height: 44px;
+  padding: 0 20px;
+  border-color: var(--line-strong);
+  background: linear-gradient(180deg, var(--surface-3), var(--surface-2));
+  color: var(--text);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  /* Resalte interior en el borde superior. */
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.btn--search:hover:not(:disabled) {
+  border-color: var(--accent-deep);
+  color: var(--accent-bright);
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* El hundido: 1px hacia abajo, la luz cenital apagada y una sombra interior.
+   Ese conjunto es lo que se lee como "el botón cede". */
+.btn--search:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.45);
+  background: var(--surface-2);
+}
+
+.btn__spinner {
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-right-color: currentColor;
+  border-radius: 50%;
+  opacity: 0;
+  animation: spin 620ms linear infinite;
+}
+
+.is-busy .btn__label { opacity: 0; }
+.is-busy .btn__spinner { opacity: 0.8; }
+
+.btn__label { transition: opacity var(--fast) var(--ease); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Consola ──────────────────────────────────────────────────────────── */
+
+.console {
+  position: relative;
+  flex-shrink: 0;
+  padding: 26px 22px 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, var(--surface-2), var(--surface));
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  overflow: hidden;
+}
+
+/* Halo de acento detrás de la tarjeta. Aparece solo al reproducir: la interfaz
+   "se enciende" en vez de estar siempre encendida. */
+.console__glow {
+  position: absolute;
+  top: -60%;
+  left: 50%;
+  width: 260px;
+  height: 260px;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, var(--accent-wash) 0%, transparent 68%);
+  opacity: 0;
+  transition: opacity 900ms var(--ease);
+  pointer-events: none;
+}
+
+body.is-playing .console__glow { opacity: 1; }
+
+/* Información de pista ------------------------------------------------- */
+
+.track {
+  position: relative;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-height: 92px;
+  justify-content: center;
+  padding-top: 2px;
+}
+
+/* Carátula ------------------------------------------------------------- */
+
+/* Con la columna entera para ella, la carátula es la protagonista: cuadrada,
+   tan ancha como quepa sin comerse la altura en pantallas bajas. */
+.artwork {
+  position: relative;
+  width: min(100%, 216px, 30vh);
+  aspect-ratio: 1;
+  margin-bottom: 8px;
+  border-radius: calc(14px * var(--round));
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-md);
+  transition: box-shadow var(--med) var(--ease);
+}
+
+/* Al reproducir, la portada recibe un halo del propio acento — que a su vez
+   sale de ella. El color de la canción se devuelve a la canción. */
+body.is-playing .artwork {
+  box-shadow:
+    var(--shadow-md),
+    0 6px 26px hsl(var(--accent-h) var(--accent-s) var(--accent-l) / 0.20);
+}
+
+.artwork__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity var(--med) var(--ease);
+}
+
+.artwork.has-art .artwork__img { opacity: 1; }
+
+.artwork__blank {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 30%;
+  height: 30%;
+  fill: none;
+  stroke: var(--text-faint);
+  stroke-width: 1.3;
+  opacity: 1;
+  transition: opacity var(--med) var(--ease);
+}
+
+.artwork.has-art .artwork__blank { opacity: 0; }
+
+/* Medidor: chip sobre la esquina de la portada. Solo aparece al reproducir, así
+   que su presencia ya significa algo en lugar de decorar. */
+.meter {
+  position: absolute;
+  left: 7px;
+  bottom: 7px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2.5px;
+  height: 10px;
+  padding: 5px 6px;
+  border-radius: calc(6px * var(--round));
+  background: rgb(8 9 11 / 0.6);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity var(--med) var(--ease);
+}
+
+body.is-playing .meter { opacity: 1; }
+
+.meter i {
+  width: 2.5px;
+  height: 2.5px;
+  border-radius: 1.5px;
+  background: var(--accent);
+  transition: height var(--med) var(--ease);
+}
+
+body.is-playing .meter i {
+  animation: bounce 1s var(--ease) infinite;
+}
+
+/* Desfases primos entre sí para que el patrón no se vea repetirse. */
+body.is-playing .meter i:nth-child(2) { animation-delay: 0.18s; }
+body.is-playing .meter i:nth-child(3) { animation-delay: 0.41s; }
+body.is-playing .meter i:nth-child(4) { animation-delay: 0.27s; }
+
+@keyframes bounce {
+  0%, 100% { height: 2.5px; }
+  50%      { height: 10px; }
+}
+
+.track__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  /* Dos líneas como máximo: un título largo no debe descuadrar la tarjeta.
+     El trío -webkit-box / box-orient / line-clamp sigue siendo obligatorio: es
+     lo que de verdad recorta hoy. `line-clamp` a secas es la propiedad estándar
+     y va acompañando, no sustituyendo — sin ella el linter avisa, y el día que
+     los motores la implementen del todo esta regla ya está preparada. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  transition: color var(--med) var(--ease);
+}
+
+.track__title.is-empty { color: var(--text-faint); font-weight: 400; }
+
+.track__by {
+  margin: -2px 0 0;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  letter-spacing: 0.01em;
+  overflow-wrap: anywhere;
+  /* Sin canal no debe dejar un hueco: el elemento vacío colapsa solo. */
+}
+
+.track__by:empty { display: none; }
+
+/* Timeline ------------------------------------------------------------- */
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.scrub,
+.vol-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+}
+
+/* Zona de clic generosa (18px) alrededor de una pista fina (4px). El usuario
+   agradece el área grande; el ojo solo ve la línea. */
+.scrub {
+  height: 18px;
+  margin: 0;
+  --played: 0%;
+  --buffered: 0%;
+}
+
+.scrub::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background:
+    linear-gradient(var(--accent), var(--accent)) left / var(--played) 100% no-repeat,
+    linear-gradient(var(--track-buffered), var(--track-buffered)) left / var(--buffered) 100% no-repeat,
+    var(--track);
+  transition: height var(--fast) var(--ease);
+}
+
+.scrub::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px; /* (4 - 12) / 2, para centrarlo en la pista */
+  border-radius: 50%;
+  background: var(--text);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--surface) 90%, transparent), 0 1px 3px rgba(0, 0, 0, 0.6);
+  /* Oculto en reposo, aparece al acercarse: la línea limpia manda, el control
+     asoma solo cuando lo vas a usar. */
+  transform: scale(0);
+  transition: transform var(--med) var(--ease);
+}
+
+.scrub:hover:not(:disabled)::-webkit-slider-runnable-track,
+.scrub:focus-visible::-webkit-slider-runnable-track {
+  height: 6px;
+}
+
+.scrub:hover:not(:disabled)::-webkit-slider-thumb,
+.scrub:focus-visible::-webkit-slider-thumb {
+  margin-top: -3px; /* recentrado sobre la pista de 6px */
+  transform: scale(1);
+}
+
+.scrub:active:not(:disabled)::-webkit-slider-thumb {
+  transform: scale(1.18);
+}
+
+.scrub:disabled { cursor: not-allowed; opacity: 0.5; }
+
+.timeline__times {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-faint);
+  /* Cifras de ancho fijo: sin esto el contador tiembla al pasar de 1 a 8. */
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* Transporte ----------------------------------------------------------- */
+
+/* Aleatorio y repetir flanquean el grupo central, simétricos: así el play queda
+   en el centro exacto sin necesidad de rejillas ni huecos de relleno. */
+.transport {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.transport__main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.btn--ghost {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.btn--ghost svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.btn--ghost:active:not(:disabled) {
+  transform: scale(0.92);
+  background: var(--surface);
+}
+
+/* El "10" va DENTRO del SVG, no superpuesto con un <span>: así se centra en el
+   hueco de la flecha con precisión y escala junto al icono. */
+.btn--ghost svg text {
+  font-size: 8px;
+  font-weight: 600;
+  fill: currentColor;
+  stroke: none;
+  text-anchor: middle;
+  dominant-baseline: central;
+  letter-spacing: 0.02em;
+}
+
+/* Play / pausa: el único elemento con relleno de acento sólido. Es el foco
+   principal de la pantalla y nada más debe competir con él. */
+.btn--play {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  flex-shrink: 0;
+  box-shadow:
+    0 2px 10px hsl(var(--accent-h) var(--accent-s) var(--accent-l) / 0.16),
+    inset 0 1px 0 rgb(255 255 255 / 0.28);
+}
+
+.btn--play svg {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+
+.btn--play:hover:not(:disabled) {
+  background: var(--accent-bright);
+  transform: scale(1.045);
+  box-shadow:
+    0 4px 20px hsl(var(--accent-h) var(--accent-s) var(--accent-l) / 0.30),
+    inset 0 1px 0 rgb(255 255 255 / 0.35);
+}
+
+.btn--play:active:not(:disabled) {
+  transform: scale(0.955);
+  box-shadow:
+    0 1px 4px hsl(var(--accent-h) var(--accent-s) var(--accent-l) / 0.14),
+    inset 0 2px 6px rgb(0 0 0 / 0.22);
+}
+
+/* Cargando una canción: un aro gira alrededor del botón. Es lo que antes decía
+   el texto "Cargando…" bajo el título. */
+.btn--play { position: relative; }
+
+.btn--play.is-loading::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border: 2px solid var(--accent);
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+  pointer-events: none;
+}
+
+.is-hidden { display: none; }
+
+/* Volumen -------------------------------------------------------------- */
+
+/* Fila propia, a todo el ancho de la tarjeta y siempre visible. Antes vivía
+   plegado al lado del transporte y se desplegaba al pasar el ratón; pegado al
+   borde de la ventana, al desplegarse se salía de la tarjeta y no se veía. */
+.volume {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: -6px;
+}
+
+.volume__value {
+  width: 26px;
+  flex-shrink: 0;
+  font-size: 11.5px;
+  text-align: right;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.btn--icon {
+  width: 34px;
+  height: 34px;
+  border-radius: calc(8px * var(--round));
+  background: transparent;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+
+.btn--icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.btn--icon:hover { color: var(--text); background: var(--surface-3); }
+.btn--icon:active { transform: scale(0.9); }
+
+.vol-slider {
+  flex: 1;
+  height: 18px;
+  min-width: 0;
+  --level: 80%;
+}
+
+.vol-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background:
+    linear-gradient(var(--text-dim), var(--text-dim)) left / var(--level) 100% no-repeat,
+    var(--track);
+  transition: height var(--fast) var(--ease);
+}
+
+.volume:hover .vol-slider::-webkit-slider-runnable-track {
+  background:
+    linear-gradient(var(--accent), var(--accent)) left / var(--level) 100% no-repeat,
+    var(--track);
+}
+
+/* Silenciado: el nivel se queda donde estaba, apagado, para ver a qué volumen
+   volverá al quitar el silencio. */
+.vol-slider.is-muted::-webkit-slider-runnable-track {
+  background:
+    linear-gradient(var(--track-muted), var(--track-muted)) left / var(--level) 100% no-repeat,
+    var(--track);
+}
+
+.vol-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  transition: transform var(--fast) var(--ease), background var(--fast) var(--ease);
+}
+
+.vol-slider:hover::-webkit-slider-thumb { transform: scale(1.15); }
+.vol-slider:active::-webkit-slider-thumb { transform: scale(0.95); }
+
+/* ── Accesibilidad ────────────────────────────────────────────────────── */
+
+/* Quien tenga activado "reducir movimiento" en Windows no debería ver nada
+   animarse. Es una línea de CSS y es la diferencia entre pulido y descuidado. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Otros resultados ─────────────────────────────────────────────────── */
+
+/* El `display:flex` de abajo gana a la regla `[hidden] { display:none }` de la
+   hoja del navegador, porque un selector de autor pisa al user-agent. Sin esta
+   línea, la sección se ve aunque lleve el atributo `hidden`. */
+.results[hidden] { display: none; }
+
+/* La lista se queda con todo el alto que sobra en la columna y scrollea por
+   dentro, con el buscador y el título siempre a la vista arriba. */
+.results {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.results__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: calc(2px * var(--density));
+  /* La lista se queda con el espacio que sobre en la ventana y scrollea por
+     dentro. Así la ventana no crece 300 px de golpe al aparecer los resultados,
+     ni hace falta scroll de página: la consola sigue fija y visible arriba. */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.result {
+  /* La miniatura crece y encoge con la densidad, un poco menos que el relleno. */
+  --art: calc(34px + 8px * var(--density));
+
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--art) 1fr auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: calc(6px * var(--density)) 8px calc(6px * var(--density)) 10px;
+  border-radius: calc(8px * var(--round));
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    background   var(--fast) var(--ease),
+    border-color var(--fast) var(--ease),
+    transform    var(--fast) var(--ease);
+}
+
+.result:hover {
+  background: var(--surface-2);
+  border-color: var(--line);
+}
+
+.result:active { transform: scale(0.99); }
+
+.result:focus-visible {
+  outline: none;
+  border-color: var(--accent-deep);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+/* El que suena: raíl de acento a la izquierda y título teñido. Dos señales,
+   porque solo el color no basta para quien no lo distingue. */
+.result.is-current::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--accent);
+}
+
+.result.is-current .result__title { color: var(--accent); }
+.result.is-current { background: var(--accent-wash); }
+
+.result__art {
+  width: var(--art);
+  height: var(--art);
+  border-radius: calc(5px * var(--round));
+  object-fit: cover;
+  background: var(--surface-3);
+  display: block;
+}
+
+.result__text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.result__title {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color var(--fast) var(--ease);
+}
+
+.result__by {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.result__time {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Acción por fila: añadir a la cola, o quitar de ella. Aparece al acercarse,
+   para que la lista en reposo siga siendo solo texto. */
+.result__action {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: calc(6px * var(--round));
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  outline: none;
+  opacity: 0;
+  transition:
+    opacity    var(--fast) var(--ease),
+    background var(--fast) var(--ease),
+    color      var(--fast) var(--ease),
+    transform  var(--fast) var(--ease);
+}
+
+.result:hover .result__action,
+.result:focus-within .result__action,
+.result__action:focus-visible {
+  opacity: 1;
+}
+
+.result__action:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.result__action:active { transform: scale(0.88); }
+
+.result__action:focus-visible { box-shadow: 0 0 0 3px var(--accent-ring); }
+
+.result__action svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+/* Los triángulos de anterior/siguiente van rellenos; la barra que los acompaña,
+   trazada. Por eso el SVG mezcla ambos modos. */
+.btn--ghost svg .fill {
+  fill: currentColor;
+  stroke: none;
+}
+
+/* ── Ajustes ──────────────────────────────────────────────────────────── */
+
+/* Una vista más de la columna central: grupos con título (Apariencia, Sonido,
+   Sistema, Datos), cada uno una tarjeta de filas. Sin estirarse a todo el
+   ancho, que en una pantalla grande dejaría el control lejísimos del texto que
+   lo explica. La vista scrollea por dentro; el buscador vive en la cabecera. */
+.settings[hidden] { display: none; }
+
+.settings {
+  /* Contenedor de lo absoluto de dentro (las casillas invisibles de los
+     interruptores): sin esto se escapan del scroll y alargan la página. */
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 8px 48px 2px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+  animation: settings-in var(--med) var(--ease);
+}
+
+@keyframes settings-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Cada sección es una barra que se abre: el nombre, de qué trata y una
+   flecha; al pulsarla, sus opciones aparecen debajo (settings.js). */
+.settings__group {
+  display: flex;
+  flex-direction: column;
+  max-width: 720px;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+  transition: border-color var(--med) var(--ease), box-shadow var(--med) var(--ease);
+}
+
+.settings__group.is-open { border-color: var(--line-strong); box-shadow: var(--shadow-sm); }
+
+.settings__group[hidden],
+.setting[hidden],
+.setting.is-filtered,
+.setting__row[hidden],
+.swatches[hidden],
+.sliders[hidden] { display: none; }
+
+.settings__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 12px;
+}
+
+.settings__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.settings__toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.settings__toggle:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent-ring); }
+.settings__group:hover { border-color: var(--line-strong); }
+
+.settings__icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: calc(10px * var(--round));
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.settings__icon svg,
+.settings__chevron {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.settings__names {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.settings__name { font-size: 15px; font-weight: 600; }
+
+.settings__summary {
+  font-size: 12.5px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings__chevron {
+  flex-shrink: 0;
+  color: var(--text-faint);
+  transition: transform var(--med) var(--ease), color var(--med) var(--ease);
+}
+
+.settings__toggle:hover .settings__chevron { color: var(--text); }
+.is-open > .settings__head .settings__chevron,
+.is-open > .settings__subhead .settings__chevron { transform: rotate(180deg); }
+
+/* "Restablecer" solo con la sección abierta: cerrada, la barra es solo su
+   nombre. */
+.settings__group:not(.is-open) .settings__head [data-reset] { display: none; }
+
+.settings__card {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border-top: 1px solid var(--line);
+  background: var(--line);
+}
+
+/* Cerrada, sin sus opciones; buscando, abiertas todas las que coinciden. */
+.settings__group:not(.is-open) .settings__card { display: none; }
+.settings.is-searching .settings__group:not([hidden]) .settings__card { display: flex; }
+.settings.is-searching .settings__head [data-reset] { display: none; }
+.settings.is-searching .settings__chevron { transform: rotate(180deg); }
+
+/* Apartados dentro de una sección (Reproductor: la barra y el mini): una
+   barra más pequeña que despliega sus filas. */
+.settings__subbox {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.settings__subbox.is-filtered { display: none; }
+
+.settings__sub {
+  display: none;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.settings__subbox.is-open .settings__sub,
+.settings.is-searching .settings__sub { display: flex; }
+
+.settings__subtoggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.settings__subtoggle:hover .settings__chevron { color: var(--text); }
+.settings__subtoggle .settings__chevron { width: 16px; height: 16px; }
+
+/* Las tipografías: una cuadrícula en la que cada una se ve en su letra. */
+.font-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.font-grid label { position: relative; cursor: pointer; }
+
+.font-grid input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.font-grid span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  height: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  font-size: 12.5px;
+  line-height: 1.25;
+  color: var(--text-dim);
+  transition: border-color var(--med) var(--ease), background var(--med) var(--ease);
+}
+
+.font-grid b { font-size: 24px; font-weight: 500; line-height: 1.15; color: var(--text); }
+.font-grid label:hover span { border-color: var(--line-strong); }
+
+.font-grid input:checked + span {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  color: var(--text);
+}
+
+.font-grid input:focus-visible + span { box-shadow: 0 0 0 3px var(--accent-ring); }
+
+.setting__value[hidden] { display: none; }
+
+.settings__none {
+  margin: 0;
+  padding: 24px 4px;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.settings__none[hidden] { display: none; }
+
+/* Buscador de ajustes, en la cabecera de la vista. */
+.settings-search[hidden] { display: none; }
+
+.settings-search {
+  flex: 0 0 min(300px, 40%);
+}
+
+.settings-search .field__input {
+  height: 36px;
+  padding-left: 34px;
+  font-size: 13px;
+}
+
+.settings-search .field__icon {
+  left: 11px;
+  width: 15px;
+  height: 15px;
+}
+
+.setting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: calc(12px * var(--density)) 14px;
+  background: var(--surface);
+}
+
+/* Un apartado dentro de una tarjeta (Reproductor: la barra y el mini). */
+.settings__subhead {
+  margin: 0;
+  padding: 0;
+  background: var(--surface);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.setting__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: min(200px, 100%);
+  flex: 1;
+}
+
+.setting__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.setting__value {
+  font-size: 12px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.setting__value:empty { display: none; }
+
+.setting__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Controles de los ajustes ─────────────────────────────────────────── */
+
+/* Selector de varias opciones en una fila: radios de verdad (teclado y
+   lector de pantalla incluidos), dibujados como botones pegados. */
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  border-radius: calc(9px * var(--round));
+  background: var(--surface-2);
+}
+
+.segmented label { position: relative; }
+
+.segmented input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.segmented span {
+  display: block;
+  padding: 5px 12px;
+  border-radius: calc(6px * var(--round));
+  font-size: 12.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+
+.segmented label:hover span { color: var(--text); }
+
+.segmented input:checked + span {
+  background: var(--surface-3);
+  color: var(--text);
+  box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--line-strong);
+}
+
+.segmented input:focus-visible + span { box-shadow: 0 0 0 3px var(--accent-ring); }
+
+/* Temas: una tarjeta por tema con una miniatura de la app en sus colores. */
+.themes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+  gap: 10px;
+}
+
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 6px 6px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+
+.theme-card:hover { border-color: var(--accent-deep); color: var(--text); }
+.theme-card:focus-visible { box-shadow: 0 0 0 3px var(--accent-ring); }
+
+.theme-card[aria-checked="true"] {
+  border-color: var(--accent);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.theme-card__name { padding: 0 3px; }
+
+.theme-card__preview {
+  position: relative;
+  height: 60px;
+  border-radius: calc(6px * var(--round));
+  overflow: hidden;
+}
+
+/* Una capa por paleta. "Según Windows" lleva dos: la clara, en diagonal,
+   encima de la oscura. */
+.tp {
+  position: absolute;
+  inset: 0;
+  background: var(--p-bg);
+  border: 1px solid color-mix(in srgb, var(--p-text) 12%, transparent);
+  border-radius: inherit;
+}
+
+.tp + .tp { clip-path: polygon(100% 0, 100% 100%, 0 100%); }
+
+.tp__side {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 24%;
+  background: var(--p-side, color-mix(in srgb, var(--p-surface) 60%, var(--p-bg)));
+  border-right: 1px solid var(--p-line);
+}
+
+.tp__text {
+  position: absolute;
+  left: 31%;
+  top: 13px;
+  width: 26%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--p-text);
+  box-shadow: 0 9px 0 var(--p-faint), -3px 18px 0 -1px var(--p-faint);
+}
+
+.tp__card {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  bottom: 7px;
+  width: 30%;
+  border: 1px solid var(--p-line);
+  border-radius: calc(4px * var(--round));
+  background: var(--p-surface);
+}
+
+.tp__card::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--accent);
+  transform: translateX(-50%);
+}
+
+/* Colores: muestras rápidas y un selector libre. */
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+}
+
+.swatch {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15);
+  cursor: pointer;
+  outline: none;
+  transition: transform var(--fast) var(--ease), box-shadow var(--fast) var(--ease);
+}
+
+.swatch:hover { transform: scale(1.1); }
+
+.swatch[aria-checked="true"],
+.swatch:focus-visible {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text);
+}
+
+.color-input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 34px;
+  height: 28px;
+  padding: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: calc(7px * var(--round));
+  background: var(--surface-2);
+  cursor: pointer;
+}
+
+.color-input::-webkit-color-swatch-wrapper { padding: 0; }
+
+.color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: calc(5px * var(--round));
+}
+
+.color-input:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+
+.colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+}
+
+.color-field {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.setting__warning {
+  margin: 0;
+  font-size: 12px;
+  color: var(--danger);
+}
+
+.setting__warning[hidden] { display: none; }
+
+/* Dos deslizadores lado a lado: oscurecer y desenfocar el fondo. */
+.sliders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px 24px;
+}
+
+/* Botón pequeño de acción, para filas de ajustes. */
+.btn--mini {
+  height: 30px;
+  padding: 0 13px;
+  flex-shrink: 0;
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.btn--mini:hover:not(:disabled) {
+  border-color: var(--accent-deep);
+  color: var(--accent-bright);
+  background: var(--surface-3);
+}
+
+.btn--mini:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 5px rgb(0 0 0 / 0.4);
+}
+
+.btn--danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* Armado, esperando la confirmación. El relleno sólido lo separa de cualquier
+   otro estado: aquí el siguiente clic sí borra. */
+.btn--danger.is-armed {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: var(--on-danger);
+}
+
+.btn--danger.is-armed:hover { background: var(--danger); color: var(--on-danger); }
+
+/* ── Iconos rellenos ──────────────────────────────────────────────────── */
+
+/* Los iconos que se construyen desde JS mezclan trazo y relleno igual que los
+   del HTML: los puntos del menú o el triángulo de play van rellenos. */
+svg .icon-fill {
+  fill: currentColor;
+  stroke: none;
+}
+
+/* ── Valoración ───────────────────────────────────────────────────────── */
+
+/* A los lados del título, como en YouTube Music: 👎 a la izquierda, ♥ a la
+   derecha. En las esquinas de la tarjeta, pequeños y apagados, no se veían.
+   Columnas fijas a los dos lados para que el título quede centrado. */
+.track__head {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  align-items: center;
+  column-gap: 4px;
+  width: 100%;
+}
+
+.track__text {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rate--dislike { grid-column: 1; }
+.rate--like    { grid-column: 3; }
+
+.rate {
+  width: 40px;
+  height: 40px;
+  color: var(--text-dim);
+  border-radius: 50%;
+}
+
+.rate svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 1.8;
+}
+
+/* Sin pista no hay nada que valorar: desaparecen en vez de quedarse apagados,
+   pero su hueco sigue ahí y el título no se mueve al empezar a sonar algo. */
+.rate:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.rate[aria-pressed="true"] { color: var(--accent); }
+.rate[aria-pressed="true"]:hover { color: var(--accent-bright); }
+
+.rate--like[aria-pressed="true"] svg { fill: currentColor; }
+
+.rate--dislike[aria-pressed="true"],
+.rate--dislike[aria-pressed="true"]:hover { color: var(--danger); }
+
+/* ── Aleatorio y repetir ──────────────────────────────────────────────── */
+
+/* Activo: color de acento y un punto debajo. El punto es la segunda señal para
+   quien no distingue bien el color, como el raíl de la fila que suena. */
+.mode.is-active { color: var(--accent); }
+.mode.is-active:hover { color: var(--accent-bright); }
+
+.mode.is-active::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  transform: translateX(-50%);
+}
+
+/* El "1" de repetir esta canción solo existe en ese modo. */
+.mode .mode__one { display: none; }
+.mode[data-repeat="one"] .mode__one { display: inline; }
+
+/* ── Cabecera del panel ───────────────────────────────────────────────── */
+
+.panel-head[hidden] { display: none; }
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Botón pequeño con icono delante del texto ("▶ Reproducir"). */
+.btn--with-icon {
+  gap: 6px;
+  padding: 0 12px 0 10px;
+}
+
+.btn--with-icon svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.btn--icon:disabled:hover { background: transparent; color: var(--text-faint); }
+
+/* ── Filas: acciones, listas y arrastre ───────────────────────────────── */
+
+.result__actions {
+  display: flex;
+  gap: 1px;
+}
+
+/* Con su menú abierto, el botón se queda visible aunque el ratón ya esté en el
+   menú: si desapareciera, el menú quedaría anclado a la nada. */
+.result__action.is-open {
+  opacity: 1;
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.result__art--icon {
+  display: grid;
+  place-items: center;
+  color: var(--text-faint);
+}
+
+.result__art--icon svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.result__art--likes {
+  color: var(--accent);
+  background: var(--accent-wash);
+}
+
+.result__art--likes svg { fill: currentColor; }
+
+/* La flecha de "entrar" de las filas de lista: el icono de volver, girado. */
+.result__chevron {
+  display: grid;
+  place-items: center;
+  color: var(--text-faint);
+  padding-right: 4px;
+}
+
+.result__chevron svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform: rotate(180deg);
+  transition: transform var(--fast) var(--ease);
+}
+
+.result--list:hover .result__chevron { color: var(--text-dim); }
+.result--list:hover .result__chevron svg { transform: rotate(180deg) translateX(-2px); }
+
+/* Dónde acaba lo que elegiste y empieza lo que recomienda el algoritmo. */
+.results__divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 10px 6px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.results__divider::after {
+  content: "";
+  flex: 1;
+  order: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+/* "Borrar la cola": al final de la línea del separador. */
+.results__divider-action {
+  order: 2;
+  padding: 2px 6px;
+  font-size: 11.5px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Los títulos de "A continuación": "Siguiente en la cola" y de dónde es el resto. */
+.upnext__heading {
+  padding: 8px 6px 3px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.upnext__heading:first-child { padding-top: 2px; }
+
+.results__empty {
+  padding: 12px 16px;
+  text-align: center;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-faint);
+}
+
+/* Arrastre: la fila que viaja se atenúa y una línea de acento marca dónde caerá.
+   La línea va con box-shadow para no mover el layout mientras se arrastra. */
+.result[draggable="true"] { cursor: grab; }
+.result.is-dragging { opacity: 0.4; }
+.result.is-drop-before { box-shadow: inset 0 2px 0 var(--accent); }
+.result.is-drop-after  { box-shadow: inset 0 -2px 0 var(--accent); }
+
+/* ── Menú emergente ───────────────────────────────────────────────────── */
+
+.menu {
+  position: fixed;
+  z-index: 50;
+  min-width: 180px;
+  max-width: 280px;
+  /* Cabe entero el menú de una fila (cola, radio, artista, mover y listas)
+     sin tener que buscar las listas con el scroll. */
+  max-height: min(480px, calc(100vh - 16px));
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-md);
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+  animation: menu-in var(--fast) var(--ease);
+}
+
+@keyframes menu-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.menu__heading {
+  padding: 6px 10px 4px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.menu__item {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: calc(6px * var(--round));
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  outline: none;
+  transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+
+.menu__item:hover,
+.menu__item:focus-visible {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.menu__item--danger:hover,
+.menu__item--danger:focus-visible { color: var(--danger); }
+
+.menu__sep {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--line);
+}
+
+/* ── Diálogo ──────────────────────────────────────────────────────────── */
+
+.dialog {
+  width: min(340px, calc(100vw - 48px));
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, var(--surface-2), var(--surface));
+  color: var(--text);
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.dialog[open] { animation: settings-in var(--med) var(--ease); }
+
+.dialog::backdrop {
+  background: rgb(4 5 7 / 0.62);
+  backdrop-filter: blur(2px);
+}
+
+.dialog__box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 18px;
+}
+
+.dialog__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.dialog__text {
+  margin: -4px 0 0;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+.dialog__text:empty { display: none; }
+
+/* Listas en el texto (las canciones que no se encontraron): una por línea, y
+   con scroll si son muchas. */
+#dialog-text {
+  white-space: pre-line;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+/* Importar: el enlace o las canciones pegadas necesitan más sitio. */
+.dialog--wide { width: min(480px, calc(100vw - 48px)); }
+
+.dialog__area {
+  height: auto;
+  min-height: 96px;
+  max-height: 40vh;
+  padding: 10px 12px;
+  resize: vertical;
+  line-height: 1.45;
+  font-size: 13px;
+}
+
+.dialog__hint {
+  margin: -4px 0 0;
+  font-size: 12px;
+  color: var(--text-faint);
+  line-height: 1.45;
+}
+
+.dialog__spacer { flex: 1; }
+
+/* Reutiliza el campo del buscador, sin el hueco de su lupa. */
+.dialog__input {
+  height: 38px;
+  padding: 0 12px;
+}
+
+.dialog__input[hidden] { display: none; }
+
+.dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+/* La acción principal del diálogo: el único relleno de acento, como el play. */
+.btn--primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.btn--primary:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--accent-bright);
+  color: var(--on-accent);
+}
+
+.btn--primary.btn--danger-solid,
+.btn--primary.btn--danger-solid:hover:not(:disabled) {
+  background: var(--danger);
+  color: var(--on-danger);
+}
+
+/* ── Descubrir ────────────────────────────────────────────────────────── */
+
+.discover[hidden] { display: none; }
+
+.discover__card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: center;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(120% 140% at 0% 0%, var(--accent-wash), transparent 60%),
+    linear-gradient(180deg, var(--surface-2), var(--surface));
+}
+
+.discover__text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+
+.discover__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* En ventanas estrechas, el texto encima y los controles debajo. */
+@media (max-width: 1280px) {
+  .discover__card { grid-template-columns: 1fr; gap: 16px; }
+}
+
+.slider-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.slider-field__label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.slider-field__value {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.slider-field__ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* El mismo control que el volumen, en grande. */
+.range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 18px;
+  margin: 0;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+  --level: 30%;
+}
+
+.range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background:
+    linear-gradient(var(--accent), var(--accent)) left / var(--level) 100% no-repeat,
+    var(--track);
+}
+
+.range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--text);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--surface) 90%, transparent), 0 1px 3px rgba(0, 0, 0, 0.6);
+  transition: transform var(--fast) var(--ease);
+}
+
+.range:hover::-webkit-slider-thumb { transform: scale(1.12); }
+.range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px var(--accent-ring); }
+
+/* Interruptor: la casilla nativa sigue ahí (accesible y con teclado), solo
+   invisible; lo que se ve es la pista dibujada al lado. */
+.switch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.switch__track {
+  position: relative;
+  flex-shrink: 0;
+  width: 32px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  border: 1px solid var(--line-strong);
+  transition: background var(--fast) var(--ease), border-color var(--fast) var(--ease);
+}
+
+.switch__track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  transition: transform var(--med) var(--ease), background var(--fast) var(--ease);
+}
+
+.switch input:checked + .switch__track {
+  background: var(--accent-deep);
+  border-color: var(--accent-deep);
+}
+
+.switch input:checked + .switch__track::after {
+  transform: translateX(14px);
+  background: var(--text);
+}
+
+.switch input:focus-visible + .switch__track { box-shadow: 0 0 0 3px var(--accent-ring); }
+
+/* Por qué está cada recomendación, en el color de acento y sin gritar. */
+.result__reason { color: var(--accent-deep); }
+.result.is-current .result__reason { color: var(--accent); }
+
+/* ── Radio y enlaces ──────────────────────────────────────────────────── */
+
+/* Botón "píldora" pequeño: acciones secundarias dentro de la consola. */
+.btn--chip {
+  gap: 6px;
+  height: 28px;
+  margin-top: 4px;
+  padding: 0 12px 0 10px;
+  border-color: var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.btn--chip svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+}
+
+.btn--chip:hover { border-color: var(--accent-deep); color: var(--accent-bright); }
+.btn--chip[hidden] { display: none; }
+
+.btn--link {
+  padding: 2px 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.btn--link:hover { color: var(--accent); }
+
+/* ── A continuación ───────────────────────────────────────────────────── */
+
+.upnext {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  flex: 1;
+}
+
+.upnext__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+
+.upnext__title {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.upnext__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.upnext__item {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: calc(5px * var(--density)) 6px;
+  border: none;
+  border-radius: calc(7px * var(--round));
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+  transition: background var(--fast) var(--ease);
+}
+
+.upnext__item:hover { background: var(--surface-2); }
+.upnext__item:focus-visible { box-shadow: 0 0 0 3px var(--accent-ring); }
+
+.upnext__art {
+  width: 34px;
+  height: 34px;
+  border-radius: calc(5px * var(--round));
+  object-fit: cover;
+  background: var(--surface-3);
+}
+
+.upnext__text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.upnext__name,
+.upnext__by {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.upnext__name { font-size: 12.5px; color: var(--text); }
+.upnext__by { font-size: 11px; color: var(--text-faint); }
+
+.upnext__empty {
+  padding: 10px 6px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.upnext__list[hidden],
+.lyrics[hidden],
+.btn--link[hidden] { display: none; }
+
+/* ── Utilidades ───────────────────────────────────────────────────────── */
+
+/* Texto solo para lectores de pantalla. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ── Consola: radio y temporizador ────────────────────────────────────── */
+
+.chips {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn--chip.is-active {
+  border-color: var(--accent-deep);
+  color: var(--accent);
+  background: var(--accent-wash);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Columna derecha: pestañas y letra ────────────────────────────────── */
+
+.side-tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.side-tab {
+  padding: 4px 8px;
+  border: none;
+  border-radius: calc(6px * var(--round));
+  background: transparent;
+  color: var(--text-faint);
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  outline: none;
+  transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+
+.side-tab:hover { color: var(--text-dim); }
+.side-tab:focus-visible { box-shadow: 0 0 0 3px var(--accent-ring); }
+
+.side-tab[aria-selected="true"] {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+/* `position: relative` para que `offsetTop` de cada verso se mida desde aquí:
+   es lo que usa el scroll que sigue al verso que suena. */
+.lyrics {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 4px 40%;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+  /* Los bordes se desvanecen: la letra entra y sale en vez de cortarse. */
+  mask-image: linear-gradient(transparent, #000 12%, #000 80%, transparent);
+}
+
+.lyric {
+  display: block;
+  width: 100%;
+  padding: calc(5px * var(--density)) 6px;
+  border: none;
+  border-radius: calc(6px * var(--round));
+  background: transparent;
+  color: var(--text-faint);
+  font: inherit;
+  font-size: calc(var(--lyric-size, 15px) * var(--lyric-scale, 1));
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+  transition: color var(--med) var(--ease), background var(--fast) var(--ease);
+}
+
+.lyric:hover { background: var(--surface-2); color: var(--text-dim); }
+.lyric:focus-visible { box-shadow: 0 0 0 3px var(--accent-ring); }
+.lyric--pause { color: var(--line-strong); }
+
+.lyric.is-active {
+  color: var(--text);
+}
+
+.lyrics__plain {
+  margin: 0;
+  padding: 4px 6px;
+  font-size: calc((var(--lyric-size, 15px) - 1px) * var(--lyric-scale, 1));
+  line-height: 1.7;
+  color: var(--text-dim);
+  white-space: pre-line;
+}
+
+.lyrics__message {
+  margin: 0;
+  padding: 10px 6px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.lyrics__credit {
+  margin: 18px 6px 0;
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+
+/* ── Ajustes: sonido y bandeja ────────────────────────────────────────── */
+
+.setting--column {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.setting__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Interruptor sin texto al lado: el texto ya lo pone la fila. */
+.switch--bare { gap: 0; }
+
+.select {
+  height: 30px;
+  padding: 0 28px 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: calc(8px * var(--round));
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23939aa5' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
+      right 8px center / 14px no-repeat,
+    var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  appearance: none;
+  cursor: pointer;
+  outline: none;
+}
+
+.select:focus-visible { box-shadow: 0 0 0 3px var(--accent-ring); }
+
+.select:disabled,
+.range:disabled,
+.switch input:disabled + .switch__track { opacity: 0.4; cursor: not-allowed; }
+
+.eq {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.eq__band {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+  align-items: center;
+}
+
+.eq__band .range { grid-column: 1 / -1; }
+
+.eq__name {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.eq__value {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Tu resumen ───────────────────────────────────────────────────────── */
+
+.summary[hidden] { display: none; }
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.metric__label {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.metric__value {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.metric__hint {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.summary__heading {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.summary__artists {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.artists {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 6px 20px;
+}
+
+.artist {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  align-items: baseline;
+  padding: 4px 0;
+}
+
+.artist__name {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.artist__meta {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* La barra: cuánto de tu escucha es de este artista, frente al primero. */
+.artist__bar {
+  grid-column: 1 / -1;
+  height: 3px;
+  border-radius: 999px;
+  background:
+    linear-gradient(var(--accent), var(--accent)) left / var(--share) 100% no-repeat,
+    var(--surface-3);
+}
+
+.artist--empty {
+  display: block;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+/* ── Consola configurable (Ajustes › Diseño) ──────────────────────────── */
+
+:root[data-console-hide~="rate"] .rate,
+:root[data-console-hide~="radio"] #radio-button,
+:root[data-console-hide~="sleep"] #sleep-button,
+:root[data-console-hide~="modes"] .transport .mode,
+:root[data-console-hide~="volume"] .volume,
+:root[data-no-upnext] .upnext,
+:root[data-artwork="hidden"] .artwork { display: none; }
+
+:root[data-artwork="small"] .artwork { width: min(100%, 120px, 20vh); }
+:root[data-artwork="large"] .artwork { width: min(100%, 296px, 40vh); }
+
+/* Botón de chip con solo icono (modo escucha, modo mini). */
+.btn--chip-icon {
+  width: 32px;
+  padding: 0;
+}
+
+.btn--chip-icon svg .fill { fill: currentColor; stroke: none; }
+
+.btn--chip[aria-pressed="true"] {
+  border-color: var(--accent-deep);
+  color: var(--accent);
+  background: var(--accent-wash);
+}
+
+/* Salir del modo mini o escucha: solo existe en ellos. */
+.mode-exit { display: none; }
+
+/* ── Letra: tamaño, alineación y sincronía ─────────────────────────────── */
+
+:root[data-lyrics-size="small"] { --lyric-size: 13px; }
+:root[data-lyrics-size="large"] { --lyric-size: 18px; }
+
+:root[data-lyrics-align="center"] .lyric,
+:root[data-lyrics-align="center"] .lyrics__plain,
+:root[data-lyrics-align="center"] .lyrics__message,
+:root[data-lyrics-align="center"] .lyrics__credit { text-align: center; }
+
+.lyrics-sync {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.lyrics-sync[hidden],
+.lyrics[hidden] ~ .lyrics-sync { display: none; }
+
+.lyrics-sync__label { margin-right: 4px; }
+
+.lyrics-sync__value {
+  min-width: 44px;
+  text-align: center;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Modo escucha: lo que suena a toda la ventana ─────────────────────── */
+
+:root[data-focus] .app { grid-template-columns: minmax(0, 1fr); }
+
+:root[data-focus] .sidebar,
+:root[data-focus] .main { display: none; }
+
+:root[data-focus] .nowplaying {
+  order: 0;
+  display: grid;
+  grid-template-columns: minmax(320px, 480px) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(24px, 5vw, 88px);
+  padding: clamp(24px, 6vh, 72px) clamp(24px, 6vw, 110px);
+  border: none;
+  background: transparent;
+}
+
+:root[data-focus] .console {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+:root[data-focus] .artwork { width: min(100%, 420px, 46vh); }
+:root[data-focus] .track__title { font-size: 24px; }
+:root[data-focus] .track__by { font-size: 14px; }
+
+:root[data-focus] .upnext {
+  align-self: stretch;
+  max-height: 100%;
+}
+
+:root[data-focus] .lyrics { --lyric-scale: 1.55; }
+
+/* Con "A continuación" oculta, en modo escucha la consola queda sola en el
+   centro. */
+:root[data-focus][data-no-upnext] .nowplaying {
+  grid-template-columns: minmax(320px, 480px);
+  justify-content: center;
+}
+
+/* El fondo de la carátula, también sin elegirlo en Apariencia. */
+:root[data-focus] { --backdrop-image: var(--art-url, none); }
+:root[data-focus] .backdrop { display: block; }
+
+:root[data-focus] .mode-exit {
+  display: inline-flex;
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 10;
+}
+
+/* ── Botones de la barra y del mini ───────────────────────────────────── */
+
+/* Redondos, sin fondo, del color del texto: el mismo lenguaje en la barra de
+   reproducción y en el mini reproductor. */
+.pb-btn {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition:
+    color var(--med) var(--ease),
+    background var(--med) var(--ease),
+    transform 120ms var(--ease),
+    opacity var(--med) var(--ease);
+}
+
+.pb-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pb-btn svg .fill { fill: currentColor; stroke: none; }
+
+.pb-btn:hover:not(:disabled) { color: var(--text); background: var(--surface-3); }
+.pb-btn:active:not(:disabled) { transform: scale(0.92); }
+.pb-btn:disabled { opacity: 0.35; cursor: default; }
+.pb-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent-ring); }
+
+/* Encendido (aleatorio, repetir, me gusta): acento y un punto debajo. */
+.pb-btn.is-on { color: var(--accent); }
+.pb-btn.is-on:hover:not(:disabled) { color: var(--accent-bright); }
+.pbar__mode.is-on::after {
+  content: "";
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  transform: translateX(-50%);
+}
+
+.pb-like.is-on svg { fill: currentColor; }
+.pb-dislike.is-on { color: var(--danger); }
+
+.pb-repeat .pb-repeat-one { display: none; }
+.pb-repeat.is-one .pb-repeat-one { display: inline; }
+
+/* Play o pausa según suene; mientras carga, un aro gira alrededor. */
+.pb-icon-pause,
+.pb-icon-muted { display: none; }
+.is-playing .pb-icon-play { display: none; }
+.is-playing .pb-icon-pause { display: block; }
+.is-muted .pb-icon-vol { display: none; }
+.is-muted .pb-icon-muted { display: block; }
+
+.is-loading .pb-play::after,
+.is-loading .mini__play::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border: 2px solid var(--accent);
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+  pointer-events: none;
+}
+
+/* Deslizadores finos: la parte recorrida en color, el tirador solo al pasar
+   el ratón. Los usan la barra y el mini. */
+.pbar__scrub,
+.pbar__vol,
+.mini__scrub,
+.mini__vol {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 14px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  --played: 0%;
+  --level: 80%;
+}
+
+.pbar__scrub::-webkit-slider-runnable-track,
+.mini__scrub::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background:
+    linear-gradient(var(--fill-color, var(--accent)), var(--fill-color, var(--accent))) left / var(--played) 100% no-repeat,
+    var(--track-color, var(--track));
+  transition: height 120ms var(--ease);
+}
+
+.pbar__vol::-webkit-slider-runnable-track,
+.mini__vol::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background:
+    linear-gradient(var(--fill-color, var(--text-dim)), var(--fill-color, var(--text-dim))) left / var(--level) 100% no-repeat,
+    var(--track-color, var(--track));
+}
+
+.pbar__scrub::-webkit-slider-thumb,
+.pbar__vol::-webkit-slider-thumb,
+.mini__scrub::-webkit-slider-thumb,
+.mini__vol::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border: none;
+  border-radius: 50%;
+  background: var(--thumb-color, var(--text));
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+  opacity: 0;
+  transition: opacity 120ms var(--ease);
+}
+
+.pbar__scrub:hover::-webkit-slider-thumb,
+.pbar__vol:hover::-webkit-slider-thumb,
+.mini__scrub:hover::-webkit-slider-thumb,
+.mini__vol:hover::-webkit-slider-thumb,
+.pbar__scrub:active::-webkit-slider-thumb,
+.mini__scrub:active::-webkit-slider-thumb { opacity: 1; }
+
+.pbar__scrub:disabled,
+.mini__scrub:disabled { cursor: default; }
+.pbar__scrub:disabled::-webkit-slider-thumb,
+.mini__scrub:disabled::-webkit-slider-thumb { display: none; }
+
+/* ── Barra de reproducción ────────────────────────────────────────────── */
+
+/* A lo ancho de la ventana, abajo o arriba. La ventana le deja su alto: las
+   columnas terminan donde empieza la barra. */
+:root[data-bar] { --bar-h: 76px; --bar-art: 48px; }
+:root[data-bar][data-bar-size="compact"] { --bar-h: 62px; --bar-art: 40px; }
+:root[data-bar][data-bar-size="large"] { --bar-h: 92px; --bar-art: 60px; }
+
+:root[data-bar]:not([data-focus]):not([data-mini]) .app { height: calc(100% - var(--bar-h)); }
+:root[data-bar][data-bar-position="top"]:not([data-focus]):not([data-mini]) .app { margin-top: var(--bar-h); }
+
+/* Los avisos, por encima de la barra. */
+:root[data-bar][data-bar-position="bottom"]:not([data-focus]):not([data-mini]) .toasts {
+  bottom: calc(var(--bar-h) + 16px);
+}
+
+.playerbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  height: var(--bar-h);
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas: "controls seek meta side";
+  align-items: center;
+  column-gap: 18px;
+  padding: 0 18px 0 14px;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 72%, var(--bg));
+  isolation: isolate;
+}
+
+.playerbar[hidden],
+:root[data-focus] .playerbar,
+:root[data-mini] .playerbar { display: none; }
+
+:root[data-bar-position="top"] .playerbar {
+  top: 0;
+  bottom: auto;
+  border-top: none;
+  border-bottom: 1px solid var(--line);
+}
+
+/* Cristal: deja ver lo de detrás, desenfocado. */
+:root[data-bar-style="glass"] .playerbar {
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  backdrop-filter: blur(24px) saturate(1.5);
+}
+
+/* Carátula: el color de la portada que suena, y la portada misma muy
+   desenfocada por detrás. */
+:root[data-bar-style="artwork"] .playerbar {
+  background: hsl(var(--accent-h) calc(var(--accent-s) * 0.55) 11%);
+  border-color: hsl(var(--accent-h) var(--accent-s) 30% / 0.35);
+}
+
+:root[data-bar-style="artwork"] .playerbar::before {
+  content: "";
+  position: absolute;
+  inset: -60px;
+  z-index: -1;
+  background: var(--art-url, none) center / cover no-repeat;
+  filter: blur(40px) saturate(1.3);
+  opacity: 0.32;
+  pointer-events: none;
+}
+
+:root[data-tone="light"][data-bar-style="artwork"] .playerbar {
+  background: hsl(var(--accent-h) calc(var(--accent-s) * 0.6) 90%);
+}
+
+:root[data-bar-style="artwork"] .playerbar { overflow: hidden; }
+
+/* Los controles de reproducción. */
+.pbar__controls {
+  grid-area: controls;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pbar__controls .pb-btn svg { width: 22px; height: 22px; }
+.pbar__controls .pb-play { width: 46px; height: 46px; color: var(--text); }
+.pbar__controls .pb-play svg { width: 30px; height: 30px; }
+.pbar__controls .pb-play:hover:not(:disabled) { background: var(--surface-3); }
+:root[data-bar-size="compact"] .pbar__controls .pb-play { width: 40px; height: 40px; }
+:root[data-bar-size="compact"] .pbar__controls .pb-play svg { width: 26px; height: 26px; }
+
+/* Aleatorio y repetir: en el centro con el diseño Spotify, a la derecha con
+   el de YouTube Music. */
+.pbar__mode--center { display: none; }
+
+/* La posición. En el diseño YouTube Music es una línea fina en el borde de la
+   barra, que engorda al pasar el ratón; los tiempos, "0:21 / 2:53". */
+.pbar__seek {
+  grid-area: seek;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+:root[data-bar-layout="edge"] .pbar__scrub {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -7px;
+  width: 100%;
+  z-index: 2;
+}
+
+:root[data-bar-layout="edge"][data-bar-position="top"] .pbar__scrub { top: auto; bottom: -7px; }
+
+:root[data-bar-layout="edge"] .pbar__scrub::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 0;
+}
+
+:root[data-bar-layout="edge"] .pbar__scrub:hover::-webkit-slider-runnable-track { height: 5px; }
+:root[data-bar-layout="edge"] .pbar__scrub::-webkit-slider-thumb { margin-top: -4.5px; }
+:root[data-bar-layout="edge"] .pbar__scrub:hover::-webkit-slider-thumb { margin-top: -3.5px; }
+:root[data-bar-layout="edge"] .pbar__time--total::before { content: "/ "; }
+:root[data-bar-layout="edge"] .pbar__seek { gap: 4px; }
+
+/* Lo que suena: carátula, título, "Artista · Álbum", me gusta y el menú. */
+.pbar__meta {
+  grid-area: meta;
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  max-width: min(100%, 620px);
+}
+
+.pbar__art {
+  width: var(--bar-art);
+  height: var(--bar-art);
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: calc(6px * var(--round));
+  overflow: hidden;
+  background: var(--surface-3);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+
+.pbar__art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0;
+  transition: opacity var(--med) var(--ease);
+}
+
+.playerbar.has-art .pbar__art img { opacity: 1; }
+
+.pbar__text { min-width: 0; }
+
+.pbar__title,
+.pbar__sub {
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pbar__title { font-size: 14px; font-weight: 500; color: var(--text); }
+.playerbar.is-empty .pbar__title { color: var(--text-faint); font-weight: 400; }
+.pbar__sub { font-size: 12.5px; color: var(--text-dim); }
+
+.pbar__artist {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.pbar__artist:hover { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
+.pbar__artist[hidden] { display: none; }
+.pbar__album:not(:empty)::before { content: "·"; margin: 0 6px 0 2px; }
+
+.pbar__rate { display: flex; gap: 0; }
+
+/* Sin canción no hay nada que valorar ni menú que abrir. */
+.playerbar.is-empty :is(.pbar__rate, .pbar__more) { visibility: hidden; }
+
+/* Volumen, modos y el resto, a la derecha. */
+.pbar__side {
+  grid-area: side;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.pbar__volume { display: flex; align-items: center; gap: 4px; margin-right: 6px; }
+.pbar__vol { width: 96px; }
+.pbar__extras {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 6px;
+  padding-left: 8px;
+  border-left: 1px solid var(--line);
+}
+
+/* Qué se ve (Ajustes › Reproductor). */
+:root[data-bar-hide~="art"] .pbar__art,
+:root[data-bar-hide~="album"] .pbar__album,
+:root[data-bar-hide~="rate"] .pbar__rate,
+:root[data-bar-hide~="volume"] .pbar__volume,
+:root[data-bar-hide~="modes"] .pbar__mode,
+:root[data-bar-hide~="extras"] .pbar__extras { display: none; }
+
+/* Diseño Spotify: lo que suena a la izquierda; en el centro los controles
+   con la barra de posición debajo, entre los dos tiempos; a la derecha, el
+   resto. */
+:root[data-bar-layout="inline"] .playerbar {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 1.6fr) minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  grid-template-areas:
+    "meta controls side"
+    "meta seek     side";
+  row-gap: 2px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+:root[data-bar-layout="inline"] .pbar__meta { justify-self: start; max-width: 100%; }
+:root[data-bar-layout="inline"] .pbar__controls { justify-self: center; align-self: end; gap: 8px; }
+:root[data-bar-layout="inline"] .pbar__seek { width: 100%; align-self: start; }
+:root[data-bar-layout="inline"] .pbar__scrub { flex: 1; min-width: 0; }
+:root[data-bar-layout="inline"] .pbar__mode--center { display: inline-grid; }
+:root[data-bar-layout="inline"] .pbar__mode--side { display: none; }
+:root[data-bar-layout="inline"][data-bar-hide~="modes"] .pbar__mode--center { display: none; }
+
+/* Play en círculo: claro con el icono oscuro (Ajustes › Reproductor; de
+   serie, el del diseño centrado). */
+:root[data-bar-play="circle"] .pbar__controls .pb-play {
+  width: 40px;
+  height: 40px;
+  background: var(--text);
+  color: var(--bg);
+}
+
+:root[data-bar-play="circle"] .pbar__controls .pb-play svg { width: 22px; height: 22px; }
+:root[data-bar-play="circle"] .pbar__controls .pb-play:hover:not(:disabled) {
+  background: var(--text);
+  transform: scale(1.06);
+}
+
+:root[data-bar-play="circle"][data-bar-layout="inline"] .pbar__controls .pb-play { width: 36px; height: 36px; }
+:root[data-bar-play="circle"][data-bar-layout="inline"] .pbar__controls .pb-play svg { width: 20px; height: 20px; }
+:root[data-bar-play="circle"][data-bar-size="compact"] .pbar__controls .pb-play { width: 32px; height: 32px; }
+:root[data-bar-play="circle"][data-bar-size="compact"] .pbar__controls .pb-play svg { width: 18px; height: 18px; }
+
+/* Solo el icono, en el diseño centrado: sin círculo, un poco más grande. */
+:root[data-bar-play="plain"][data-bar-layout="inline"] .pbar__controls .pb-play { width: 40px; height: 40px; }
+:root[data-bar-play="plain"][data-bar-layout="inline"] .pbar__controls .pb-play svg { width: 26px; height: 26px; }
+
+:root[data-bar-layout="inline"][data-bar-size="compact"] .pbar__controls .pb-btn:not(.pb-play) svg { width: 18px; height: 18px; }
+
+/* Color neutro: lo recorrido y lo encendido, del color del texto en vez del
+   de la canción. */
+:root[data-bar-accent="neutral"] .playerbar {
+  --accent: var(--text);
+  --accent-bright: var(--text);
+}
+
+/* Flotante: una isla separada del borde, con las esquinas redondeadas y
+   sombra. La línea de progreso del borde se queda dentro de la isla. */
+:root[data-bar][data-bar-shape="floating"] { --bar-gap: 10px; }
+
+:root[data-bar-shape="floating"] .playerbar {
+  left: var(--bar-gap);
+  right: var(--bar-gap);
+  bottom: var(--bar-gap);
+  border: 1px solid var(--line-strong);
+  border-radius: calc(16px * var(--round));
+  box-shadow: 0 10px 34px rgb(0 0 0 / 0.38);
+  overflow: hidden;
+}
+
+:root[data-bar-shape="floating"][data-bar-position="top"] .playerbar { top: var(--bar-gap); bottom: auto; }
+
+:root[data-bar][data-bar-shape="floating"]:not([data-focus]):not([data-mini]) .app {
+  height: calc(100% - var(--bar-h) - var(--bar-gap) * 2);
+}
+
+:root[data-bar][data-bar-shape="floating"][data-bar-position="top"]:not([data-focus]):not([data-mini]) .app {
+  margin-top: calc(var(--bar-h) + var(--bar-gap) * 2);
+}
+
+:root[data-bar-shape="floating"][data-bar-layout="edge"] .pbar__scrub { top: -5px; }
+:root[data-bar-shape="floating"][data-bar-layout="edge"][data-bar-position="top"] .pbar__scrub { top: auto; bottom: -5px; }
+:root[data-bar-shape="floating"][data-bar-position="bottom"]:not([data-focus]):not([data-mini]) .toasts {
+  bottom: calc(var(--bar-h) + var(--bar-gap) * 2 + 12px);
+}
+
+/* Ventanas estrechas: primero se va el álbum, luego el deslizador de volumen. */
+@media (max-width: 1180px) {
+  .pbar__album { display: none; }
+  .pbar__vol { width: 72px; }
+}
+
+@media (max-width: 1040px) {
+  .pbar__vol { display: none; }
+  :root[data-bar-layout="edge"] .pbar__seek { display: none; }
+  :root[data-bar-layout="edge"] .pbar__scrub { display: block; }
+}
+
+/* Con la barra, la consola de la derecha sin sus controles: la carátula, el
+   título, la letra y la cola, como la vista de Spotify. */
+:root[data-console-lean]:not([data-focus]):not([data-mini]) .console .timeline,
+:root[data-console-lean]:not([data-focus]):not([data-mini]) .console .transport,
+:root[data-console-lean]:not([data-focus]):not([data-mini]) .console .volume { display: none; }
+
+/* ── Mini reproductor ─────────────────────────────────────────────────── */
+
+/* En el modo mini, la ventana es solo esto. */
+:root[data-mini] .app,
+:root[data-mini] .backdrop { display: none; }
+:root[data-mini] body { background: #0a0a0c; }
+:root[data-mini] body::before { display: none; }
+
+.miniplayer { display: none; }
+
+:root[data-mini] .miniplayer {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  overflow: hidden;
+  color: #fff;
+  background: #16161a;
+  user-select: none;
+  --fill-color: rgb(255 255 255 / 0.92);
+  --track-color: rgb(255 255 255 / 0.28);
+  --thumb-color: #fff;
+}
+
+.mini__bg {
+  position: absolute;
+  inset: 0;
+  background: center / cover no-repeat;
+  transition: filter 400ms var(--ease), transform 400ms var(--ease), opacity 300ms var(--ease);
+}
+
+.mini__shade { position: absolute; inset: 0; pointer-events: none; }
+
+.miniplayer .pb-btn { color: rgb(255 255 255 / 0.9); }
+.miniplayer .pb-btn:hover:not(:disabled) { color: #fff; background: rgb(255 255 255 / 0.14); }
+.miniplayer .pb-btn.is-on { color: #fff; background: rgb(255 255 255 / 0.2); }
+.miniplayer .pb-btn:disabled { opacity: 0.35; }
+
+.mini__top {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.mini__top .pb-btn { width: 28px; height: 28px; }
+.mini__top .pb-btn svg { width: 16px; height: 16px; }
+.mini__grow { flex: 1; }
+
+/* Con posición propia, como los controles: si no, el velo (absoluto) se
+   pinta encima y lo tapa. */
+.mini__info { position: relative; }
+
+.mini__title,
+.mini__artist {
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mini__title { font-size: 15px; font-weight: 650; letter-spacing: -0.01em; }
+.mini__artist { font-size: 13px; color: rgb(255 255 255 / 0.72); }
+
+.mini__seek {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: rgb(255 255 255 / 0.7);
+}
+
+.mini__scrub { width: 100%; }
+
+.mini__controls {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mini__side { width: 30px; height: 30px; }
+.mini__side svg { width: 18px; height: 18px; }
+.mini__skip { width: 40px; height: 40px; }
+.mini__skip svg { width: 26px; height: 26px; }
+.mini__play { width: 46px; height: 46px; }
+.mini__play svg { width: 30px; height: 30px; }
+
+.mini__volume {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 6px;
+}
+
+.mini__volume[hidden] { display: none; }
+.mini__volume svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: rgb(255 255 255 / 0.8);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mini__vol { flex: 1; min-width: 0; }
+.miniplayer.is-volume .mini__controls { display: none; }
+
+.mini__art { display: none; }
+
+/* Carátula completa (como Apple Music): la portada llena la ventana y, al
+   pasar el ratón, el texto y los controles aparecen sobre un velo que
+   desenfoca la parte de abajo. */
+:root[data-mini][data-mini-style="artwork"] .miniplayer {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+  row-gap: 6px;
+  padding: 8px 14px 10px;
+}
+
+:root[data-mini-style="artwork"] .mini__top { grid-row: 1; margin: 0 -6px; }
+:root[data-mini-style="artwork"] .mini__lyrics { grid-row: 2; }
+:root[data-mini-style="artwork"] .mini__info { grid-row: 3; text-align: center; padding: 0 8px; }
+:root[data-mini-style="artwork"] .mini__seek { grid-row: 4; }
+:root[data-mini-style="artwork"] .mini__controls,
+:root[data-mini-style="artwork"] .mini__volume { grid-row: 5; grid-column: 1; min-height: 46px; }
+
+:root[data-mini-style="artwork"] .mini__shade {
+  background: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 0.42) 0%,
+    rgb(0 0 0 / 0) 20%,
+    rgb(0 0 0 / 0) 36%,
+    rgb(0 0 0 / 0.55) 62%,
+    rgb(0 0 0 / 0.78) 100%
+  );
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 16%, transparent 38%, #000 70%);
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 16%, transparent 38%, #000 70%);
+}
+
+/* Velo intenso: más oscuro y más desenfocado, para portadas claras. */
+:root[data-mini-style="artwork"][data-mini-shade="strong"] .mini__shade {
+  background: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 0.55) 0%,
+    rgb(0 0 0 / 0.1) 20%,
+    rgb(0 0 0 / 0.1) 34%,
+    rgb(0 0 0 / 0.72) 58%,
+    rgb(0 0 0 / 0.9) 100%
+  );
+  backdrop-filter: blur(22px) saturate(1.1);
+}
+
+/* El título y el artista a la izquierda, como una ficha. */
+:root[data-mini-style="artwork"][data-mini-align="left"] .mini__info { text-align: left; padding: 0 2px; }
+:root[data-mini-style="artwork"][data-mini-align="left"] .mini__lyrics { text-align: left; }
+:root[data-mini-style="artwork"][data-mini-align="left"] .mini__title { font-size: 17px; }
+
+/* Sin carátula, un fondo con el color del tema en vez de un hueco negro. */
+.miniplayer:not(.has-art) .mini__bg {
+  background-image: radial-gradient(120% 90% at 30% 20%, hsl(var(--accent-h) var(--accent-s) 32%), #111 70%) !important;
+}
+
+/* Controles al pasar el ratón: fuera de él, la carátula limpia. Sin
+   carátula, o ajustando el volumen, se quedan. */
+:root[data-mini-style="artwork"][data-mini-controls="hover"] .miniplayer.has-art:not(:hover):not(.is-volume) :is(.mini__top, .mini__info, .mini__seek, .mini__controls, .mini__shade) {
+  opacity: 0;
+}
+
+:root[data-mini-style="artwork"] :is(.mini__top, .mini__info, .mini__seek, .mini__controls, .mini__shade) {
+  transition: opacity 260ms var(--ease);
+}
+
+/* La letra, sobre la carátula desenfocada: el verso que suena en grande y el
+   siguiente, más tenue. */
+.mini__lyrics {
+  position: relative;
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 8px;
+  text-align: center;
+  text-shadow: 0 1px 12px rgb(0 0 0 / 0.45);
+}
+
+:root[data-mini-style="artwork"] .miniplayer.show-lyrics.has-line .mini__lyrics { display: flex; }
+
+:root[data-mini-style="artwork"] .miniplayer.show-lyrics.has-line .mini__bg {
+  filter: blur(18px) brightness(0.55) saturate(1.2);
+  transform: scale(1.12);
+}
+
+:root[data-mini-style="artwork"] .miniplayer.show-lyrics.has-line .mini__shade { opacity: 1 !important; }
+
+.mini__line {
+  margin: 0;
+  font-size: clamp(17px, 6.4vw, 26px);
+  font-weight: 700;
+  line-height: 1.22;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.mini__line--next {
+  font-size: clamp(14px, 4.6vw, 19px);
+  color: rgb(255 255 255 / 0.45);
+  -webkit-line-clamp: 2;
+}
+
+/* Compacto: una tira con la carátula pequeña, el título, los controles y
+   una línea de progreso abajo, sobre la portada desenfocada. */
+:root[data-mini][data-mini-style="compact"] .miniplayer {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "art  info controls top"
+    "seek seek seek     seek";
+  column-gap: 12px;
+  align-items: center;
+  padding: 8px 8px 6px 10px;
+}
+
+:root[data-mini-style="compact"] .mini__bg {
+  inset: -40px;
+  filter: blur(26px) brightness(0.5) saturate(1.35);
+}
+
+:root[data-mini-style="compact"] .mini__art {
+  grid-area: art;
+  display: block;
+  position: relative;
+  height: min(64px, calc(100vh - 30px));
+  aspect-ratio: 1;
+  border-radius: 7px;
+  overflow: hidden;
+  background: rgb(255 255 255 / 0.1);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.4);
+}
+
+:root[data-mini-style="compact"] .mini__art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.miniplayer:not(.has-art) .mini__art img { visibility: hidden; }
+
+:root[data-mini-style="compact"] .mini__info { grid-area: info; min-width: 0; }
+:root[data-mini-style="compact"] .mini__title { font-size: 14px; }
+:root[data-mini-style="compact"] .mini__artist { font-size: 12px; }
+
+:root[data-mini-style="compact"] .mini__controls,
+:root[data-mini-style="compact"] .mini__volume { grid-area: controls; }
+:root[data-mini-style="compact"] .mini__volume { width: 150px; }
+:root[data-mini-style="compact"] .mini__side { display: none; }
+:root[data-mini-style="compact"] .mini__skip { width: 34px; height: 34px; }
+:root[data-mini-style="compact"] .mini__skip svg { width: 20px; height: 20px; }
+:root[data-mini-style="compact"] .mini__play { width: 40px; height: 40px; }
+:root[data-mini-style="compact"] .mini__play svg { width: 24px; height: 24px; }
+
+:root[data-mini-style="compact"] .mini__top {
+  grid-area: top;
+  flex-direction: column;
+  align-self: stretch;
+  justify-content: space-between;
+}
+
+:root[data-mini-style="compact"] .mini__top .pb-btn { width: 22px; height: 22px; }
+:root[data-mini-style="compact"] .mini__top .pb-btn svg { width: 13px; height: 13px; }
+:root[data-mini-style="compact"] .mini__grow { display: none; }
+
+:root[data-mini-style="compact"] .mini__seek { grid-area: seek; display: flex; }
+:root[data-mini-style="compact"] .mini__scrub { flex: 1; min-width: 0; }
+:root[data-mini-style="compact"] .mini__time { display: none; }
+:root[data-mini-style="compact"] .mini__scrub { height: 8px; }
+:root[data-mini-style="compact"] .mini__scrub::-webkit-slider-runnable-track { height: 3px; }
+:root[data-mini-style="compact"] .mini__scrub::-webkit-slider-thumb { width: 9px; height: 9px; margin-top: -3px; }
+:root[data-mini-style="compact"] .mini__lyrics { display: none !important; }
+
+/* La ventana del mini se puede hacer pequeña: el compacto se adapta. */
+@media (max-width: 300px) {
+  :root[data-mini-style="compact"] .mini__art { display: none; }
+}
+
+/* ── Inicio: estanterías ──────────────────────────────────────────────── */
+
+.home[hidden] { display: none; }
+
+.home {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 4px 40px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.shelf {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.shelf__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.shelf__text { min-width: 0; }
+
+.shelf__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shelf__sub {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+.shelf__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.shelf__arrow--next svg { transform: rotate(180deg); }
+
+/* Una fila que se recorre en horizontal. Las tarjetas crecen con la
+   densidad. */
+.shelf__row {
+  --card-w: calc(116px + 44px * var(--density));
+
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--card-w);
+  gap: 16px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  padding: 2px 2px 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+  scroll-snap-align: start;
+}
+
+.card__cover {
+  position: relative;
+  aspect-ratio: 1;
+  margin-bottom: 6px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface-3);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--fast) var(--ease);
+}
+
+.card__art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--med) var(--ease);
+}
+
+.card:hover .card__art { transform: scale(1.04); }
+.card:focus-visible .card__cover { box-shadow: 0 0 0 3px var(--accent-ring); }
+
+.card__play {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.35);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity var(--fast) var(--ease), transform var(--med) var(--ease);
+}
+
+.card__play svg { width: 18px; height: 18px; }
+
+.card:hover .card__play,
+.card:focus-visible .card__play {
+  opacity: 1;
+  transform: none;
+}
+
+.card__more {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.5);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--fast) var(--ease);
+}
+
+.card__more svg { width: 16px; height: 16px; }
+
+.card:hover .card__more,
+.card__more:focus-visible,
+.card__more.is-open { opacity: 1; }
+
+.card__title {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.card__by {
+  font-size: 12px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card--artist .card__cover { border-radius: 50%; }
+
+.card--artist .card__title,
+.card--artist .card__by { text-align: center; }
+
+.card__cover--likes {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--accent-deep), var(--accent));
+  color: var(--on-accent);
+}
+
+.card__cover--likes svg {
+  width: 38%;
+  height: 38%;
+  fill: currentColor;
+}
+
+.card__cover--mosaic {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.card--skeleton { cursor: default; }
+
+.card--skeleton .card__cover,
+.card--skeleton .card__title,
+.card--skeleton .card__by {
+  background: var(--surface-3);
+  border-radius: calc(4px * var(--round));
+  box-shadow: none;
+  animation: shimmer 1.4s var(--ease) infinite;
+}
+
+.card--skeleton .card__cover { border-radius: var(--radius); }
+.card--skeleton .card__title { height: 12px; width: 85%; }
+.card--skeleton .card__by { height: 10px; width: 55%; }
+
+@keyframes shimmer { 50% { opacity: 0.45; } }
+
+/* Primera vez, sin nada escuchado: elegir géneros. */
+.home__welcome {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(120% 140% at 0% 0%, var(--accent-wash), transparent 60%),
+    linear-gradient(180deg, var(--surface-2), var(--surface));
+  flex-shrink: 0;
+}
+
+.genre-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.genre-chip {
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--fast) var(--ease), color var(--fast) var(--ease),
+    background var(--fast) var(--ease);
+}
+
+.genre-chip:hover { border-color: var(--accent-deep); color: var(--text); }
+.genre-chip:focus-visible { box-shadow: 0 0 0 3px var(--accent-ring); }
+
+.genre-chip[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+/* ── Ajustes: casillas, listas ordenables y atajos ─────────────────────── */
+
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.check input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.order-list,
+.keys {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.order-list { max-width: 420px; }
+
+.keys[hidden] { display: none; }
+
+.order-list__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 4px 3px 10px;
+  border-radius: calc(7px * var(--round));
+  background: var(--surface-2);
+}
+
+.order-list__arrows { display: flex; gap: 2px; }
+
+.order-list__arrows .btn {
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.keys__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 4px 4px 10px;
+  border-radius: calc(7px * var(--round));
+}
+
+.keys__item:hover { background: var(--surface-2); }
+
+.keys__name {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.keys__note {
+  font-size: 11.5px;
+  color: var(--danger);
+}
+
+.keys__note[hidden] { display: none; }
+
+.keys__combo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 132px;
+  min-height: 30px;
+  padding: 3px 6px;
+  border: 1px solid transparent;
+  border-radius: calc(7px * var(--round));
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+
+.keys__combo:hover { border-color: var(--line-strong); }
+.keys__combo:focus-visible { box-shadow: 0 0 0 3px var(--accent-ring); }
+
+.keys__combo.is-recording {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.keys__none {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 22px;
+  padding: 2px 7px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: calc(5px * var(--round));
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 11.5px;
+  text-align: center;
+}
+
+/* ── Ecualizador de 10 bandas ─────────────────────────────────────────── */
+
+.eq10 {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px 0 2px;
+}
+
+.eq10__band {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.eq10__value,
+.eq10__hz {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.eq10__value { color: var(--text-dim); }
+
+/* Un deslizador horizontal girado: se mueve y se pinta igual que los demás. */
+.eq10__track {
+  position: relative;
+  width: 24px;
+  height: 128px;
+}
+
+.eq10__slider {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 128px;
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+
+/* ── Etiquetas (palabras y canales que no se recomiendan) ─────────────── */
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  cursor: text;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 4px 0 10px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 12.5px;
+}
+
+.tag__remove {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-faint);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tag__remove:hover { background: var(--line-strong); color: var(--text); }
+
+.tags__input {
+  flex: 1;
+  min-width: 140px;
+  height: 26px;
+  padding: 0 6px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+  user-select: text;
+  cursor: text;
+}
+
+.tags:focus-within { border-color: var(--accent-deep); box-shadow: 0 0 0 3px var(--accent-ring); }
+
+/* ── Perfiles y usuarios ──────────────────────────────────────────────── */
+
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* El botón de la barra lateral: quién escucha y con qué perfil. Ocupa el
+   hueco de abajo, justo encima de Ajustes. */
+.tab--people { margin-top: auto; }
+.tab--people + .tab--settings { margin-top: 0; }
+
+.people-button__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.people-button__name,
+.people-button__profile {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.people-button__profile {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-faint);
+}
+
+.people-button__profile:empty { display: none; }
+
+/* Con la barra en solo iconos, el avatar sí se ve (el resto de textos no). */
+:root[data-sidebar="icons"] .tab .avatar { display: inline-grid; }
+:root[data-sidebar="icons"] .tab--people { padding: 8px; }
+
+.people {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.people__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 6px 6px 6px 10px;
+  border-radius: calc(7px * var(--round));
+  background: var(--surface-2);
+}
+
+.people__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.people__badge {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-size: 11px;
+}
+
+.people__empty {
+  padding: 6px 2px;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+/* El temporizador apagado es solo su luna (el nombre, en el tooltip): con
+   Radio, modo escucha y modo mini al lado, el texto no cabe en una fila.
+   Encendido enseña la cuenta atrás. */
+#sleep-button:not(.is-active) {
+  width: 32px;
+  padding: 0;
+}
+
+#sleep-button:not(.is-active) #sleep-label { display: none; }
+/* Un botón con `hidden` se esconde: `.btn` pone display y, sin esto, gana al
+   estilo del navegador para [hidden]. */
+.btn[hidden] { display: none; }
+
+/* ── Avisos breves ────────────────────────────────────────────────────── */
+
+/* Abajo a la derecha, encima de todo, como las notificaciones de Windows:
+   entran desde el borde y se apilan hacia arriba, todas del mismo ancho. */
+.toasts {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: min(360px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 11px 12px 11px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13px;
+  box-shadow: var(--shadow-md), 0 12px 32px rgb(0 0 0 / 0.28);
+  pointer-events: auto;
+  animation: toast-in 220ms var(--ease);
+}
+
+.toast.is-leaving {
+  opacity: 0;
+  transform: translateX(24px);
+  transition: opacity 180ms var(--ease), transform 180ms var(--ease);
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(32px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Algo en curso: un aro que gira en vez del icono. */
+.toast__spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.toast--info .toast__mark,
+.toast--busy .toast__mark {
+  background: var(--surface-3);
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* En el modo mini la ventana es una tira: solo los errores caben ahí. */
+:root[data-mini] .toast:not(.toast--error) { display: none; }
+
+.toast__mark {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.toast__mark svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* "Ya estaba": no es un error, pero no pasó lo que se pidió. Ámbar, para que
+   no se confunda con el "hecho" de siempre. */
+.toast--warn { border-color: hsl(38 80% 50% / 0.55); }
+.toast--warn .toast__mark { background: hsl(38 90% 55% / 0.16); color: hsl(38 90% 58%); }
+:root[data-tone="light"] .toast--warn .toast__mark { color: hsl(32 90% 38%); }
+
+.toast--error { border-color: var(--danger); }
+.toast--error .toast__mark { background: transparent; color: var(--danger); }
+
+/* Hasta tres líneas: con un título largo, lo importante ("sonará a
+   continuación") va al final y no se debe perder. */
+.toast__text {
+  min-width: 0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.toast__action {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border: none;
+  border-radius: calc(6px * var(--round));
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toast__action:hover { background: var(--surface-3); color: var(--accent-bright); }
+.toast__action:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+
+/* ── Menú: marca "ya está" ─────────────────────────────────────────────── */
+
+.menu__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.menu__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menu__check {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.menu__check svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.menu__hint {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.menu__item--checked .menu__label { color: var(--text); }
+
+/* ── Filas: el artista enlaza, y el asa de arrastre ────────────────────── */
+
+.result__artist {
+  display: inline;
+  max-width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.result__artist:hover,
+.card__by--link:hover,
+.track__by[role="button"]:hover {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.result__artist:focus-visible,
+.card__by--link:focus-visible,
+.track__by[role="button"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-ring);
+}
+
+.result__artist[aria-busy="true"],
+.track__by[aria-busy="true"] { cursor: progress; opacity: 0.7; }
+
+.card__by--link {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.track__by[role="button"] { cursor: pointer; border-radius: 3px; }
+
+.result--reorderable {
+  grid-template-columns: 14px var(--art) 1fr auto auto;
+  padding-left: 4px;
+  gap: 10px 12px;
+}
+
+.result__grip {
+  display: grid;
+  place-items: center;
+  color: var(--text-faint);
+  opacity: 0.35;
+  cursor: grab;
+  transition: opacity var(--fast) var(--ease);
+}
+
+.result__grip svg { width: 14px; height: 14px; }
+.result__grip .icon-fill { fill: currentColor; }
+
+.result:hover .result__grip,
+.result:focus-visible .result__grip { opacity: 1; }
+
+/* ── Búsqueda: el artista buscado ──────────────────────────────────────── */
+
+.artist-hit {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: border-color var(--fast) var(--ease), background var(--fast) var(--ease);
+}
+
+.artist-hit:hover { border-color: var(--line-strong); background: var(--surface-3); }
+.artist-hit:focus-visible { outline: none; border-color: var(--accent-deep); box-shadow: 0 0 0 3px var(--accent-ring); }
+
+.artist-hit__art {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--surface-3);
+}
+
+.artist-hit__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.artist-hit__name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artist-hit__sub { font-size: 12px; color: var(--text-faint); }
+.artist-hit .result__chevron svg { transform: rotate(180deg); }
+
+/* ── Página de artista, álbum o lista de YouTube ───────────────────────── */
+
+.artist-page[hidden] { display: none; }
+
+/* Todo en un solo scroll, como Inicio: cabecera, canciones y estanterías. */
+.artist-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 4px 40px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.artist-page__top { display: flex; flex-direction: column; gap: 14px; }
+
+/* Aquí las filas no scrollean por su cuenta: lo hace la página entera. */
+.artist-page .results__list { flex: none; overflow: visible; }
+.artist-page__songs:empty { display: none; }
+
+.artist-page__shelves {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  margin-top: 18px;
+}
+
+.artist-page__shelves:empty { display: none; }
+
+.artist-page__error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.hero {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 24px;
+  flex-shrink: 0;
+}
+
+/* Artista: su foto ancha de fondo, con el nombre encima. */
+.hero--artist {
+  min-height: 150px;
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--surface-3), var(--surface-2));
+  overflow: hidden;
+}
+
+.hero--artist.has-banner { min-height: clamp(200px, 30vh, 300px); }
+
+.hero__banner {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
+}
+
+/* El degradado deja leer el nombre sobre cualquier foto. */
+.hero--artist.has-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, rgb(0 0 0 / 0.78) 0%, rgb(0 0 0 / 0.25) 55%, rgb(0 0 0 / 0) 100%);
+}
+
+.hero__body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.hero__title {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.hero--artist.has-banner .hero__title,
+.hero--artist.has-banner .hero__meta { color: #fff; }
+.hero--artist.has-banner .hero__meta { opacity: 0.85; }
+
+.hero__kicker {
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.hero__meta {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.hero__actions .btn { height: 34px; padding-inline: 12px 14px; font-size: 13px; }
+.hero__actions .btn svg { width: 14px; height: 14px; }
+
+.hero--artist.has-banner .hero__actions .btn:not(.btn--primary) {
+  border-color: rgb(255 255 255 / 0.35);
+  background: rgb(0 0 0 / 0.35);
+  color: #fff;
+  backdrop-filter: blur(6px);
+}
+
+.hero.is-loading .hero__meta { animation: shimmer 1.4s var(--ease) infinite; }
+
+/* Álbum o lista: carátula a la izquierda. */
+.hero__cover {
+  width: clamp(140px, 18vw, 200px);
+  aspect-ratio: 1;
+  flex-shrink: 0;
+  border-radius: var(--radius);
+  object-fit: cover;
+  background: var(--surface-3);
+  box-shadow: var(--shadow-md);
+}
+
+.hero__cover--blank { animation: shimmer 1.4s var(--ease) infinite; }
+
+.hero__link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.hero__link:hover { text-decoration: underline; text-underline-offset: 2px; }
+.hero__link:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent-ring); }
+
+.hero__desc {
+  max-width: 760px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+
+.hero__desc-text { margin: 0; white-space: pre-line; }
+
+.hero__desc.is-clamped .hero__desc-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+.hero__desc-more { margin-top: 2px; padding-left: 0; }
+
+/* Filas de carga mientras llega la página. */
+.result--skeleton { cursor: default; pointer-events: none; }
+
+.result--skeleton .result__art,
+.result--skeleton .result__text span {
+  background: var(--surface-3);
+  border-radius: calc(4px * var(--round));
+  animation: shimmer 1.4s var(--ease) infinite;
+}
+
+.result--skeleton .result__art { display: block; }
+.result--skeleton .result__text span { display: block; height: 10px; width: 45%; }
+.result--skeleton .result__text span:first-child { height: 12px; width: 70%; margin-bottom: 4px; }
+
+/* Tarjetas de YouTube Music: los vídeos son apaisados. */
+.card--video .card__cover { aspect-ratio: 16 / 9; }
+
+.card__play--button {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.card__play--button:hover { background: var(--accent-bright); transform: scale(1.06); }
+
+/* "Ver todo": la estantería se despliega en rejilla. */
+.shelf__row--grid {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(auto-fill, minmax(var(--card-w), 1fr));
+  overflow-x: visible;
+}
+
+/* ===========================================================================
+   Android
+   La misma app, con la forma de una app de móvil: la vista arriba, un mini
+   reproductor encima de la barra de pestañas, y al tocarlo el reproductor a
+   pantalla completa (el "modo escucha"). Lo marca boot-theme.js con
+   data-platform="android".
+   =========================================================================== */
+
+/* Lo que en el móvil no existe: bandeja, atajos, modo mini, ventana... */
+:root[data-platform="android"] .desktop-only { display: none !important; }
+
+:root[data-platform="android"] body {
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+:root[data-platform="android"] .app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+:root[data-platform="android"] .resizer,
+:root[data-platform="android"] .brand,
+:root[data-platform="android"] .sidebar__section,
+:root[data-platform="android"] .tab--people,
+:root[data-platform="android"] .volume { display: none; }
+
+/* ── La vista ────────────────────────────────────────────────────────── */
+
+:root[data-platform="android"] .main {
+  order: 1;
+  flex: 1;
+  min-height: 0;
+  gap: 12px;
+  padding: 12px 14px 8px;
+}
+
+:root[data-platform="android"] .field__input,
+:root[data-platform="android"] .btn--search { height: 42px; }
+:root[data-platform="android"] .btn--search { padding: 0 14px; }
+
+:root[data-platform="android"] .view-head { margin-top: 0; gap: 10px; }
+:root[data-platform="android"] .view-title { font-size: 22px; }
+
+:root[data-platform="android"] .panel-head { flex-wrap: wrap; justify-content: flex-end; }
+
+/* Sin ratón no hay "pasar por encima": las acciones de cada fila, siempre. */
+:root[data-platform="android"] .result__action,
+:root[data-platform="android"] .card__more { opacity: 1; }
+:root[data-platform="android"] .card__play,
+:root[data-platform="android"] .shelf__arrow { display: none; }
+
+:root[data-platform="android"] .result {
+  gap: 10px;
+  padding-inline: 4px;
+}
+
+:root[data-platform="android"] .result__time { display: none; }
+
+:root[data-platform="android"] .shelf__row {
+  --card-w: calc(112px + 20px * var(--density));
+  gap: 12px;
+}
+
+:root[data-platform="android"] .shelf__title { font-size: 16px; }
+
+:root[data-platform="android"] .discover__card { padding: 14px; }
+
+:root[data-platform="android"] .settings { padding-right: 0; }
+:root[data-platform="android"] .settings-search { flex-basis: 45%; }
+:root[data-platform="android"] .setting { padding-inline: 12px; }
+:root[data-platform="android"] .themes { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+:root[data-platform="android"] .eq10 { gap: 2px; }
+
+/* ── La barra de pestañas, abajo ──────────────────────────────────────── */
+
+:root[data-platform="android"] .sidebar {
+  order: 3;
+  flex: none;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  height: 60px;
+  padding: 0 4px;
+  border-right: none;
+  border-left: none;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+:root[data-platform="android"] .nav {
+  flex: 1;
+  flex-direction: row;
+  gap: 0;
+  min-width: 0;
+}
+
+:root[data-platform="android"] .tab {
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  width: auto;
+  min-width: 0;
+  padding: 6px 0;
+  border-radius: 0;
+  font-size: 10.5px;
+}
+
+:root[data-platform="android"] .tab svg { width: 22px; height: 22px; }
+
+:root[data-platform="android"] .tab span:not(.avatar) {
+  display: block;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:root[data-platform="android"] .tab__count { display: none !important; }
+
+:root[data-platform="android"] .tab--settings {
+  flex: 0 0 56px;
+  margin-top: 0;
+}
+
+:root[data-platform="android"] .tab:hover { background: transparent; }
+
+:root[data-platform="android"] .tab[aria-current="page"] {
+  background: transparent;
+  color: var(--accent);
+}
+
+/* La marca de "aquí estás", arriba de la pestaña en vez de a su izquierda. */
+:root[data-platform="android"] .tab[aria-current="page"]::before {
+  top: 0;
+  bottom: auto;
+  left: 28%;
+  right: 28%;
+  width: auto;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+}
+
+/* ── El mini reproductor, encima de las pestañas ──────────────────────── */
+
+:root[data-platform="android"] .nowplaying {
+  order: 2;
+  flex: none;
+  gap: 0;
+  padding: 0 8px 6px;
+  border: none;
+  background: transparent;
+}
+
+:root[data-platform="android"]:not([data-focus]) .upnext { display: none; }
+
+:root[data-platform="android"]:not([data-focus]) .console {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  grid-template-areas:
+    "art title ctrl"
+    "art by    ctrl"
+    "time time time";
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 0;
+  padding: 8px 8px 4px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+:root[data-platform="android"]:not([data-focus]) .track,
+:root[data-platform="android"]:not([data-focus]) .track__head,
+:root[data-platform="android"]:not([data-focus]) .track__text { display: contents; }
+
+:root[data-platform="android"]:not([data-focus]) .artwork {
+  grid-area: art;
+  width: 48px;
+  margin: 0;
+  border-radius: calc(6px * var(--round));
+}
+
+:root[data-platform="android"]:not([data-focus]) .track__title {
+  grid-area: title;
+  align-self: end;
+  font-size: 14px;
+  text-align: left;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+
+:root[data-platform="android"]:not([data-focus]) .track__by {
+  grid-area: by;
+  align-self: start;
+  margin: 0;
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:root[data-platform="android"]:not([data-focus]) .chips,
+:root[data-platform="android"]:not([data-focus]) .rate,
+:root[data-platform="android"]:not([data-focus]) .transport .mode,
+:root[data-platform="android"]:not([data-focus]) #prev-button,
+:root[data-platform="android"]:not([data-focus]) .meter,
+:root[data-platform="android"]:not([data-focus]) .console__glow,
+:root[data-platform="android"]:not([data-focus]) .timeline__times { display: none; }
+
+:root[data-platform="android"]:not([data-focus]) .transport { grid-area: ctrl; gap: 2px; }
+:root[data-platform="android"]:not([data-focus]) .transport__main { gap: 2px; }
+
+:root[data-platform="android"]:not([data-focus]) .btn--play { width: 42px; height: 42px; }
+:root[data-platform="android"]:not([data-focus]) .btn--play svg { width: 20px; height: 20px; }
+
+/* La barra de progreso, fina y solo para ver: tocar el mini reproductor lo
+   abre, y ahí sí se arrastra. */
+:root[data-platform="android"]:not([data-focus]) .timeline {
+  grid-area: time;
+  margin-top: 4px;
+  pointer-events: none;
+}
+
+:root[data-platform="android"]:not([data-focus]) .scrub { height: 6px; }
+
+/* ── El reproductor a pantalla completa ───────────────────────────────── */
+
+:root[data-platform="android"][data-focus] .main,
+:root[data-platform="android"][data-focus] .sidebar { display: none; }
+
+:root[data-platform="android"][data-focus] .nowplaying {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding: 56px 16px 16px;
+}
+
+:root[data-platform="android"][data-focus] .console {
+  flex-shrink: 0;
+  padding: 16px 8px 12px;
+}
+
+:root[data-platform="android"][data-focus] .artwork { width: min(100%, 78vw, 44vh); }
+:root[data-platform="android"][data-focus] .track__title { font-size: 20px; }
+
+:root[data-platform="android"][data-focus] .btn--play { width: 64px; height: 64px; }
+:root[data-platform="android"][data-focus] .btn--play svg { width: 28px; height: 28px; }
+:root[data-platform="android"][data-focus] .btn--ghost { width: 48px; height: 48px; }
+
+/* En el móvil no hay modo mini ni "modo escucha" aparte: ya lo es esto. */
+:root[data-platform="android"] #mini-button,
+:root[data-platform="android"] #focus-button { display: none; }
+
+:root[data-platform="android"][data-focus] .upnext {
+  flex: none;
+  height: 65vh;
+}
+
+:root[data-platform="android"][data-focus] .lyrics { --lyric-scale: 1.2; }
+
+/* Cerrar el reproductor: arriba a la izquierda, como una flecha hacia abajo. */
+:root[data-platform="android"][data-focus] .mode-exit {
+  display: inline-flex;
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  right: auto;
+  width: 40px;
+  height: 40px;
+}
+
+/* Con el dedo, los botones de valorar algo más grandes. */
+:root[data-platform="android"][data-focus] .track__head { grid-template-columns: 48px minmax(0, 1fr) 48px; }
+:root[data-platform="android"][data-focus] .rate { width: 48px; height: 48px; }
+:root[data-platform="android"][data-focus] .rate svg { width: 24px; height: 24px; }
+
+/* Los avisos, por encima del mini reproductor y de la barra de pestañas. */
+:root[data-platform="android"] .toasts { bottom: 140px; left: 16px; right: 16px; width: auto; }
+:root[data-platform="android"] .toast { font-size: 13.5px; }
+
+/* Sin ratón no se arrastra: se mueve desde el menú de cada fila. */
+:root[data-platform="android"] .result__grip { display: none; }
+:root[data-platform="android"] .result--reorderable {
+  grid-template-columns: var(--art) 1fr auto auto;
+  padding-left: 4px;
+}
+
+:root[data-platform="android"] .hero { gap: 14px; }
+:root[data-platform="android"] .hero--artist { padding: 16px; }
+:root[data-platform="android"] .hero--artist.has-banner { min-height: 190px; }
+:root[data-platform="android"] .hero--album { flex-direction: column; align-items: flex-start; }
+:root[data-platform="android"] .hero__cover { width: min(56vw, 220px); }
+:root[data-platform="android"] .hero__title { font-size: 26px; }
+
+/* Controles de biblioteca, recuperación y copias de seguridad. */
+.library-tools { padding: 12px 0; display: flex; flex-direction: column; gap: 12px; }
+.library-tools[hidden], .recovery-notice[hidden], .library-cover[hidden] { display: none; }
+.library-tools__row, .moment-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.library-tools input[type="search"] { flex: 1; min-width: 180px; }
+.library-tools input, .library-tools select, .library-editor input:not([type="checkbox"]), .library-editor textarea, .library-editor select, .moment-controls select, #backup-list {
+  padding: 9px 12px; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; font: inherit; max-width: 100%;
+}
+.library-editor input[type="checkbox"], .library-tools input[type="checkbox"], .moment-controls input { accent-color: var(--accent); width: 18px; height: 18px; }
+.library-description { color: var(--text-dim); margin: 0; white-space: pre-wrap; }
+.library-cover { width: 88px; height: 88px; object-fit: cover; border-radius: 12px; }
+.library-editor { width: min(540px, calc(100vw - 32px)); max-height: 88vh; overflow: auto; padding: 24px; border: 1px solid var(--line); border-radius: 16px; color: var(--text); background: var(--bg); }
+.library-editor::backdrop { background: #0009; }
+.library-editor form { display: flex; flex-direction: column; gap: 14px; }
+.library-editor h2 { margin: 0; }
+.library-field { display: flex; flex-direction: column; gap: 6px; }
+.library-field:has(input[type="checkbox"]) { flex-direction: row; align-items: center; }
+.library-field textarea { min-height: 70px; resize: vertical; }
+.library-error { color: #f57777; margin: 0; }
+.result.result--selectable { grid-template-columns: 22px var(--art) minmax(0, 1fr) auto auto; }
+.result.is-selected { background: var(--surface-2); border-color: var(--accent); }
+.moment-controls { padding: 14px 0; }
+.moment-controls label { display: flex; gap: 8px; align-items: center; }
+.moment-controls__status { flex-basis: 100%; color: var(--text-dim); font-size: 13px; }
+.setting--backup { flex-direction: column; align-items: stretch; gap: 12px; }
+.recovery-notice { position: fixed; z-index: 120; bottom: 115px; left: 50%; transform: translateX(-50%); width: min(660px, calc(100vw - 32px)); padding: 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 8px 30px #0005; }
+.recovery-notice > span { flex-basis: 100%; }
+@media (max-width: 640px) {
+  .library-tools__row > input[type="search"] { flex-basis: 100%; }
+  .result.result--selectable { grid-template-columns: 22px var(--art) minmax(0,1fr) auto; }
+  .result--selectable .result__time { display: none; }
+  .recovery-notice { bottom: 135px; }
+}

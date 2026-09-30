@@ -1,0 +1,24 @@
+{
+  "name": "antares",
+  "private": true,
+  "version": "0.3.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tauri dev",
+    "tauri": "tauri",
+    "test": "node --test \"tests/*.test.mjs\"",
+    "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml --lib",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --lib"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  },
+  "description": "Reproductor de música para Windows y Android",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Hanyer001/Antares.git"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

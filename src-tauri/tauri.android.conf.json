@@ -1,0 +1,15 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "com.hanyer.antares",
+  "app": {
+    "windows": [
+      {
+        "title": "Antares",
+        "visible": true
+      }
+    ]
+  },
+  "bundle": {
+    "externalBin": []
+  }
+}

@@ -1,0 +1,8 @@
+Inter, de Rasmus Andersson — https://rsms.me/inter/
+
+Licencia: SIL Open Font License 1.1 (https://openfontlicense.org), que permite
+incluirla y distribuirla dentro de una aplicación.
+
+Archivos (versión v20, variable, pesos 300–600), descargados de Google Fonts:
+  inter-latin.woff2      latín básico
+  inter-latin-ext.woff2  latín extendido
