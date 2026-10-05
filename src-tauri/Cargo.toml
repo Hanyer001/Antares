@@ -1,6 +1,6 @@
 [package]
 name = "antares"
-version = "0.3.0"
+version = "0.3.2"
 description = "Antares - reproductor de musica"
 authors = ["Hanyer"]
 edition = "2021"
@@ -27,6 +27,9 @@ serde_json = "1"
 
 tokio = { version = "1", features = ["full"] }
 
+# Extraccion nativa con el parche local de cliente YouTube (ver vendor/rusty_ytdl/ANTARES_PATCH.md).
+rusty_ytdl = { path = "vendor/rusty_ytdl", default-features = false, features = ["rustls", "live"] }
+
 # Solo para la autoactualizacion de yt-dlp. `blocking` porque la comprobacion
 # corre en su propio hilo y no necesita el runtime async; `rustls-tls` para no
 # depender de OpenSSL ni de la configuracion TLS del sistema.
@@ -48,6 +51,9 @@ tauri-plugin-autostart = "2"
 # Actualizaciones de la app: busca una version nueva publicada, comprueba su
 # firma y la instala (ver `app_update`).
 tauri-plugin-updater = "2"
+# Un solo Antares abierto: abrirlo otra vez enseña el que ya esta (solo en el
+# instalado, ver `run`).
+tauri-plugin-single-instance = "2"
 
 # Solo Windows: los botones de la miniatura de la barra de tareas (me gusta,
 # anterior, play, siguiente), ver `thumbbar`. La misma version que ya trae
