@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.3.2
+
+- Extracción nativa de audio en Windows con rusty_ytdl y corrección de los enlaces que devolvían HTTP 403.
+- Corrección de los avisos de compilación del constructor de pruebas y del enlazador de Windows.
+
 ## 0.3.0
 
 - Recuperación de reproducción con renovación del enlace, conservación de posición y espera de reconexión.

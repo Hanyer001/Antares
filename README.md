@@ -9,7 +9,17 @@
 
 Antares es un reproductor de música que permite buscar canciones en YouTube, organizar una biblioteca personal y descubrir música a partir de tus escuchas. Combina una interfaz personalizable con listas inteligentes, letras sincronizadas y controles de reproducción integrados en el sistema.
 
-La versión del proyecto es **0.3.0**. El código de Windows y Android se mantiene en este repositorio; los paquetes de actualización de Windows se distribuyen por separado en [antares-actualizaciones](https://github.com/Hanyer001/antares-actualizaciones/releases).
+La versión del proyecto es **0.3.2**. El código de Windows y Android se mantiene en este repositorio; los paquetes de actualización de Windows se distribuyen por separado en [antares-actualizaciones](https://github.com/Hanyer001/antares-actualizaciones/releases).
+
+## Novedades de 0.3.2
+
+- Extracción nativa de audio en Windows con `rusty_ytdl`, conservando la entrada por URL o ID y los metadatos.
+- Corrección de los enlaces que devolvían HTTP 403 al continuar la reproducción. Se selecciona el mejor stream disponible, preferentemente solo audio; el modo de ahorro conserva su límite de calidad.
+- Compilación sin el aviso del constructor exclusivo de pruebas y sin los mensajes de progreso de MSVC presentados como warnings.
+
+La copia de `rusty_ytdl` y su parche de cliente YouTube se documentan en [ANTARES_PATCH.md](src-tauri/vendor/rusty_ytdl/ANTARES_PATCH.md). No cambia la arquitectura de reproducción de Tauri ni el proxy de audio.
+
+[Descargar Antares 0.3.2 para Windows](https://github.com/Hanyer001/antares-actualizaciones/releases/download/v0.3.2/Antares-Setup.exe) · [Página de Antares](https://hanyer001.github.io/Pagina-Antares/)
 
 ## Funciones principales
 
@@ -30,7 +40,7 @@ También permite importar listas públicas de otros servicios y canciones desde 
 | Característica | Windows | Android |
 | --- | --- | --- |
 | Búsqueda, biblioteca y recomendaciones | Sí | Sí |
-| Reproducción | yt-dlp y WebView2 | InnerTube y ExoPlayer |
+| Reproducción | rusty_ytdl y WebView2 | InnerTube y ExoPlayer |
 | Audio en segundo plano | Bandeja del sistema | Servicio de reproducción |
 | Letras y copias internas | Sí | Sí |
 | Ecualizador, nivelador y fundidos | Sí | No |
@@ -54,7 +64,7 @@ Descarga `yt-dlp.exe` desde las [versiones oficiales de yt-dlp](https://github.c
 src-tauri/binaries/yt-dlp-x86_64-pc-windows-msvc.exe
 ```
 
-Crea la carpeta `binaries` si no existe. El ejecutable no se incluye en Git.
+Crea la carpeta `binaries` si no existe. El ejecutable no se incluye en Git. Se conserva para búsquedas y listas; la extracción de audio de Windows usa el crate nativo `rusty_ytdl`.
 
 ```powershell
 npm run dev
@@ -82,6 +92,7 @@ Antares/
 │   ├── gen/android/       # Proyecto Android y reproductor Kotlin
 │   ├── icons/             # Iconos de la aplicación
 │   ├── src/               # Backend Rust
+│   ├── vendor/rusty_ytdl/  # Crate nativo y parche de extracción de YouTube
 │   ├── Cargo.toml
 │   └── tauri.conf.json
 ├── tests/                 # Pruebas de JavaScript
@@ -89,6 +100,16 @@ Antares/
 ├── package.json
 └── README.md
 ```
+
+## Generar el instalador de Windows
+
+Con los archivos de firma del canal configurados según la [guía de publicación](docs/releases.md), ejecuta desde la raíz del proyecto:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\release-windows.ps1 -Notas "Extraccion nativa de audio y correcciones de compilacion"
+```
+
+Para esta versión, el script prepara `Antares_0.3.2_x64-setup.exe`, `Antares-Setup.exe` y `latest.json` en `../publicar/v0.3.2/`. El instalador ocupa 25,6 MB y el manifiesto contiene la firma que comprueba la aplicación. Los tres archivos se adjuntan a la release `v0.3.2` del repositorio de actualizaciones.
 
 ## Comprobaciones
 
@@ -109,7 +130,7 @@ Las pruebas que necesitan servicios externos o paquetes firmados están marcadas
 - [Arquitectura y responsabilidades](docs/architecture.md)
 - [Datos locales y copias de seguridad](docs/data.md)
 - [Compilación y publicación de versiones](docs/releases.md)
-- [Cambios de la versión 0.3.0](CHANGELOG.md)
+- [Cambios de la versión 0.3.2](CHANGELOG.md)
 
 ## Reportar un problema
 
@@ -117,4 +138,4 @@ Abre un [issue](https://github.com/Hanyer001/Antares/issues) indicando la versi�
 
 ## Tecnologías
 
-[Tauri](https://v2.tauri.app/), [Rust](https://www.rust-lang.org/), HTML, CSS y JavaScript con módulos ES. Antares utiliza [yt-dlp](https://github.com/yt-dlp/yt-dlp) en Windows, ExoPlayer en Android y [LRCLIB](https://lrclib.net/) para las letras. La fuente Inter se incluye localmente; sus créditos están en [src/fonts/LEEME.txt](src/fonts/LEEME.txt).
+[Tauri](https://v2.tauri.app/), [Rust](https://www.rust-lang.org/), HTML, CSS y JavaScript con módulos ES. En Windows, Antares extrae el audio con [rusty_ytdl](https://github.com/Mithronn/rusty_ytdl) y conserva [yt-dlp](https://github.com/yt-dlp/yt-dlp) para búsquedas y listas. Android usa InnerTube y ExoPlayer y [LRCLIB](https://lrclib.net/) para las letras. La fuente Inter se incluye localmente; sus créditos están en [src/fonts/LEEME.txt](src/fonts/LEEME.txt).
