@@ -9,11 +9,12 @@
 #   1. Compila el instalador y lo FIRMA con la clave privada de
 #      ..\firma-actualizaciones (sin esa firma, la app de tus amigos rechaza
 #      la actualización).
-#   2. Deja en ..\publicar\vX.Y.Z el instalador y el latest.json que la app
-#      lee para saber que hay una versión nueva.
+#   2. Deja en ..\publicar\vX.Y.Z el instalador, una copia suya con nombre fijo
+#      (Antares-Setup.exe, la que descarga la página) y el latest.json que la
+#      app lee para saber que hay una versión nueva.
 #
 # Después, a mano, en https://github.com/Hanyer001/antares-actualizaciones:
-#   Releases › Draft a new release › etiqueta "vX.Y.Z" › arrastra los DOS
+#   Releases › Draft a new release › etiqueta "vX.Y.Z" › arrastra los TRES
 #   archivos de la carpeta › Publish release.
 
 param(
@@ -83,6 +84,11 @@ if (-not (Test-Path (Join-Path $nsis $exe)) -or -not (Test-Path $sig)) {
 $salida = Join-Path $padre "publicar\v$version"
 New-Item -ItemType Directory -Force $salida | Out-Null
 Copy-Item (Join-Path $nsis $exe) $salida -Force
+# El mismo instalador con un nombre que no cambia: la página de descarga
+# enlaza a releases/latest/download/Antares-Setup.exe y GitHub entrega el de
+# la última versión publicada.
+$fijo = "Antares-Setup.exe"
+Copy-Item (Join-Path $nsis $exe) (Join-Path $salida $fijo) -Force
 
 $latest = [ordered]@{
     version   = $version
@@ -105,9 +111,9 @@ Write-Host "Para que les llegue a todos:"
 Write-Host "  1. Abre $repo/releases/new"
 Write-Host "  2. En 'Choose a tag' escribe: v$version  (y 'Create new tag')"
 Write-Host "  3. Título: Antares $version"
-Write-Host "  4. Arrastra los dos archivos de la carpeta: $exe y latest.json"
-Write-Host "  5. Publish release"
+Write-Host "  4. Arrastra los TRES archivos de la carpeta: $exe, $fijo y latest.json"
+Write-Host "  5. Publish release (con 'Set as the latest release' marcado)"
 Write-Host ""
-Write-Host "Al abrir Antares, a tus amigos les saldrá el aviso de la versión nueva."
-Write-Host "El instalador de esa carpeta también sirve para instalar desde cero."
+Write-Host "Al abrir Antares, a tus amigos les saldrá el aviso de la versión nueva,"
+Write-Host "y el botón de descarga de la página ya da esta versión."
 explorer.exe $salida
