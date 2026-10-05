@@ -18,9 +18,9 @@ La configuración habilita los artefactos del actualizador, que requieren firma.
 .\scripts\release-windows.ps1 -Notas "Descripción de los cambios"
 ```
 
-El script compila y firma el instalador. Deja los archivos listos para publicar en `../publicar/vX.Y.Z/`, pero no los sube a GitHub. Las claves privadas y sus contraseñas no deben añadirse al control de versiones.
+El script compila y firma el instalador. Deja `Antares_<versión>_x64-setup.exe`, una copia idéntica llamada `Antares-Setup.exe` y `latest.json` listos para publicar en `../publicar/vX.Y.Z/`, pero no los sube a GitHub. La página descarga la copia con nombre fijo. Las claves privadas y sus contraseñas no deben añadirse al control de versiones.
 
-En [antares-actualizaciones](https://github.com/Hanyer001/antares-actualizaciones/releases), crea una release con la etiqueta de la versión y adjunta el instalador y `latest.json` preparados por el script. El código fuente permanece en [Antares](https://github.com/Hanyer001/Antares).
+En [antares-actualizaciones](https://github.com/Hanyer001/antares-actualizaciones/releases), crea una release con la etiqueta de la versión y adjunta los dos nombres del instalador y `latest.json` preparados por el script. Marca la publicación estable como la última versión. El código fuente permanece en [Antares](https://github.com/Hanyer001/Antares).
 
 La app consulta el manifiesto configurado en `tauri.conf.json` y verifica la firma antes de instalar. La clave pública está incluida en esa configuración. Consulta la [documentación del actualizador de Tauri](https://v2.tauri.app/plugin/updater/) para el formato y las variables de firma.
 

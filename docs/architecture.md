@@ -44,6 +44,8 @@ Los modelos puros se pueden probar con Node sin abrir Tauri. Las vistas delegan 
 4. La siguiente canción se precarga para reducir la espera entre pistas.
 5. Ante un fallo, la recuperación renueva la URL e intenta continuar desde la posición guardada. Los reintentos están limitados y se cancelan al pausar o elegir otra canción.
 
+Desde 0.3.2, `ytdlp.rs` resuelve el audio de Windows mediante el crate `rusty_ytdl` y conserva sus consultas de búsqueda y listas con yt-dlp. La dependencia local en `vendor/rusty_ytdl/` adapta el cliente YouTube; el contrato de pistas, la caché y el proxy se conservan. Android sigue utilizando `innertube.rs`.
+
 Las URLs directas son temporales. Historial y listas guardan identificadores y metadatos para volver a resolverlas cuando se necesitan.
 
 ## Recomendaciones

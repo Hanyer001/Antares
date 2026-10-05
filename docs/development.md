@@ -10,7 +10,7 @@ cd Antares
 npm ci
 ```
 
-Descarga `yt-dlp.exe` de sus [releases oficiales](https://github.com/yt-dlp/yt-dlp/releases/latest), crea `src-tauri/binaries/` y copia el archivo como `yt-dlp-x86_64-pc-windows-msvc.exe`. El sufijo corresponde al target de Rust que Tauri usa para el ejecutable auxiliar.
+Descarga `yt-dlp.exe` de sus [releases oficiales](https://github.com/yt-dlp/yt-dlp/releases/latest), crea `src-tauri/binaries/` y copia el archivo como `yt-dlp-x86_64-pc-windows-msvc.exe`. El sufijo corresponde al target de Rust que Tauri usa para el ejecutable auxiliar. Se conserva para búsquedas y listas. Desde 0.3.2, la extracción de audio en Windows usa `rusty_ytdl`, incluido con su parche de cliente YouTube en `src-tauri/vendor/rusty_ytdl/`.
 
 ```powershell
 npm run dev
@@ -63,7 +63,7 @@ El script compila Rust para ambas arquitecturas y copia las bibliotecas al proye
 
 ## Diagnóstico de audio
 
-Para comparar tiempos de resolución de yt-dlp:
+El siguiente script compara el extractor externo de yt-dlp como referencia; no mide la extracción nativa que usa Windows desde 0.3.2:
 
 ```powershell
 .\scripts\benchmark-ytdlp.ps1 "radiohead creep"
