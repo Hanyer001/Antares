@@ -1,4 +1,4 @@
-//! Localización, ejecución y lectura de la salida de yt-dlp.
+//! Extraccion nativa de audio; yt-dlp se conserva para busquedas y listas.
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -7,6 +7,8 @@ use std::sync::OnceLock;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
+
+use rusty_ytdl::{Video, VideoFormat};
 
 use crate::track::{SearchResult, TrackInfo};
 
@@ -24,27 +26,6 @@ pub const YTDLP_BIN: &str = "yt-dlp.exe";
 #[cfg(not(windows))]
 pub const YTDLP_BIN: &str = "yt-dlp";
 
-/// Modo rapido. El cliente `android` de InnerTube devuelve URLs sin el parametro
-/// `n` cifrado, asi que yt-dlp se salta la descarga del JS del reproductor y su
-/// interpretacion, que es lo mas caro de la extraccion. Medido: ~420 ms menos.
-///
-/// AVISO: YouTube endurece los requisitos de este cliente cada pocos meses. Puede
-/// dejar de funcionar, o devolver una URL que luego el navegador rechaza con 403.
-/// Por eso nunca se usa solo: siempre hay caida al modo seguro.
-const EXTRACTOR_ARGS_FAST: &str = "youtube:skip=hls,dash;player_client=android";
-
-/// Modo seguro: sin forzar cliente, dejando que yt-dlp elija. Mas lento pero es
-/// el que aguanta cuando el rapido deja de servir.
-const EXTRACTOR_ARGS_SAFE: &str = "youtube:skip=hls,dash";
-
-/// Formato de audio: el mejor M4A (AAC ~128 kbps), que WebView2 reproduce
-/// siempre.
-const FORMAT_HIGH: &str = "bestaudio[ext=m4a]/bestaudio/best";
-
-/// Ahorro de datos: el mejor audio que no pase de ~70 kbps (Opus 50-70 o AAC
-/// 48), menos de la mitad de datos. Si no lo hay, el peor audio disponible.
-const FORMAT_SAVER: &str = "bestaudio[abr<=72]/worstaudio/best";
-
 /// Si se resuelve en modo ahorro de datos. Lo pone `save_settings` al cambiar
 /// el ajuste (y el arranque), que ademas vacia la cache de URLs.
 static DATA_SAVER: AtomicBool = AtomicBool::new(false);
@@ -56,14 +37,6 @@ pub fn set_data_saver(enabled: bool) {
 /// Si esta puesto el ahorro de datos (tambien lo lee el cliente propio).
 pub fn data_saver() -> bool {
     DATA_SAVER.load(Ordering::Relaxed)
-}
-
-fn audio_format() -> &'static str {
-    if DATA_SAVER.load(Ordering::Relaxed) {
-        FORMAT_SAVER
-    } else {
-        FORMAT_HIGH
-    }
 }
 
 /// Directorio de datos del usuario, puesto una vez al arrancar.
@@ -190,22 +163,6 @@ fn extract_error(stderr: &[u8]) -> String {
         .to_string()
 }
 
-/// Plantilla de metadatos para `--print`.
-///
-/// `%(a,b|)s` significa "usa `a`, si no existe `b`, y si ninguno, cadena vacia".
-/// Sin ese `|` yt-dlp escribiria literalmente `NA`, que luego habria que
-/// distinguir de un titulo que de verdad diga NA.
-fn metadata_template() -> String {
-    [
-        "%(title|)s",
-        "%(channel,uploader|)s",
-        "%(duration|)s",
-        "%(thumbnail|)s",
-        "%(id|)s",
-    ]
-    .join(FIELD_SEP)
-}
-
 /// Convierte un campo de la plantilla en `Option`: vacio o `NA` es "no hay".
 fn field(raw: Option<&str>) -> Option<String> {
     let value = raw?.trim();
@@ -217,118 +174,102 @@ fn field(raw: Option<&str>) -> Option<String> {
     }
 }
 
-/// Interpreta la salida de yt-dlp sin depender del orden de las lineas.
-///
-/// La URL de audio es la primera linea que empieza por http y NO lleva
-/// separador; los metadatos son la linea que si lo lleva. Distinguirlas asi
-/// importa porque la miniatura tambien es una URL, y va dentro de la linea de
-/// metadatos.
-fn parse_output(stdout: &[u8]) -> Option<TrackInfo> {
-    let text = String::from_utf8_lossy(stdout);
-
-    let url = text
-        .lines()
-        .map(str::trim)
-        .find(|line| line.starts_with("http") && !line.contains(FIELD_SEP))?
-        .to_string();
-
-    let Some(meta) = text.lines().find(|line| line.contains(FIELD_SEP)) else {
-        // Sin metadatos aun podemos reproducir; solo perdemos la caratula.
-        return Some(TrackInfo::from_url(url));
-    };
-
-    let mut parts = meta.split(FIELD_SEP);
-
-    let title = field(parts.next());
-    let uploader = field(parts.next());
-    let duration = field(parts.next()).and_then(|d| d.parse::<f64>().ok());
-    let thumbnail = field(parts.next());
-    let id = field(parts.next());
-
-    Some(TrackInfo {
-        url,
-        title,
-        uploader,
-        duration,
-        thumbnail,
-        id,
-    })
-}
-
-/// Convierte lo que escribio el usuario en el argumento que espera yt-dlp.
+/// Conserva las busquedas por texto y pasa las URLs o IDs directamente.
 pub fn build_target(query: &str) -> String {
     let query = query.trim();
 
-    if query.starts_with("http") {
+    if query.starts_with("http") || rusty_ytdl::get_video_id(query).is_some() {
         query.to_string()
     } else {
         format!("ytsearch1:{query}")
     }
 }
 
-/// Lanza yt-dlp y devuelve la pista completa: URL de audio y metadatos.
-///
-/// Los metadatos salen de la MISMA invocacion, no de una segunda: yt-dlp ya
-/// tiene el titulo, el canal y la miniatura en memoria cuando resuelve la URL,
-/// asi que pedirlos no cuesta ni una peticion HTTP mas. Una segunda llamada, en
-/// cambio, volveria a pagar el arranque de PyInstaller (~1.000 ms medidos).
-///
-/// Sobre los argumentos:
-///   --ignore-config   no lee tu yt-dlp.conf; arranca antes y es determinista
-///   --no-playlist     con un enlace de "cancion dentro de playlist", solo el video
-///   --quiet           silencia el progreso; --print sigue escribiendo en stdout
-///   -4                fuerza IPv4; en redes con IPv6 roto ahorra segundos
-///   --socket-timeout  corta antes un socket muerto en vez de colgarse
-///   --print urls      es el equivalente moderno del antiguo -g
-///
-/// Deliberadamente NO usamos --no-cache-dir: ese directorio guarda el codigo del
-/// reproductor de YouTube ya procesado, y desactivarlo hace cada llamada mas lenta.
-pub async fn resolve_track(target: String, safe: bool) -> Result<TrackInfo, String> {
-    let extractor_args = if safe { EXTRACTOR_ARGS_SAFE } else { EXTRACTOR_ARGS_FAST };
-    let template = metadata_template();
-    let format = audio_format();
-
-    // `Command::output()` bloquea el hilo. Lo movemos a un hilo de bloqueo para
-    // no congelar el runtime asincrono de Tauri mientras yt-dlp trabaja.
-    tokio::task::spawn_blocking(move || {
-        let output = command()
-            .args([
-                "--ignore-config",
-                "--no-warnings",
-                "--quiet",
-                "--no-playlist",
-                "-4",
-                "--socket-timeout",
-                "8",
-                "--extractor-args",
-                extractor_args,
-                "-f",
-                format,
-                "--print",
-                "urls",
-                "--print",
-                &template,
-                &target,
-            ])
-            .output()
-            .map_err(|e| match e.kind() {
-                std::io::ErrorKind::NotFound => format!(
-                    "No se encontro {YTDLP_BIN}. Dejalo en src-tauri/binaries/ \
-                     (como sidecar) o instalalo en el PATH del sistema."
-                ),
-                _ => format!("No se pudo ejecutar yt-dlp: {e}"),
-            })?;
-
-        if !output.status.success() {
-            return Err(format!("yt-dlp fallo: {}", extract_error(&output.stderr)));
+/// Solo audio primero; si no existe, permite un stream con audio y video.
+fn select_audio(formats: &[VideoFormat], saver: bool) -> Result<&VideoFormat, String> {
+    let playable = |format: &&VideoFormat| {
+        format.has_audio
+            && (format.url.starts_with("https://") || format.url.starts_with("http://"))
+    };
+    let audio_only = formats.iter().filter(playable).any(|f| !f.has_video);
+    let candidates = || {
+        formats
+            .iter()
+            .filter(playable)
+            .filter(|f| !audio_only || !f.has_video)
+    };
+    // En formatos solo audio el bitrate total mide el stream real; en formatos
+    // combinados, audio_bitrate esta expresado en kbps.
+    let bitrate = |f: &&VideoFormat| {
+        if f.has_video {
+            f.audio_bitrate.unwrap_or(0).saturating_mul(1000)
+        } else {
+            f.bitrate
         }
+    };
 
-        parse_output(&output.stdout).ok_or_else(|| {
-            "No encontré esa canción. Prueba con otras palabras.".to_string()
-        })
+    if saver {
+        if let Some(format) = candidates()
+            .filter(|f| bitrate(f) > 0 && bitrate(f) <= 72_000)
+            .max_by_key(bitrate)
+        {
+            return Ok(format);
+        }
+        return candidates()
+            .min_by_key(bitrate)
+            .ok_or_else(|| "El video no contiene un stream de audio disponible.".to_string());
+    }
+
+    candidates()
+        .max_by_key(bitrate)
+        .ok_or_else(|| "El video no contiene un stream de audio disponible.".to_string())
+}
+
+/// Devuelve la misma URL directa y metadatos usando rusty_ytdl, sin procesos.
+/// `safe` se conserva por compatibilidad: el reintento vuelve a extraer el video.
+pub async fn resolve_track(target: String, _safe: bool) -> Result<TrackInfo, String> {
+    let target = target.trim();
+    // El backend tambien permite reproducir el primer resultado de un texto.
+    // Esa compatibilidad usa la busqueda nativa existente, sin lanzar yt-dlp.
+    let target = if let Some(query) = target.strip_prefix("ytsearch1:") {
+        crate::innertube::search_tracks(query, 1)
+            .await?
+            .into_iter()
+            .next()
+            .map(|track| track.id)
+            .ok_or_else(|| "No encontré esa canción. Prueba con otras palabras.".to_string())?
+    } else {
+        target.to_string()
+    };
+    let video = Video::new(&target)
+        .map_err(|e| format!("No se pudo abrir el video con rusty_ytdl: {e}"))?;
+    let info = tokio::time::timeout(std::time::Duration::from_secs(30), video.get_info())
+        .await
+        .map_err(|_| "Se agotó el tiempo al extraer el audio de YouTube.".to_string())?
+        .map_err(|e| format!("No se pudo extraer el audio con rusty_ytdl: {e}"))?;
+    let url = select_audio(&info.formats, data_saver())?.url.clone();
+    let details = info.video_details;
+
+    Ok(TrackInfo {
+        url,
+        title: field(Some(&details.title)),
+        uploader: details
+            .author
+            .as_ref()
+            .and_then(|author| field(Some(&author.name)))
+            .or_else(|| field(Some(&details.owner_channel_name))),
+        duration: if details.is_live_content {
+            None
+        } else {
+            details.length_seconds.parse().ok()
+        },
+        thumbnail: details
+            .thumbnails
+            .iter()
+            .max_by_key(|t| (t.width, t.height))
+            .and_then(|t| field(Some(&t.url))),
+        id: field(Some(&details.video_id)),
     })
-    .await
-    .map_err(|e| format!("Fallo interno al ejecutar la tarea: {e}"))?
 }
 
 // ---------------------------------------------------------------------------
@@ -519,101 +460,73 @@ mod tests {
         assert_eq!(build_target("  creep  "), "ytsearch1:creep");
     }
 
-    /// Reproduce la salida real de yt-dlp: una linea con la URL de audio y otra
-    /// con los metadatos separados por 0x1F.
-    fn salida(url: &str, campos: &[&str]) -> Vec<u8> {
-        format!("{url}\n{}\n", campos.join(FIELD_SEP)).into_bytes()
+    #[test]
+    fn un_id_se_pasa_directamente() {
+        assert_eq!(build_target("  XFkzRNyygfk  "), "XFkzRNyygfk");
+    }
+
+    fn format(bitrate: u64, audio: bool, video: bool) -> VideoFormat {
+        serde_json::from_value(serde_json::json!({
+            "itag": 1, "mimeType": "audio/webm; codecs=\"opus\"",
+            "bitrate": bitrate, "url": format!("https://audio.example/{bitrate}"),
+            "hasAudio": audio, "hasVideo": video,
+            "isLive": false, "isHLS": false, "isDashMPD": false
+        }))
+        .unwrap()
     }
 
     #[test]
-    fn extrae_url_y_metadatos_completos() {
-        let stdout = salida(
-            "https://r.googlevideo.com/videoplayback?expire=1",
-            &["Weird Fishes", "Radiohead", "319.0", "https://i.ytimg.com/vi/x/hq.jpg", "abc123"],
+    fn prioriza_solo_audio_y_el_mayor_bitrate() {
+        let formats = [
+            format(128_000, true, false),
+            format(160_000, true, false),
+            format(1_000_000, true, true),
+            format(2_000_000, false, true),
+        ];
+        assert_eq!(select_audio(&formats, false).unwrap().bitrate, 160_000);
+    }
+
+    #[test]
+    fn ahorro_elige_el_mejor_hasta_72_kbps_o_el_menor() {
+        let formats = [
+            format(48_000, true, false),
+            format(64_000, true, false),
+            format(160_000, true, false),
+        ];
+        assert_eq!(select_audio(&formats, true).unwrap().bitrate, 64_000);
+        let formats = [format(128_000, true, false), format(160_000, true, false)];
+        assert_eq!(select_audio(&formats, true).unwrap().bitrate, 128_000);
+    }
+
+    #[test]
+    fn admite_audio_con_video_si_no_hay_solo_audio() {
+        let mut low = format(1_000_000, true, true);
+        low.audio_bitrate = Some(96);
+        let mut high = format(800_000, true, true);
+        high.audio_bitrate = Some(128);
+        let formats = [low, high];
+        assert_eq!(
+            select_audio(&formats, false).unwrap().audio_bitrate,
+            Some(128)
         );
-
-        let track = parse_output(&stdout).expect("deberia parsear");
-
-        assert_eq!(track.url, "https://r.googlevideo.com/videoplayback?expire=1");
-        assert_eq!(track.title.as_deref(), Some("Weird Fishes"));
-        assert_eq!(track.uploader.as_deref(), Some("Radiohead"));
-        assert_eq!(track.duration, Some(319.0));
-        assert_eq!(track.thumbnail.as_deref(), Some("https://i.ytimg.com/vi/x/hq.jpg"));
-        assert_eq!(track.id.as_deref(), Some("abc123"));
     }
 
     #[test]
-    fn no_confunde_la_miniatura_con_la_url_de_audio() {
-        // La miniatura tambien empieza por http: si el parseo se guiara solo por
-        // eso, podria devolverla como audio. Va dentro de la linea de metadatos,
-        // que es justo lo que la distingue.
-        let stdout = salida(
-            "https://r.googlevideo.com/videoplayback",
-            &["T", "C", "10", "https://i.ytimg.com/vi/x/hq.jpg", "id"],
-        );
-
-        let track = parse_output(&stdout).unwrap();
-        assert_eq!(track.url, "https://r.googlevideo.com/videoplayback");
+    fn rechaza_formatos_sin_audio_o_sin_url_directa() {
+        let mut invalid = format(160_000, true, false);
+        invalid.url.clear();
+        let formats = [format(1_000_000, false, true), invalid];
+        assert!(select_audio(&formats, false).is_err());
+        assert!(select_audio(&[], false).is_err());
     }
 
-    #[test]
-    fn los_campos_vacios_quedan_en_none() {
-        let stdout = salida("https://audio.example/x", &["Solo titulo", "", "", "", ""]);
-        let track = parse_output(&stdout).unwrap();
-
-        assert_eq!(track.title.as_deref(), Some("Solo titulo"));
-        assert_eq!(track.uploader, None);
-        assert_eq!(track.duration, None);
-        assert_eq!(track.thumbnail, None);
-    }
-
-    #[test]
-    fn un_na_de_yt_dlp_cuenta_como_ausente() {
-        let stdout = salida("https://audio.example/x", &["T", "NA", "NA", "NA", "id"]);
-        let track = parse_output(&stdout).unwrap();
-
-        assert_eq!(track.uploader, None);
-        assert_eq!(track.duration, None);
-    }
-
-    #[test]
-    fn una_duracion_no_numerica_no_rompe_el_parseo() {
-        // Los directos no tienen duracion; el resto debe seguir llegando.
-        let stdout = salida("https://audio.example/x", &["Directo", "Canal", "sin fin", "", "id"]);
-        let track = parse_output(&stdout).unwrap();
-
-        assert_eq!(track.duration, None);
-        assert_eq!(track.title.as_deref(), Some("Directo"));
-    }
-
-    #[test]
-    fn sin_linea_de_metadatos_al_menos_reproduce() {
-        let stdout = b"https://audio.example/x\n";
-        let track = parse_output(stdout).expect("la URL sola basta");
-
-        assert_eq!(track.url, "https://audio.example/x");
-        assert_eq!(track.title, None);
-    }
-
-    #[test]
-    fn sin_urls_en_la_salida_no_devuelve_nada() {
-        assert!(parse_output(b"ERROR: algo salio mal\n").is_none());
-    }
-
-    #[test]
-    fn un_titulo_con_barras_verticales_sobrevive() {
-        // Por esto el separador es un caracter de control y no algo como "|".
-        let stdout = salida("https://audio.example/x", &["A | B | C", "Canal", "1", "", "id"]);
-        let track = parse_output(&stdout).unwrap();
-
-        assert_eq!(track.title.as_deref(), Some("A | B | C"));
-        assert_eq!(track.uploader.as_deref(), Some("Canal"));
-    }
-
-    #[test]
-    fn la_plantilla_lleva_los_cinco_campos() {
-        assert_eq!(metadata_template().split(FIELD_SEP).count(), 5);
-        assert_eq!(search_template().split(FIELD_SEP).count(), 5);
+    #[tokio::test]
+    async fn rechaza_una_url_invalida_sin_panic() {
+        let error = resolve_track("https://example.com/invalid".to_string(), false)
+            .await
+            .err()
+            .expect("debe rechazar una URL ajena a YouTube");
+        assert!(error.contains("rusty_ytdl"));
     }
 
     // --- Busqueda ---------------------------------------------------------

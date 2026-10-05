@@ -732,6 +732,7 @@ pub type ThumbStateArg = serde_json::Value;
 /// sonaba (la escucha en curso, la cola), al elegir "Salir" en la bandeja.
 #[tauri::command]
 pub fn quit_app(app: tauri::AppHandle) {
+    crate::remove_tray(&app);
     app.exit(0);
 }
 
@@ -867,7 +868,7 @@ pub fn delete_user(id: String, state: State<'_, UsersState>) -> Result<Users, St
 #[tauri::command]
 pub fn switch_user(id: String, state: State<'_, UsersState>, app: tauri::AppHandle) -> Result<(), String> {
     state.change(|users| users.switch(&id))?;
-    app.restart();
+    crate::restart_clean(&app);
 }
 
 // ---------------------------------------------------------------------------

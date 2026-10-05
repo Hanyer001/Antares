@@ -20,6 +20,8 @@ pub struct TrackInfo {
     pub id: Option<String>,
 }
 
+// Este constructor se usa en las pruebas de la cache.
+#[cfg(test)]
 impl TrackInfo {
     /// Para cuando solo tenemos la URL y ningun metadato.
     pub fn from_url(url: String) -> Self {

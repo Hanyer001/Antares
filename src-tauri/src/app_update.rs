@@ -72,8 +72,10 @@ pub async fn install_app_update(
 
     let mut downloaded: u64 = 0;
     let progress = app.clone();
-    update
-        .download_and_install(
+    // Descargar (y comprobar la firma) primero; instalar despues, que en
+    // Windows cierra la app al momento.
+    let bytes = update
+        .download(
             move |chunk, total| {
                 downloaded += chunk as u64;
                 let _ = progress.emit(
@@ -86,8 +88,13 @@ pub async fn install_app_update(
         .await
         .map_err(friendly)?;
 
+    // El instalador cierra la app de golpe: el icono de la bandeja se quita
+    // antes, o quedaria uno fantasma (ver `remove_tray`).
+    crate::remove_tray(&app);
+    update.install(bytes).map_err(friendly)?;
+
     // Fuera de Windows el instalador no cierra la app: se reinicia aqui.
-    app.restart();
+    crate::restart_clean(&app);
 }
 
 /// Los errores del actualizador, en palabras de persona.

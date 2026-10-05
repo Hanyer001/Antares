@@ -155,7 +155,7 @@ pub fn acknowledge_restored_workspace(state: State<'_, UsersState>) -> Result<()
     Ok(())
 }
 #[tauri::command]
-pub fn restart_after_restore(app: tauri::AppHandle) { app.restart(); }
+pub fn restart_after_restore(app: tauri::AppHandle) { crate::restart_clean(&app); }
 
 pub fn apply_pending(dir: &Path) -> Result<(), String> {
     let path = dir.join("pending-restore.json");

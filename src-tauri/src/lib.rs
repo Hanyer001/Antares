@@ -3,6 +3,10 @@
 
 // En movil sobra lo de escritorio (modo mini, bandeja, yt-dlp...): compila
 // pero no se usa, y sin esto cada pieza daria un aviso.
+// MSVC imprime "Creando biblioteca" como progreso; Rust lo presenta como warning.
+// Suprimimos esa categoria en MSVC. Los errores del enlazador siguen fallando.
+#![cfg_attr(all(windows, target_env = "msvc"), allow(linker_messages))]
+
 #![cfg_attr(mobile, allow(dead_code, unused_imports))]
 
 mod app_update;
@@ -110,6 +114,28 @@ pub fn apply_window_tone(window: &tauri::WebviewWindow, tone: WindowTone) {
     let _ = window.set_theme(theme);
 }
 
+/// Quita el icono de la bandeja YA, antes de cerrar o reiniciar la app.
+///
+/// Si el proceso termina sin quitarlo (un reinicio, el instalador de una
+/// actualizacion, salir), Windows deja un icono "fantasma" en la bandeja hasta
+/// que se pasa el raton por encima: con unos cuantos, parecia que habia varios
+/// Antares abiertos. `set_visible(false)` lo borra al momento (espera a que lo
+/// haga el hilo principal).
+pub fn remove_tray(app: &AppHandle) {
+    #[cfg(desktop)]
+    if let Some(tray) = app.remove_tray_by_id(TRAY_ID) {
+        let _ = tray.set_visible(false);
+    }
+    #[cfg(mobile)]
+    let _ = app;
+}
+
+/// Reiniciar sin dejar el icono viejo en la bandeja (ver `remove_tray`).
+pub fn restart_clean(app: &AppHandle) -> ! {
+    remove_tray(app);
+    app.restart()
+}
+
 /// El icono de la bandeja: controles basicos, y la ventana a un clic.
 ///
 /// Las acciones de reproduccion no se hacen aqui: se avisan al frontend con el
@@ -145,6 +171,7 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
                 let handle = app.clone();
                 std::thread::spawn(move || {
                     std::thread::sleep(QUIT_GRACE);
+                    remove_tray(&handle);
                     handle.exit(0);
                 });
             }
@@ -252,6 +279,16 @@ fn warm_related(handle: AppHandle) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
+
+    // Un solo Antares a la vez: abrirlo otra vez (el acceso directo, el menu
+    // Inicio) con uno ya abierto, aunque este escondido en la bandeja, enseña
+    // ese en vez de arrancar otro con su propio icono. Tiene que ser el primer
+    // plugin. Solo en el instalado: en desarrollo se quiere poder abrir la
+    // version de prueba con la instalada abierta.
+    #[cfg(all(desktop, not(debug_assertions)))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        show_window(app);
+    }));
 
     #[cfg(desktop)]
     let builder = builder
@@ -399,8 +436,14 @@ pub fn run() {
             app_update::check_app_update,
             app_update::install_app_update
         ])
-        .run(tauri::generate_context!())
-        .expect("Error al ejecutar Tauri");
+        .build(tauri::generate_context!())
+        .expect("Error al ejecutar Tauri")
+        .run(|app, event| {
+            // Por si se sale por un camino que no paso por `remove_tray`.
+            if let tauri::RunEvent::Exit = event {
+                remove_tray(app);
+            }
+        });
 }
 
 /// Lo propio de Android.
