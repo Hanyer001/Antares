@@ -49,10 +49,10 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib firma_publicada -- --ignor
 Con el SDK, NDK y Java configurados:
 
 ```powershell
-.\scripts\build-android.ps1 -Debug
+.\scripts\build-android.ps1 -Debug -OptimizedPreview
 ```
 
-Para una versión firmada, configura `src-tauri/gen/android/keystore.properties` y ejecuta el script sin `-Debug`. La salida queda junto a la carpeta del proyecto como `Antares-<versión>.apk` o `Antares-<versión>-debug.apk`.
+Para una versión firmada, configura `src-tauri/gen/android/keystore.properties` y ejecuta el script sin `-Debug`. La salida queda en `dist-android/Antares-<versión>-android.apk` o `Antares-<versión>-android-preview.apk`. Preview tiene un identificador separado para coexistir con la instalación normal. Los paquetes Android todavía necesitan las [pruebas físicas](android.md) antes de publicarse como estables.
 
 El repositorio no incluye claves ni contraseñas. Conserva la misma clave de firma para actualizar instalaciones existentes.
 

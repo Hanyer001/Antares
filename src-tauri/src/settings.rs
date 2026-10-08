@@ -78,6 +78,23 @@ impl Settings {
         Ok(())
     }
 
+    #[cfg(mobile)]
+    pub(crate) fn flush_mobile(&self) -> Result<(), String> {
+        if let Some(value) = self.value.lock().map_err(|_| "ajustes bloqueados")?.clone() {
+            self.file.save_sync(value).map_err(|e| e.to_string())?;
+        }
+        self.wallpaper_file.save_sync(self.wallpaper()).map_err(|e| e.to_string())
+    }
+    #[cfg(mobile)]
+    pub(crate) fn reload_mobile(&self, dir: PathBuf) -> Result<(), String> {
+        let next = Self::load(dir.clone());
+        let mut value = self.value.lock().map_err(|_| "ajustes bloqueados")?;
+        let mut wallpaper = self.wallpaper.lock().map_err(|_| "fondo bloqueado")?;
+        self.file.retarget(dir.join(SETTINGS_FILE)); self.wallpaper_file.retarget(dir.join(WALLPAPER_FILE));
+        *value = next.value.into_inner().map_err(|_| "ajustes bloqueados")?;
+        *wallpaper = next.wallpaper.into_inner().map_err(|_| "fondo bloqueado")?;
+        Ok(())
+    }
     /// Lee algo de los ajustes guardados, o `default` si aun no hay.
     fn read<T>(&self, f: impl FnOnce(&Value) -> T, default: T) -> T {
         self.value

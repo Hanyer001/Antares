@@ -12,6 +12,8 @@ let endsAt = 0;
 let ticker = null;
 let onExpire = () => {};
 let onChange = () => {};
+let native = null;
+let nativeTrackStopped = false;
 
 function pad(n) {
   return String(n).padStart(2, "0");
@@ -37,20 +39,24 @@ function stop() {
   render();
 }
 
+function startTicker() {
+  clearInterval(ticker); ticker = null;
+  if (mode !== "time" || (native && document.hidden)) return;
+  ticker = setInterval(() => {
+    if (!native && Date.now() >= endsAt) { stop(); onExpire(); return; }
+    if (!document.hidden) render();
+  },1000);
+}
+
 function set(newMode, minutes = 0) {
   stop();
+  nativeTrackStopped = false;
   mode = newMode;
+  native?.({mode:newMode,milliseconds:minutes * 60000}).catch(console.warn);
 
   if (newMode === "time") {
     endsAt = Date.now() + minutes * 60 * 1000;
-    ticker = setInterval(() => {
-      if (Date.now() >= endsAt) {
-        stop();
-        onExpire();
-        return;
-      }
-      render();
-    }, 1000);
+    startTicker();
   }
 
   render();
@@ -74,6 +80,7 @@ export function stopsAfterTrack() {
  * ahí; en ese caso se desactiva (ya ha cumplido).
  */
 export function consumeTrackEnd() {
+  if (nativeTrackStopped) { nativeTrackStopped = false; return true; }
   if (mode !== "track") return false;
   stop();
   return true;
@@ -84,9 +91,19 @@ export function consumeTrackEnd() {
  * @param {Function} callbacks.expire  Se acabó el tiempo: fundir y pausar.
  * @param {Function} callbacks.change  Cambió el ajuste (con un texto que lo dice).
  */
-export function initSleep({ expire, change }) {
+export function nativeExpired() { nativeTrackStopped = false; stop(); }
+export function restoreNative(state) {
+  if (!state || state.mode === "off") return;
+  mode = state.mode; endsAt = Date.now() + state.remaining;
+  clearInterval(ticker);
+  startTicker();
+  render();
+}
+export function initSleep({ expire, change, native: adapter = null }) {
+  native = adapter;
   onExpire = expire;
   onChange = change;
+  if (native) document.addEventListener("visibilitychange",() => { startTicker(); if (!document.hidden) render(); });
   render();
 
   els.sleepButton.addEventListener("click", () => {

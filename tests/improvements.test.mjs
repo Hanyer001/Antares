@@ -62,3 +62,21 @@ test("moment backup validation drops expired snoozes and dangerous keys",()=>{
 test("today snooze expires at the next local midnight",()=>{
   const today=new Date(2026,8,30,23,58);const next=new Date(nextMidnight(today.getTime()));assert.equal(next.getDate(),1);assert.equal(next.getHours(),0);
 });
+
+test("un nuevo corte tras audio estable recupera la misma canción desde su nueva posición",async()=>{
+  const x=recovery({retry:async p=>{x.calls.push(["retry",p]);return true;}});
+  x.r.begin(161);await x.r.fail();assert.equal(x.r.attempts,1);
+  x.r.progress(162);x.r.progress(172);assert.equal(x.r.attempts,0);
+  await x.r.fail();assert.deepEqual(x.calls,[["retry",161],["retry",172]]);
+});
+test("errores seguidos sin diez segundos de audio no forman un bucle de reintentos",async()=>{
+  const x=recovery({retry:async p=>{x.calls.push(["retry",p]);return true;}});
+  x.r.begin(161);await x.r.fail();x.r.progress(162);x.r.progress(163);
+  x.r.buffering();await x.r.fail();
+  assert.deepEqual(x.calls,[["retry",161],["failed"]]);assert.equal(x.r.intent,false);
+});
+test("los saltos de posición hacia atrás no reinician el presupuesto",async()=>{
+  const x=recovery({retry:async()=>true});x.r.begin(161);await x.r.fail();
+  x.r.progress(162);x.r.progress(10);x.r.progress(11);
+  assert.equal(x.r.attempts,1);
+});

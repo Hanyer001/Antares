@@ -4955,9 +4955,14 @@ kbd {
 .card--video .card__cover { aspect-ratio: 16 / 9; }
 
 .card__play--button {
+  border: 0;
+  padding: 0;
   cursor: pointer;
   pointer-events: auto;
 }
+
+.card:focus-within .card__play--button { opacity: 1; transform: none; }
+.card__play--button:focus-visible { outline: 2px solid var(--accent-bright); outline-offset: 3px; }
 
 .card__play--button:hover { background: var(--accent-bright); transform: scale(1.06); }
 
@@ -5300,4 +5305,36 @@ kbd {
   .result.result--selectable { grid-template-columns: 22px var(--art) minmax(0,1fr) auto; }
   .result--selectable .result__time { display: none; }
   .recovery-notice { bottom: 135px; }
+}
+
+
+/* Android: controles táctiles y navegación sin perder los temas existentes. */
+:root:not([data-platform="android"]) .android-only { display:none !important; }
+:root[data-platform="android"] .mobile-overflow { display:none !important; }
+:root[data-platform="android"] .tab--settings { display:none; }
+:root[data-platform="android"] .mobile-more { flex:1; font-size:12px; min-width:48px; }
+:root[data-platform="android"] .mobile-more.is-active { color:var(--accent); }
+:root[data-platform="android"] .sidebar { height:64px; }
+:root[data-platform="android"] .tab { min-height:48px; font-size:12px; }
+:root[data-platform="android"] .btn--mini,
+:root[data-platform="android"] .result__action,
+:root[data-platform="android"] .setting__actions button { min-height:44px; }
+:root[data-platform="android"] input,
+:root[data-platform="android"] select { font-size:16px; }
+:root[data-platform="android"] .setting__row { flex-wrap:wrap; }
+:root[data-platform="android"] .result--reorderable { grid-template-columns:44px var(--art) minmax(0,1fr) auto; }
+:root[data-platform="android"] .result__move { width:44px; height:44px; padding:0; font-size:22px; }
+:root[data-platform="android"] .eq10 { overflow-x:auto; gap:6px; }
+:root[data-platform="android"] .eq10__band { min-width:28px; }
+:root[data-platform="android"] dialog { max-width:calc(100vw - 24px); max-height:90dvh; overflow-y:auto; }
+:root[data-platform="android"] .menu { max-height:70dvh; overflow-y:auto; }
+:root[data-platform="android"] .menu button { min-height:44px; }
+:root[data-platform="android"][data-focus] .nowplaying { min-height:0; overflow-y:auto; }
+:root[data-platform="android"][data-energy-saver] * { animation:none !important; transition:none !important; }
+:root[data-platform="android"][data-energy-saver] .backdrop::before { filter:blur(8px) saturate(1.1) !important; inset:-16px; }
+:root[data-platform="android"][data-energy-saver] .console__glow { display:none; }
+:root[data-platform="android"][data-ui-hidden] * { animation-play-state:paused !important; }
+@media (orientation:landscape) and (max-height:520px) {
+  :root[data-platform="android"][data-focus] .artwork { width:min(22vw,160px); }
+  :root[data-platform="android"] .sidebar { height:54px; }
 }

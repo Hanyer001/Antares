@@ -16,6 +16,14 @@ fn main() {
             "setVolume",
             "stop",
             "background",
+            "syncQueue",
+            "snapshot",
+            "setPrivacy",
+            "setRepeat",
+            "setSleep",
+            "setEffects",
+            "effectsState",
+            "setPlaybackOptions",
             "register_listener",
             "registerListener",
             "remove_listener",
@@ -23,6 +31,8 @@ fn main() {
         ])
         .default_permission(DefaultPermissionRule::AllowAllCommands);
 
-    tauri_build::try_build(Attributes::new().plugin("player", player))
+    let documents = InlinedPlugin::new().commands(&["save"])
+        .default_permission(DefaultPermissionRule::AllowAllCommands);
+    tauri_build::try_build(Attributes::new().plugin("player", player).plugin("documents", documents))
         .expect("failed to run tauri-build");
 }

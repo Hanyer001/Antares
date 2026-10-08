@@ -43,6 +43,9 @@ const USER_PREFIX = "user:";
 let prefs = store.get("sound");
 
 let ctx = null;
+let native = null;
+let capabilities = {equalizer:false,leveler:false};
+let effectsTimer;
 let filters = [];
 let leveler = null;
 let makeup = null;
@@ -300,9 +303,16 @@ function render() {
 
   // Sin cadena de audio, nivelar y ecualizar no tienen efecto: mejor decirlo
   // que dejar controles que no hacen nada.
-  const disabled = !ctx;
+  const disabled = !ctx && !capabilities.equalizer;
   for (const input of [els.levelToggle, els.eqPreset, els.eqSave, ...els.eqBands.querySelectorAll("input")]) {
-    input.disabled = disabled;
+    input.disabled = input === els.levelToggle ? !ctx && !capabilities.leveler : disabled;
+  }
+  if (native) {
+    els.crossfade.disabled = store.get("mobile.energySaver");
+    if (els.crossfade.disabled) els.crossfadeValue.textContent = "Desactiva «Ahorrar batería» para usar transiciones.";
+    document.getElementById("native-effects-status").textContent = capabilities.equalizer
+      ? `Sonido del sistema · ${capabilities.bands} bandas${capabilities.leveler ? " y nivelador" : " · este dispositivo no admite nivelador"}`
+      : "Los efectos se activan al reproducir, si el dispositivo los admite.";
   }
 }
 
@@ -341,10 +351,21 @@ async function deletePreset() {
  * @param {boolean} [opts.enabled] false en Android: el audio lo reproduce el
  *   sistema, no un <audio> de la página, y no hay cadena que montar.
  */
-export function initSound({ enabled: on = true } = {}) {
+export function initSound({ enabled: on = true, native: adapter = null } = {}) {
+  native = adapter;
+  const applyNative = () => {
+    if (!native) return;
+    clearTimeout(effectsTimer);
+    effectsTimer = setTimeout(() => native("setEffects",{bands:prefs.bands,level:prefs.level})
+      .then(() => native("setPlaybackOptions",{crossfade:prefs.crossfade,energySaver:store.get("mobile.energySaver")}))
+      .then(() => native("effectsState")).then(state => { capabilities = state; render(); }).catch(console.warn),150);
+  };
   enabled = on;
   prefs = store.get("sound");
   if (enabled) build();
+  applyNative();
+  if (native) store.on("mobile",applyNative);
+  if (native) window.__TAURI__.core.addPluginListener("player","state",applyNative).catch(console.warn);
   buildBands();
   render();
 
@@ -355,6 +376,7 @@ export function initSound({ enabled: on = true } = {}) {
     prefs = sound;
     if (levelChanged) applyLevel();
     applyEq();
+    applyNative();
     render();
   });
 

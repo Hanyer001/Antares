@@ -52,14 +52,14 @@ El script `scripts/build-android.ps1` espera esta instalación local:
 
 ```text
 %LOCALAPPDATA%/AntaresDev/
-├── jdk/                   # Java 17
+├── jdk/                   # Java 17 o posterior
 └── sdk/                   # SDK de Android
     └── ndk/               # NDK instalado
 ```
 
 También necesita los targets Rust `aarch64-linux-android` y `armv7-linux-androideabi`. Para una versión firmada requiere `src-tauri/gen/android/keystore.properties` y la clave a la que apunta. Esos archivos no forman parte del repositorio.
 
-El script compila Rust para ambas arquitecturas y copia las bibliotecas al proyecto Android antes de ejecutar Gradle. Evita depender de la creación de enlaces simbólicos en Windows. Los comandos que generan APK se encuentran en [publicación](releases.md).
+El script compila Rust para ambas arquitecturas y copia las bibliotecas al proyecto Android antes de ejecutar Gradle. Evita depender de la creación de enlaces simbólicos en Windows. Los comandos que generan APK se encuentran en [publicación](releases.md). El SDK usado es Android 36 y el mínimo de la app es Android 7 (API 24). Para el APK de pruebas optimizado y las diferencias entre plataformas, consulta [Android](android.md).
 
 ## Diagnóstico de audio
 

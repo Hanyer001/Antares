@@ -18,7 +18,8 @@
 #   archivos de la carpeta › Publish release.
 
 param(
-    [string]$Notas = ""
+    [string]$Notas = "",
+    [switch]$NoAbrir
 )
 
 $ErrorActionPreference = "Stop"
@@ -116,4 +117,4 @@ Write-Host "  5. Publish release (con 'Set as the latest release' marcado)"
 Write-Host ""
 Write-Host "Al abrir Antares, a tus amigos les saldrá el aviso de la versión nueva,"
 Write-Host "y el botón de descarga de la página ya da esta versión."
-explorer.exe $salida
+if (-not $NoAbrir) { explorer.exe $salida }

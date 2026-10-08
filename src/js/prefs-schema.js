@@ -173,6 +173,8 @@ export const SCHEMA = {
     maxMinutes: num(12, 3, 60),
     excludeWords: list(text("", 40), 100),
     blockedChannels: list(text("", 80), 200),
+    lessArtists: list(text("", 80), 200),
+    knownTracks: list(text("", 40), 500),
   },
 
   interface: {
@@ -248,6 +250,7 @@ export const SCHEMA = {
   home: {
     shelfOrder: order(SHELF_IDS),
     hiddenShelves: subset([], SHELF_IDS),
+    pinnedShelves: subset([], SHELF_IDS),
     // Vacío: los que se deducen de lo que escuchas.
     genres: subset([], GENRE_IDS),
   },
@@ -274,6 +277,12 @@ export const SCHEMA = {
     align: oneOf("left", ["left", "center"]),
     // Segundos: positivo adelanta la letra, negativo la retrasa.
     offset: num(0, -5, 5),
+  },
+
+  mobile: {
+    energySaver: bool(true),
+    haptics: bool(false),
+    prefetch: bool(false),
   },
 
   system: {

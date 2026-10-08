@@ -124,6 +124,11 @@ function renderPlayState() {
   els.iconPlay.classList.toggle("is-hidden", playing);
   els.iconPause.classList.toggle("is-hidden", !playing);
   els.play.setAttribute("aria-label", playing ? "Pausar" : "Reproducir");
+  if (nativeDecks) {
+    els.play.dataset.playback = playing ? "playing" : "paused";
+    els.play.setAttribute("aria-pressed", String(playing));
+    if (!playing) els.play.classList.remove("is-loading");
+  }
 
   // La clase va en <body> porque de ella cuelgan el halo de la consola y la
   // animación del medidor, que están en otras ramas del árbol.
@@ -131,6 +136,7 @@ function renderPlayState() {
 }
 
 function renderProgress() {
+  if (nativeDecks && document.hidden) return;
   const { currentTime } = active;
   const duration = displayDuration();
 
@@ -150,6 +156,7 @@ function renderProgress() {
 
 /** Pinta por detrás cuánto lleva descargado el navegador. */
 function renderBuffered() {
+  if (nativeDecks && document.hidden) return;
   const { buffered, duration, currentTime } = active;
   if (!Number.isFinite(duration) || duration <= 0 || buffered.length === 0) return;
 

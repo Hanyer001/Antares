@@ -45,7 +45,7 @@ pub struct AudioResult {
 /// en marcha cuando el usuario pulsa Enter—, esperamos a que termine y nos
 /// llevamos su resultado en vez de lanzar un segundo yt-dlp que haria el mismo
 /// trabajo desde cero.
-async fn resolve(query: &str, cache: &AppCache, safe: bool) -> Result<(TrackInfo, bool), String> {
+pub(crate) async fn resolve(query: &str, cache: &AppCache, safe: bool) -> Result<(TrackInfo, bool), String> {
     let key = cache_key(query, safe);
 
     if let Some(track) = cache.get(&key) {
@@ -59,6 +59,20 @@ async fn resolve(query: &str, cache: &AppCache, safe: bool) -> Result<(TrackInfo
     };
     cache.finish_turn(&key, turn);
 
+    result
+}
+
+/// Renovar una URL rechazada por el CDN, también desde el hilo de carga de Android.
+pub(crate) async fn resolve_fresh(query: &str, cache: &AppCache, safe: bool) -> Result<(TrackInfo, bool), String> {
+    let key = cache_key(query, safe);
+    let turn = cache.turn(&key);
+    let result = {
+        let _guard = turn.lock().await;
+        // Una resolución en curso puede haber repuesto la URL antes de obtener el turno.
+        cache.forget(&key);
+        resolve_in_turn(query, &key, cache, safe).await
+    };
+    cache.finish_turn(&key, turn);
     result
 }
 
@@ -116,17 +130,7 @@ pub async fn get_audio_url(
     if fresh.unwrap_or(false) { cache.forget(&cache_key(&query, true)); }
 
     let (track, cached) = if fresh.unwrap_or(false) {
-        // Invalidar también al obtener el turno: una resolución anterior puede haber
-        // repuesto la URL caducada mientras esta solicitud esperaba.
-        let key = cache_key(&query, safe);
-        let turn = cache.turn(&key);
-        let result = {
-            let _guard = turn.lock().await;
-            cache.forget(&key);
-            resolve_in_turn(&query, &key, &cache, safe).await
-        };
-        cache.finish_turn(&key, turn);
-        result?
+        resolve_fresh(&query, &cache, safe).await?
     } else { resolve(&query, &cache, safe).await? };
 
     Ok(AudioResult { track, cached, safe })
@@ -392,6 +396,8 @@ pub struct Imported {
     id: String,
     name: String,
     count: usize,
+    source_count: usize,
+    duplicates: usize,
     /// "Artista - Canción" de las que no aparecieron en YouTube Music.
     missing: Vec<String>,
 }
@@ -425,7 +431,8 @@ pub async fn import_playlist(
 
     let name = title.unwrap_or_else(|| "Lista importada".to_string());
     let list = playlists.create(&name, tracks)?;
-    Ok(Imported { count: list.tracks.len(), id: list.id, name: list.name, missing: Vec::new() })
+    Ok(Imported { count: list.tracks.len(), source_count: list.tracks.len(), duplicates: 0,
+        id: list.id, name: list.name, missing: Vec::new() })
 }
 
 /// Importa canciones pegadas ("Artista - Canción", una por línea) o un CSV
@@ -458,6 +465,7 @@ async fn import_found(
 ) -> Result<Imported, String> {
     use tauri::Emitter;
 
+    let source_count = wanted.len();
     let handle = app.clone();
     let found = importer::find_all(wanted, move |done, total| {
         let _ = handle.emit("import-progress", serde_json::json!({ "done": done, "total": total }));
@@ -468,9 +476,12 @@ async fn import_found(
         return Err("No encontré ninguna de esas canciones en YouTube Music.".to_string());
     }
 
+    let duplicates = source_count.saturating_sub(found.tracks.len() + found.missing.len());
     let list = playlists.create(&name, found.tracks)?;
     Ok(Imported {
         count: list.tracks.len(),
+        source_count,
+        duplicates,
         id: list.id,
         name: list.name,
         missing: found.missing.iter().map(importer::Wanted::label).collect(),
@@ -498,6 +509,11 @@ pub async fn track_links(
 #[tauri::command]
 pub async fn artist_page(id: String) -> Result<ytmusic::ArtistPage, String> {
     ytmusic::artist(&id).await
+}
+
+#[tauri::command]
+pub async fn artist_songs(id: String) -> Result<Vec<SearchResult>, String> {
+    ytmusic::artist_songs(&id).await
 }
 
 #[tauri::command]
@@ -867,8 +883,37 @@ pub fn delete_user(id: String, state: State<'_, UsersState>) -> Result<Users, St
 /// El frontend guarda antes lo que tenga pendiente (la sesion, los ajustes).
 #[tauri::command]
 pub fn switch_user(id: String, state: State<'_, UsersState>, app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(mobile)]
+    flush_mobile_data(&app)?;
     state.change(|users| users.switch(&id))?;
+    #[cfg(desktop)]
     crate::restart_clean(&app);
+    #[cfg(mobile)]
+    reload_mobile_data(&app)
+}
+
+/// Cambios de usuario/restauración recargan el estado, sin intentar arrancar
+/// un ejecutable de escritorio en Android. El frontend se recarga después.
+#[cfg(mobile)]
+pub(crate) fn flush_mobile_data(app: &tauri::AppHandle) -> Result<(), String> {
+    use tauri::Manager;
+    app.state::<Store>().flush_mobile()?; app.state::<Stats>().flush_mobile()?;
+    app.state::<Playlists>().flush_mobile()?; app.state::<Settings>().flush_mobile()
+}
+
+#[cfg(mobile)]
+pub(crate) fn reload_mobile_data(app: &tauri::AppHandle) -> Result<(), String> {
+    use tauri::Manager;
+    let dir = app.state::<UsersState>().data_dir()?;
+    crate::backup::apply_pending(&dir)?;
+    app.state::<Store>().reload_mobile(dir.clone())?;
+    app.state::<Stats>().reload_mobile(dir.clone())?;
+    app.state::<Playlists>().reload_mobile(dir.clone())?;
+    app.state::<crate::backup::Backups>().retarget(dir.clone())?;
+    app.state::<Settings>().reload_mobile(dir)?;
+    ytdlp::set_data_saver(app.state::<Settings>().data_saver());
+    app.state::<AppCache>().clear();
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------

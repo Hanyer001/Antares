@@ -335,3 +335,51 @@ test("repetir todo con una sola pista la repite", () => {
   assert.equal(q.next().id, "t0");
   assert.equal(q.hasPrev(), false);
 });
+
+test("Solo este artista excluye lo pendiente de otros artistas y rechaza recomendaciones tardías", () => {
+  q.load([{ id: "otra" }]);
+  q.add({ id: "pendiente" });
+  q.load(pistas(5), 0, { artistOnly: true });
+  assert.equal(q.isArtistOnly(), true);
+  assert.deepEqual(ids(), idsDe(pistas(5)));
+  assert.equal(q.appendAuto([{ id: "recomendacion" }]), 0);
+  assert.equal(q.replaceUpcomingAuto([{ id: "radio-antigua" }]), 0);
+  assert.deepEqual(ids(), idsDe(pistas(5)));
+  q.pointAt("t4");
+  assert.equal(q.next(), null, "el artista termina sin una radio de otros artistas");
+});
+
+test("Solo este artista se recuerda al restaurar la sesión y mantiene el aleatorio", () => {
+  q.load(pistas(10), 0, { artistOnly: true });
+  q.setShuffle(true);
+  const state = JSON.parse(JSON.stringify(q.snapshot()));
+  const order = ids();
+  q.clear();
+  assert.equal(q.isArtistOnly(), false);
+  q.restore(state);
+  assert.equal(q.isArtistOnly(), true);
+  assert.equal(q.isShuffled(), true);
+  assert.deepEqual(ids(), order);
+  assert.equal(q.appendAuto([{ id: "ajena" }]), 0);
+});
+
+test("una colección normal o una canción elegida a mano recupera la continuación habitual", () => {
+  q.load(pistas(5), 0, { artistOnly: true });
+  q.load(pistas(5));
+  assert.equal(q.isArtistOnly(), false);
+  assert.equal(q.appendAuto([{ id: "normal" }]), 1);
+  q.load(pistas(5), 0, { artistOnly: true });
+  q.playNow({ id: "otra" });
+  assert.equal(q.isArtistOnly(), false);
+  assert.equal(q.appendAuto([{ id: "otra-recomendacion" }]), 1);
+});
+
+test("sesiones antiguas e inválidas no dejan pegado Solo este artista", () => {
+  q.load(pistas(5), 0, { artistOnly: true });
+  assert.equal(q.restore(null), false);
+  assert.equal(q.isArtistOnly(), true);
+  q.restore({ items: pistas(2), index: 0 });
+  assert.equal(q.isArtistOnly(), false);
+  q.restore({ items: pistas(2), index: 0, artistOnly: "false" });
+  assert.equal(q.isArtistOnly(), false);
+});

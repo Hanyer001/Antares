@@ -52,3 +52,7 @@ contrasena.txt
 *.bundle
 *.zip
 /publicar/
+
+# Herramientas y resultados de Android de esta máquina
+/android-tools.local.json
+/dist-android/

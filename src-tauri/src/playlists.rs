@@ -74,6 +74,17 @@ impl Playlists {
         }
     }
 
+    #[cfg(mobile)]
+    pub(crate) fn flush_mobile(&self) -> Result<(), String> {
+        self.file.save_sync(self.lists.lock().map_err(|_| "listas bloqueadas")?.clone()).map_err(|e| e.to_string())
+    }
+    #[cfg(mobile)]
+    pub(crate) fn reload_mobile(&self, dir: PathBuf) -> Result<(), String> {
+        let mut lists = self.lists.lock().map_err(|_| "listas bloqueadas")?;
+        self.file.retarget(dir.join(PLAYLISTS_FILE));
+        *lists = Self::load(dir).lists.into_inner().map_err(|_| "listas bloqueadas")?;
+        Ok(())
+    }
     /// Todas, de la editada mas recientemente a la mas antigua.
     pub fn all(&self) -> Vec<Playlist> {
         let mut lists = self.lists.lock().map(|l| l.clone()).unwrap_or_default();

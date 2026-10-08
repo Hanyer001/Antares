@@ -41,7 +41,7 @@ Los modelos puros se pueden probar con Node sin abrir Tauri. Las vistas delegan 
 1. El frontend selecciona una consulta o un identificador de vídeo.
 2. Rust consulta la caché y resuelve una URL de audio si hace falta. Las solicitudes simultáneas del mismo contenido comparten el turno de resolución.
 3. En Windows, el audio pasa por el proxy `stream://`, que permite aplicar efectos con Web Audio. En Android lo reproduce el servicio nativo.
-4. La siguiente canción se precarga para reducir la espera entre pistas.
+4. En escritorio, la siguiente canción se precarga para reducir la espera. En Android, la precarga web es opcional y está desactivada por defecto; Media3 administra el búfer de su cola nativa.
 5. Ante un fallo, la recuperación renueva la URL e intenta continuar desde la posición guardada. Los reintentos están limitados y se cancelan al pausar o elegir otra canción.
 
 Desde 0.3.2, `ytdlp.rs` resuelve el audio de Windows mediante el crate `rusty_ytdl` y conserva sus consultas de búsqueda y listas con yt-dlp. La dependencia local en `vendor/rusty_ytdl/` adapta el cliente YouTube; el contrato de pistas, la caché y el proxy se conservan. Android sigue utilizando `innertube.rs`.
@@ -61,3 +61,12 @@ El control de aventura ajusta la proporción de canciones nuevas. Las radios se 
 ## Android
 
 `NativeDeck` adapta las propiedades y eventos del reproductor nativo a la interfaz que espera `player.js`. `PlaybackService.kt` mantiene el audio en segundo plano y ofrece controles en la notificación y la pantalla de bloqueo.
+
+
+La cola completa se sincroniza por IDs y metadatos. Media3 abre `antares://video/<id>` mediante ResolvingDataSource y un puente JNI (`android_playback.rs`), que reutiliza la resolución y caché Rust. El servicio registra historial y escuchas, respeta el incógnito y mantiene el temporizador sin necesitar un WebView activo.
+
+`NativeEffects` utiliza los efectos de la sesión de audio del sistema. `NativeCrossfade` crea un segundo decodificador únicamente para las transiciones habilitadas. `DocumentsPlugin` exporta mediante el selector de archivos de Android. El cambio de usuario y la restauración conservan las instancias de estado gestionadas por Tauri y recargan su contenido, rutas y cachés.
+
+La política de navegación y cola está en `mobile-policy.js`; `mobile.js` aplica los accesos inferiores y el ahorro de recursos. La [guía Android](android.md) recoge las verificaciones físicas pendientes.
+
+`ChunkedAudioDataSource` entrega una fuente continua a Media3 a partir de peticiones HTTP con rango finito, preservando la posición y los límites de DataSpec. Esto evita los HTTP 403 que devuelve YouTube ante peticiones completas o rangos abiertos.

@@ -8,6 +8,7 @@
 
 let items = [];
 let index = -1;
+let generation = 0;
 
 /** Orden sin barajar. Solo se usa mientras el aleatorio está activo. */
 let original = [];
@@ -15,6 +16,7 @@ let shuffled = false;
 
 /** @type {"off"|"all"|"one"} */
 let repeat = "off";
+let artistOnly = false;
 
 const listeners = [];
 
@@ -116,14 +118,17 @@ function firstAutoAfter(list, from) {
  *
  * @param {Array} tracks
  * @param {number} [startIndex]
- * @param {{ ordered?: boolean, auto?: boolean }} [opts]
+ * @param {{ ordered?: boolean, auto?: boolean, artistOnly?: boolean }} [opts]
  *        `auto`: son recomendaciones (una mezcla), no algo elegido a mano.
  */
-export function load(tracks, startIndex = 0, { ordered = false, auto = false } = {}) {
+export function load(tracks, startIndex = 0, { ordered = false, auto = false, artistOnly: only = false } = {}) {
+  generation += 1;
+  artistOnly = Boolean(only);
+  // La selección explícita de solo el artista sustituye lo pendiente anterior.
   // "Siguiente en la cola" no se pierde al poner otra cosa (como en Spotify).
   // Lo que ya viene en la lista nueva sonará en su sitio de la lista.
   const incoming = new Set((tracks ?? []).map((t) => t?.id));
-  const pending = upcomingQueued().filter((t) => !incoming.has(t.id));
+  const pending = artistOnly ? [] : upcomingQueued().filter((t) => !incoming.has(t.id));
 
   const list = (tracks ?? []).map((track) => entry(track, auto));
   const start = list.length === 0 ? -1 : Math.min(Math.max(startIndex, 0), list.length - 1);
@@ -219,6 +224,8 @@ export function clearQueued() {
 export function playNow(track) {
   if (!track?.id) return;
 
+  artistOnly = false;
+
   if (current()?.id === track.id) return;
 
   detach(track.id);
@@ -237,6 +244,7 @@ export function playNow(track) {
 
 /** Añade recomendaciones al final, sin repetir ninguna que ya esté. */
 export function appendAuto(tracks) {
+  if (artistOnly) return 0;
   const present = new Set(items.map((t) => t.id));
   const fresh = [];
 
@@ -258,6 +266,7 @@ export function appendAuto(tracks) {
  * usuario, y lo que ya sonó, se queda donde estaba.
  */
 export function replaceUpcomingAuto(tracks) {
+  if (artistOnly) return 0;
   items = items.filter((track, i) => i <= index || !track.auto);
   if (shuffled) {
     const playingId = current()?.id;
@@ -287,7 +296,45 @@ export function remove(id) {
   emit();
 }
 
+/** Reordenar lo pendiente conserva la canción activa y el orden al quitar aleatorio. */
+export function move(from,to) {
+  if (![from,to].every(Number.isInteger) || from<=index || to<=index || from>=items.length || to>=items.length || from===to) return false;
+  const [track]=items.splice(from,1);items.splice(to,0,track);
+  if(shuffled){
+    original=original.filter(t=>t.id!==track.id);
+    const next=items[to+1],previous=items[to-1];
+    const nextAt=original.findIndex(t=>t.id===next?.id),previousAt=original.findIndex(t=>t.id===previous?.id);
+    original.splice(nextAt>=0?nextAt:previousAt>=0?previousAt+1:original.length,0,track);
+  }
+  // El usuario fijó el orden pendiente: no sustituir esas entradas por nuevas recomendaciones.
+  const pending=new Set(items.slice(index+1).map(t=>t.id));
+  for(const list of [items,original])for(const t of list)if(pending.has(t.id)){t.queued=true;t.auto=false;}
+  emit();return true;
+}
+
+/** Recibo pequeño de eliminación: deshacer no restaura toda la cola ni la reproducción. */
+export function removeUpcoming(id) {
+  const at=items.findIndex(t=>t.id===id);if(at<=index || at<0)return null;
+  const originalAt=original.findIndex(t=>t.id===id);
+  const anchor=(list,pos)=>({before:list[pos-1]?.id,after:list[pos+1]?.id,position:pos});
+  const receipt={generation,track:{...items[at]},...anchor(items,at),original:anchor(original,originalAt),used:false};
+  remove(id);return receipt;
+}
+
+export function undoRemove(receipt) {
+  if(!receipt || receipt.used || receipt.generation!==generation || items.some(t=>t.id===receipt.track.id))return false;
+  const insert=(list,anchor,min=0)=>{
+    const after=list.findIndex(t=>t.id===anchor.after),before=list.findIndex(t=>t.id===anchor.before);
+    const at=after>=0?after:before>=0?before+1:anchor.position;
+    list.splice(Math.max(min,Math.min(list.length,at)),0,{...receipt.track});
+  };
+  insert(items,receipt,index+1);if(shuffled)insert(original,receipt.original);
+  receipt.used=true;emit();return true;
+}
+
 export function clear() {
+  generation += 1;
+  artistOnly = false;
   items = [];
   original = [];
   index = -1;
@@ -296,7 +343,7 @@ export function clear() {
 
 /** Todo el estado de la cola, para guardarlo entre sesiones. */
 export function snapshot() {
-  return { items: [...items], original: [...original], index, shuffled };
+  return { items: [...items], original: [...original], index, shuffled, artistOnly };
 }
 
 /**
@@ -305,10 +352,12 @@ export function snapshot() {
  */
 export function restore(state) {
   if (!state || !Array.isArray(state.items)) return false;
+  generation += 1;
 
   const valid = (list) => (Array.isArray(list) ? list.filter((t) => t?.id) : []);
 
   items = valid(state.items);
+  artistOnly = state.artistOnly === true;
   original = valid(state.original);
   shuffled = Boolean(state.shuffled) && original.length > 0;
   if (!shuffled) original = [];
@@ -323,6 +372,9 @@ export function restore(state) {
 export function all() {
   return items;
 }
+
+/** La colección elegida no debe prolongarse con canciones de otros artistas. */
+export function isArtistOnly() { return artistOnly; }
 
 export function current() {
   return items[index] ?? null;

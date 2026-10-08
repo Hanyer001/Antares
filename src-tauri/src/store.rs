@@ -53,6 +53,20 @@ impl Store {
         }
     }
 
+    #[cfg(any(mobile, test))]
+    pub(crate) fn flush_mobile(&self) -> Result<(), String> {
+        self.history_file.save_sync(self.history()).map_err(|e| e.to_string())?;
+        self.searches_file.save_sync(self.searches.lock().map_err(|_| "busquedas bloqueadas")?.clone()).map_err(|e| e.to_string())
+    }
+    #[cfg(any(mobile, test))]
+    pub(crate) fn reload_mobile(&self, dir: PathBuf) -> Result<(), String> {
+        let next = Self::load(dir.clone());
+        let mut history = self.history.lock().map_err(|_| "historial bloqueado")?;
+        let mut searches = self.searches.lock().map_err(|_| "busquedas bloqueadas")?;
+        self.history_file.retarget(dir.join(HISTORY_FILE)); self.searches_file.retarget(dir.join(SEARCHES_FILE));
+        *history = next.history(); *searches = next.searches.into_inner().map_err(|_| "busquedas bloqueadas")?;
+        Ok(())
+    }
     // --- Historial --------------------------------------------------------
 
     pub fn history(&self) -> Vec<HistoryEntry> {
@@ -152,7 +166,7 @@ impl Store {
 /// Serializa las escrituras y descarta las instantáneas anteriores a la última guardada.
 /// Llamar a save con el mutex de los datos tomado para conservar su orden.
 pub(crate) struct Persister {
-    path: PathBuf,
+    path: Mutex<PathBuf>,
     next: AtomicU64,
     written: Arc<Mutex<u64>>,
 }
@@ -160,22 +174,27 @@ pub(crate) struct Persister {
 impl Persister {
     pub(crate) fn new(path: PathBuf) -> Self {
         Self {
-            path,
+            path: Mutex::new(path),
             next: AtomicU64::new(0),
             written: Arc::default(),
         }
     }
 
+    #[cfg(any(mobile, test))]
+    pub(crate) fn retarget(&self, path: PathBuf) {
+        if let Ok(mut current) = self.path.lock() { *current = path; }
+    }
     pub(crate) fn save_sync<T: Serialize>(&self, value: T) -> std::io::Result<()> {
         let seq = self.next.fetch_add(1, Ordering::SeqCst) + 1;
         let mut last = self.written.lock().map_err(|_| std::io::Error::other("persistencia bloqueada"))?;
-        if seq > *last { write_json_atomic(&self.path, &value)?; *last = seq; }
+        if seq > *last { write_json_atomic(&self.path.lock().map_err(|_| std::io::Error::other("ruta bloqueada"))?, &value)?; *last = seq; }
         Ok(())
     }
 
     pub(crate) fn save<T: Serialize + Send + 'static>(&self, value: T) {
         let seq = self.next.fetch_add(1, Ordering::SeqCst) + 1;
-        let path = self.path.clone();
+        let Ok(path) = self.path.lock() else { return };
+        let path = path.clone();
         let written = self.written.clone();
 
         std::thread::spawn(move || {
@@ -286,6 +305,34 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
         false
+    }
+
+    #[test]
+    fn cambiar_usuario_aisla_historial_busquedas_y_escrituras() {
+        let base = std::env::temp_dir().join(format!("antares-users-{}-{:?}", std::process::id(), std::thread::current().id()));
+        let a = base.join("a"); let b = base.join("b");
+        let live = Store::load(a.clone());
+        live.record(candidato("old", "Usuario A"));
+        live.put_search("only-a", &[candidato("old", "Usuario A")]);
+        live.flush_mobile().unwrap();
+        let other = Store::load(b.clone());
+        other.record(candidato("new", "Usuario B"));
+        other.put_search("only-b", &[candidato("new", "Usuario B")]);
+        other.flush_mobile().unwrap();
+
+        live.reload_mobile(b.clone()).unwrap();
+        assert_eq!(live.history()[0].track.id, "new");
+        assert!(live.get_search("only-a").is_none());
+        assert!(live.get_search("only-b").is_some());
+        live.record(candidato("next", "Otra de B"));
+        live.flush_mobile().unwrap();
+        assert_eq!(Store::load(a.clone()).history()[0].track.id, "old");
+        assert_eq!(Store::load(b).history().len(), 2);
+
+        live.reload_mobile(a).unwrap();
+        assert_eq!(live.history().len(), 1);
+        assert_eq!(live.history()[0].track.id, "old");
+        assert!(live.get_search("only-b").is_none());
     }
 
     #[test]

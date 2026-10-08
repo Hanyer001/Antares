@@ -9,6 +9,8 @@
 
 #![cfg_attr(mobile, allow(dead_code, unused_imports))]
 
+#[cfg(target_os = "android")]
+mod android_playback;
 mod app_update;
 mod audio_proxy;
 mod backup;
@@ -320,7 +322,7 @@ pub fn run() {
     // En Android el audio lo reproduce el sistema (un servicio con su
     // notificacion), no la pagina: ver `mobile::player`.
     #[cfg(mobile)]
-    let builder = builder.plugin(mobile::player());
+    let builder = builder.plugin(mobile::player()).plugin(mobile::documents());
 
     builder
         .plugin(tauri_plugin_notification::init())
@@ -367,7 +369,10 @@ pub fn run() {
             let _ = base;
 
             app.manage(settings);
+            #[cfg(desktop)]
             warm_related(app.handle().clone());
+            #[cfg(target_os = "android")]
+            android_playback::init(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -403,6 +408,7 @@ pub fn run() {
             commands::reorder_playlist,
             commands::track_links,
             commands::artist_page,
+            commands::artist_songs,
             commands::album_page,
             commands::shelf_more,
             commands::artist_for_query,
@@ -456,6 +462,15 @@ mod mobile {
     /// servicio en primer plano, con la notificacion multimedia, los botones
     /// de los auriculares y la pantalla de bloqueo. El frontend lo maneja con
     /// `plugin:player|...` (ver native-deck.js).
+    pub fn documents<R: Runtime>() -> TauriPlugin<R> {
+        Builder::new("documents").setup(|_app, api| {
+            #[cfg(target_os = "android")]
+            api.register_android_plugin("com.hanyer.antares", "DocumentsPlugin")?;
+            #[cfg(not(target_os = "android"))]
+            let _ = api;
+            Ok(())
+        }).build()
+    }
     pub fn player<R: Runtime>() -> TauriPlugin<R> {
         Builder::new("player")
             .setup(|_app, api| {

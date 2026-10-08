@@ -28,6 +28,7 @@ function cached(key, load) {
 }
 
 export const fetchArtist = (id) => cached(`artist:${id}`, () => invoke("artist_page", { id }));
+export const fetchArtistSongs = (id) => cached(`artist-songs:${id}`, () => invoke("artist_songs", { id }));
 export const fetchAlbum = (id) => cached(`album:${id}`, () => invoke("album_page", { id }));
 export const fetchList = (id) => cached(`list:${id}`, () => invoke("youtube_list", { id }));
 
@@ -62,15 +63,15 @@ const handlers = {
   openAlbum: () => {},
   openList: () => {},
   playVideo: () => {},
-  playPlaylist: () => {},
   save: () => {},
   menu: () => {},
+  error: () => {},
 };
 
 /**
- * `{ play(tracks, start, { shuffle }), radio(seeds, name), openArtist(id, name),
+ * `{ play(tracks, start, { shuffle, ordered, artistOnly }), radio(seeds, name), openArtist(id, name),
  * openAlbum(id, title), openList(id, title, thumbnail), playVideo(track),
- * playPlaylist(playlistId, title), save(name, tracks), menu(track, button) }`
+ * save(name, tracks), menu(track, button), error(error) }`
  */
 export function initArtistView(callbacks) {
   Object.assign(handlers, callbacks);
@@ -82,6 +83,43 @@ export function initArtistView(callbacks) {
 let shown = null;
 let shownName = null;
 let tracks = [];
+let playRequest = 0;
+
+export function cancelPendingPlay() { playRequest++; }
+
+/** Carga la colección antes de sustituir la cola; la última elección manda. */
+export async function playCollection(page, { trackId = null, shuffle = false, button = null, visible = false, artistTrack = null, artistOnly = false } = {}) {
+  const request = ++playRequest;
+  button?.setAttribute("aria-busy", "true");
+  if (button) button.disabled = true;
+  try {
+    if (artistTrack) {
+      const { artists } = await trackLinks(artistTrack);
+      const match = artists.find((a) => a.name.toLocaleLowerCase() === page.name?.replace(/ - Topic$/, "").toLocaleLowerCase()) ?? artists[0];
+      if (!match) throw new Error("No encontré la página de este artista.");
+      page = { type: "artist", id: match.id, name: match.name };
+    }
+    if (request !== playRequest) return;
+    const data = await ({ artist: fetchArtist, album: fetchAlbum, ytlist: fetchList }[page.type])(page.id);
+    const only = page.type === "artist" && artistOnly;
+    const list = page.type === "artist" ? (only ? await fetchArtistSongs(page.id) : data.songs.slice(0, 5)) : data.tracks;
+    if (request !== playRequest || (visible && (shown !== page || els.artist.hidden))) return;
+    if (!list?.length) throw new Error("Esta colección no tiene canciones disponibles.");
+    const start = trackId == null ? 0 : list.findIndex((t) => t.id === trackId);
+    if (start < 0) throw new Error("Esta canción ya no está disponible en la colección. Vuelve a abrirla.");
+    const name = data.name ?? data.title ?? page.name;
+    handlers.play(list, start, { shuffle, ordered: page.type !== "ytlist", selected: trackId != null, artistOnly: only, name: only ? `Solo ${name}` : name });
+  } catch (error) {
+    if (request === playRequest) handlers.error(error);
+  } finally {
+    button?.removeAttribute("aria-busy");
+    if (button) button.disabled = false;
+  }
+}
+
+export function playFrom(track) {
+  if (shown) return playCollection(shown, { trackId: track.id, visible: true });
+}
 
 /** Las canciones que se ven: al elegir una, suenan estas desde ella. */
 export function currentTracks() {
@@ -94,6 +132,7 @@ export function currentName() {
 }
 
 export function show(visible) {
+  if (!visible && !els.artist.hidden) cancelPendingPlay();
   els.artist.hidden = !visible;
 }
 
@@ -106,6 +145,8 @@ export function show(visible) {
 export function display(page) {
   show(true);
   if (page === shown) return;
+
+  cancelPendingPlay();
 
   shown = page;
   shownName = page.name ?? null;
@@ -168,9 +209,11 @@ function countLabel(n) {
 
 /** Reproducir, aleatorio y (según la página) radio o guardar. */
 function actions(extra = []) {
+  const page = shown;
   const box = el("div", "hero__actions");
-  const play = button("play", "Reproducir", () => handlers.play(tracks, 0, { name: shownName }), { primary: true });
-  const shuffle = button("shuffle", "Aleatorio", () => handlers.play(tracks, 0, { shuffle: true, name: shownName }));
+  const play = button("play", "Reproducir", () => playCollection(page, { button: play, visible: true }), { primary: true });
+  const shuffle = button("shuffle", "Aleatorio", () => playCollection(page, { shuffle: true, button: shuffle, visible: true }));
+  play.disabled = shuffle.disabled = tracks.length === 0;
   box.append(play, shuffle, ...extra);
   return box;
 }
@@ -275,19 +318,19 @@ function buildCard(card, artistName) {
     cover.append(more);
   }
 
-  // Álbumes y listas se pueden poner a sonar sin abrirlos; un vídeo suena al
-  // pulsarlo, y el botón solo lo recuerda.
-  if (card.kind !== "artist") {
-    const play = el("span", "card__play");
+  // La colección usa su propio endpoint; un álbum nunca se convierte en radio.
+  {
+    const canPlay = card.kind === "album" || card.kind === "artist" || !!card.playlist_id;
+    const play = el(canPlay ? "button" : "span", "card__play");
     play.append(icon("play"));
-    if (card.playlist_id) {
+    if (canPlay) {
+      play.type = "button";
       play.classList.add("card__play--button");
-      play.setAttribute("role", "button");
       play.setAttribute("aria-label", `Reproducir «${card.title}»`);
       play.title = "Reproducir";
       play.addEventListener("click", (event) => {
         event.stopPropagation();
-        handlers.playPlaylist(card.playlist_id, card.title);
+        playCollection({ type: card.kind === "playlist" ? "ytlist" : card.kind, id: card.kind === "playlist" ? card.playlist_id : card.id, name: card.title }, { button: play });
       });
     }
     cover.append(play);
@@ -400,6 +443,7 @@ function paintError(page, error) {
 function paintArtist(data) {
   clear();
   shownName = data.name;
+  tracks = data.songs.slice(0, 5);
 
   const hero = el("div", "hero hero--artist");
   if (data.image) {
@@ -415,7 +459,7 @@ function paintArtist(data) {
 
   const radio = button("radio", "Radio", () => handlers.radio(tracks.slice(0, 5), data.name));
   const box = actions([radio]);
-  for (const b of box.querySelectorAll("button")) b.disabled = data.songs.length === 0;
+  radio.disabled = data.songs.length === 0;
   body.append(box);
 
   hero.append(body);
@@ -423,26 +467,11 @@ function paintArtist(data) {
   if (data.description) els.artistTop.append(description(data.description));
 
   if (data.songs.length > 0) {
-    const extra = [];
-    if (data.songs_playlist) {
-      const all = el("button", "btn btn--mini", "Ver todas");
-      all.type = "button";
-      all.addEventListener("click", async () => {
-        all.disabled = true;
-        all.textContent = "Cargando…";
-        try {
-          const list = await fetchList(data.songs_playlist);
-          if (list.tracks.length > 0) setSongs(list.tracks);
-          all.remove();
-        } catch {
-          all.disabled = false;
-          all.textContent = "Ver todas";
-        }
-      });
-      extra.push(all);
-    }
-    els.artistTop.append(sectionHead("Canciones más escuchadas", extra));
-    setSongs(data.songs);
+    const page = shown;
+    const only = button("play", "Solo este artista", () => playCollection(page, { artistOnly: true, button: only, visible: true }));
+    only.title = "Reproduce su lista de canciones sin añadir recomendaciones de otros artistas.";
+    els.artistTop.append(sectionHead("Canciones más escuchadas", [only]));
+    setSongs(tracks);
   }
 
   els.artistShelves.replaceChildren(...data.shelves.map((shelf) => buildShelf(shelf, data.name)));
@@ -473,6 +502,7 @@ function metaOf(list) {
 function paintAlbum(data) {
   clear();
   shownName = data.title;
+  tracks = data.tracks;
   const save = button("save", "Guardar como lista", () => handlers.save(data.title, tracks));
 
   els.artistTop.append(
@@ -497,6 +527,7 @@ function paintList(page, data) {
   clear();
   const title = data.title ?? page.name ?? "Lista de YouTube";
   shownName = title;
+  tracks = data.tracks;
   const save = button("save", "Guardar como lista", () => handlers.save(title, tracks));
 
   els.artistTop.append(

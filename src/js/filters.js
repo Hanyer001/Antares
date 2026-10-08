@@ -38,6 +38,7 @@ export function tuningFrom(discovery) {
     maxDurationSecs: discovery.maxMinutes * 60,
     excludeWords: discovery.excludeWords,
     blockedChannels: discovery.blockedChannels,
+    lessChannels: discovery.lessArtists ?? [],
   };
 }
 

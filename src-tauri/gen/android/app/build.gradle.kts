@@ -40,16 +40,18 @@ android {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
         applicationId = "com.hanyer.antares"
         minSdk = 24
-        // 34 y no 36: desde el 35 Android obliga a dibujar la app debajo de la
-        // barra de estado y de la de navegación. Con 34 la app queda entre las
-        // dos, sin tapar nada. Para un APK instalado a mano no hay requisito
-        // de versión (eso es de Google Play).
-        targetSdk = 34
-        versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
-        versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+        // MainActivity aplica los insets de barras, recortes y teclado.
+        targetSdk = 36
+        val buildVersion = project.findProperty("antaresVersion")?.toString()
+        versionName = buildVersion ?: tauriProperties.getProperty("tauri.android.versionName", "1.0")
+        versionCode = if (buildVersion != null) {
+            val parts = buildVersion.split('.').map(String::toInt)
+            parts[0] * 1000000 + parts[1] * 1000 + parts[2]
+        } else tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
     }
     buildTypes {
         getByName("debug") {
+            applicationIdSuffix = ".preview"
             manifestPlaceholders["usesCleartextTraffic"] = "true"
             isDebuggable = true
             isJniDebuggable = true
@@ -75,6 +77,7 @@ android {
     kotlinOptions {
         jvmTarget = "1.8"
     }
+    testOptions { unitTests.isIncludeAndroidResources = true }
     buildFeatures {
         buildConfig = true
     }
@@ -96,8 +99,31 @@ dependencies {
     implementation("androidx.media3:media3-session:1.8.0")
     implementation("androidx.media3:media3-datasource:1.8.0")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
     androidTestImplementation("androidx.test.ext:junit:1.1.4")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.0")
 }
 
 apply(from = "tauri.build.gradle.kts")
+
+androidComponents {
+    onVariants(selector().withBuildType("debug")) { variant ->
+        variant.outputs.forEach { output ->
+            output.versionCode.set(output.versionCode.get() * 100 + 8)
+            output.versionName.set(output.versionName.get() + "-preview.8")
+        }
+    }
+}
+
+tasks.withType<Test>().configureEach {
+    val testHome = file(System.getenv("ANTARES_TEST_HOME") ?: File(System.getProperty("java.io.tmpdir"), "antares-robolectric").absolutePath)
+    testHome.mkdirs()
+    val testTemp = File(testHome, "tmp").apply { mkdirs() }
+    systemProperty("java.io.tmpdir", testTemp.absolutePath)
+    systemProperty("user.home", testHome.absolutePath)
+    systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
+    System.getenv("ANTARES_TEST_SDKS")?.let {
+        systemProperty("robolectric.offline", "true")
+        systemProperty("robolectric.dependency.dir", it)
+    }
+}

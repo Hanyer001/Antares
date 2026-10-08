@@ -127,8 +127,8 @@ export function request(mode, { seeds = [], count, exclude = [] }) {
     seeds,
     count,
     adventure,
-    exclude: [...new Set([...played, ...exclude, ...moments.exclusions()])],
+    exclude: [...new Set([...played, ...exclude, ...moments.exclusions(), ...prefs.get("discovery.knownTracks")])],
     avoidSeeds: avoidedSeeds(),
     tuning: tuningFrom(prefs.get("discovery")),
-  }).then(tracks => tracks.filter(moments.allowed));
+  }).then(tracks => tracks.filter(t => moments.allowed(t) && !prefs.get("discovery.knownTracks").includes(t.id)));
 }

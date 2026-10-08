@@ -9,6 +9,11 @@ import { makeFilter } from "./filters.js";
 import { detectGenres, genreById, GENRES, tracksOfGenre } from "./genres.js";
 import { icon, iconButton } from "./icons.js";
 import * as prefs from "./prefs.js";
+import { bindTouchSort, dropPosition } from "./mobile-interactions.js";
+import { orderedShelves } from "./interaction-policy.js";
+import { openMenu } from "./menu.js";
+import { haptic } from "./haptics.js";
+import { toast } from "./toast.js";
 import { searchTracks } from "./search.js";
 
 const { invoke } = window.__TAURI__.core;
@@ -38,7 +43,7 @@ const handlers = {
   menu: () => {},
   openList: () => {},
   artist: () => {},
-  artistRadio: () => {},
+  artistPlay: () => {},
   prefetch: () => {},
   lastPlayed: () => null,
   detected: () => {},
@@ -65,12 +70,13 @@ const painted = new Map();
 // --- Callbacks -----------------------------------------------------------
 
 /**
- * Instala los callbacks: `{ pick, playAll, menu, openList, artist, artistRadio,
+ * Instala los callbacks: `{ pick, playAll, menu, openList, artist, artistPlay,
  * prefetch, lastPlayed, detected }`. `artist(track, link)`: clic en el artista
  * de una tarjeta.
  */
 export function initHome(callbacks) {
   Object.assign(handlers, callbacks);
+  if(document.documentElement.dataset.platform==='android') initOrganizer();
 
   prefs.on("home", () => {
     chooseGenres();
@@ -239,10 +245,10 @@ export function show(isVisible) {
 
 /** Las estanterías a pintar, en el orden elegido y sin las ocultas ni vacías. */
 function shelves() {
-  const { shelfOrder, hiddenShelves } = prefs.get("home");
+  const { shelfOrder, hiddenShelves, pinnedShelves } = prefs.get("home");
   const out = [];
 
-  for (const id of shelfOrder) {
+  for (const id of orderedShelves(shelfOrder,pinnedShelves)) {
     if (hiddenShelves.includes(id)) continue;
 
     switch (id) {
@@ -270,7 +276,7 @@ function shelves() {
         out.push({ key: id, title: "Descubrimientos recientes", subtitle: "Nuevas para ti estas dos semanas, y las escuchaste enteras", tracks: data.discoveries, state: "ready" });
         break;
       case "artists":
-        out.push({ key: id, kind: "artists", title: "Tus artistas", subtitle: "Un clic: su radio", items: data.artists, state: "ready" });
+        out.push({ key: id, kind: "artists", title: "Tus artistas", subtitle: "Empieza por sus cinco principales", items: data.artists, state: "ready" });
         break;
       case "lists": {
         const lists = playlists.filter((pl) => pl.tracks.length > 0);
@@ -284,7 +290,7 @@ function shelves() {
   // en Inicio, aunque la estantería no venga del recomendador.
   const allowed = makeFilter(prefs.get("discovery"));
   const filtered = out.map((shelf) =>
-    shelf.tracks ? { ...shelf, tracks: shelf.tracks.filter(t => allowed(t) && moments.allowed(t)) } : shelf,
+    shelf.tracks ? { ...shelf, tracks: shelf.tracks.filter(t => allowed(t) && moments.allowed(t) && (!isDiscoveryShelf(shelf.key) || !prefs.get("discovery.knownTracks").includes(t.id))) } : shelf,
   );
 
   return filtered.filter((shelf) => {
@@ -296,7 +302,7 @@ function shelves() {
 
 function signature(shelf) {
   const items = shelf.tracks ?? shelf.items ?? [];
-  return `${shelf.state}|${shelf.title}|${items.map((i) => i.id ?? i.name).join(",")}`;
+  return `${prefs.get("home.pinnedShelves").includes(sectionId(shelf.key))}|${shelf.state}|${shelf.title}|${items.map((i) => i.id ?? i.name).join(",")}`;
 }
 
 function shelfHeader(shelf, row) {
@@ -309,6 +315,9 @@ function shelfHeader(shelf, row) {
   title.className = "shelf__title";
   title.textContent = shelf.title ?? "";
   text.append(title);
+  if(prefs.get("home.pinnedShelves").includes(sectionId(shelf.key))){
+    const badge=document.createElement("span");badge.className="shelf__pinned";badge.textContent="Fijada";text.append(badge);
+  }
   if (shelf.subtitle) {
     const sub = document.createElement("p");
     sub.className = "shelf__sub";
@@ -331,6 +340,10 @@ function shelfHeader(shelf, row) {
     );
   }
 
+  if(document.documentElement.dataset.platform==='android'){
+    const handle=iconButton({icon:'grip',label:`Organizar sección ${shelf.title}`,className:'btn shelf__organize',onClick:(_event,button)=>sectionMenu(shelf,button)});
+    actions.append(handle);
+  }
   // Flechas para recorrer la fila sin rueda horizontal.
   for (const [name, dir] of [["back", -1], ["back", 1]]) {
     const button = iconButton({
@@ -381,7 +394,8 @@ function trackCard(track) {
       handlers.menu(track, button);
     },
   });
-  cover.append(more);
+  const mobile = document.documentElement.dataset.platform === "android";
+  if (!mobile) cover.append(more);
 
   const title = document.createElement("span");
   title.className = "card__title";
@@ -402,7 +416,11 @@ function trackCard(track) {
     by.addEventListener("keydown", (event) => event.stopPropagation());
   }
 
-  card.append(cover, title, by);
+  if (mobile) {
+    const meta = document.createElement("div"); meta.className = "mobile-card-meta";
+    const text = document.createElement("div"); text.append(title, by);
+    meta.append(text, more); card.append(cover, meta);
+  } else card.append(cover, title, by);
 
   const pick = () => handlers.pick(track);
   card.addEventListener("click", pick);
@@ -416,6 +434,7 @@ function trackCard(track) {
     handlers.menu(track, more);
   });
   card.addEventListener("pointerenter", () => {
+    if(document.documentElement.dataset.platform==='android')return;
     clearTimeout(hoverTimer);
     hoverTimer = setTimeout(() => handlers.prefetch(track), HOVER_PREFETCH_MS);
   });
@@ -428,11 +447,15 @@ function artistCard(artist) {
   const card = document.createElement("button");
   card.type = "button";
   card.className = "card card--artist";
-  card.title = `Radio de ${artist.name}`;
+  card.title = `Reproducir las canciones de ${artist.name.replace(/ - Topic$/, "")}`;
 
   const cover = document.createElement("div");
   cover.className = "card__cover";
   cover.append(art(artist.tracks[0]?.thumbnail, "card__art"));
+  const play = document.createElement("span");
+  play.className = "card__play";
+  play.append(icon("play"));
+  cover.append(play);
 
   const name = document.createElement("span");
   name.className = "card__title";
@@ -440,10 +463,10 @@ function artistCard(artist) {
 
   const by = document.createElement("span");
   by.className = "card__by";
-  by.textContent = "Radio";
+  by.textContent = "Reproducir artista";
 
   card.append(cover, name, by);
-  card.addEventListener("click", () => handlers.artistRadio(artist));
+  card.addEventListener("click", () => handlers.artistPlay(artist));
   return card;
 }
 
@@ -491,6 +514,7 @@ function skeletons() {
 function buildShelf(shelf) {
   const section = document.createElement("section");
   section.className = "shelf";
+  section.dataset.section = sectionId(shelf.key);
   section.setAttribute("aria-busy", String(shelf.state === "loading"));
 
   const row = document.createElement("div");
@@ -537,6 +561,41 @@ function welcome() {
 
   box.append(title, text, chips);
   return box;
+}
+
+function sectionId(key){return key.split(':')[0].replace('genre','genres');}
+function isDiscoveryShelf(key){return ['mix','genres','because','discoveries','explore'].includes(sectionId(key));}
+function moveSection(from,to){
+  const order=[...prefs.get('home.shelfOrder')],pins=prefs.get('home.pinnedShelves');
+  const sameGroup=orderedShelves(order,pins).filter(id=>pins.includes(id)===pins.includes(from));
+  const old=sameGroup.indexOf(from),at=sameGroup.indexOf(to);if(old<0||at<0||old===at)return;
+  sameGroup.splice(old,1);sameGroup.splice(at,0,from);
+  let i=0;prefs.set('home.shelfOrder',order.map(id=>pins.includes(id)===pins.includes(from)?sameGroup[i++]:id));
+  haptic();toast('Orden de Inicio actualizado.');
+}
+function sectionMenu(shelf,button){
+  const id=sectionId(shelf.key),pins=prefs.get('home.pinnedShelves'),pinned=pins.includes(id);
+  const order=orderedShelves(prefs.get('home.shelfOrder'),pins).filter(key=>pins.includes(key)===pinned && !prefs.get('home.hiddenShelves').includes(key));
+  const at=order.indexOf(id);
+  openMenu(button,[{heading:shelf.title},
+    {label:pinned?'Dejar de fijar':'Fijar arriba',onSelect:()=>{prefs.set('home.pinnedShelves',pinned?pins.filter(key=>key!==id):[...pins,id]);haptic();}},
+    ...(at>0?[{label:'Subir sección',onSelect:()=>moveSection(id,order[at-1])}]:[]),
+    ...(at>=0&&at<order.length-1?[{label:'Bajar sección',onSelect:()=>moveSection(id,order[at+1])}]:[]),
+    {label:'Ocultar sección',onSelect:()=>{prefs.set('home.hiddenShelves',[...prefs.get('home.hiddenShelves'),id]);toast('Sección oculta.',{action:{label:'Deshacer',onClick:()=>prefs.set('home.hiddenShelves',prefs.get('home.hiddenShelves').filter(key=>key!==id))}});}}
+  ]);
+}
+function initOrganizer(){
+  const bar=document.createElement('div');bar.className='home-organizer';
+  const toggle=document.createElement('button');toggle.type='button';toggle.className='btn btn--mini';toggle.textContent='Organizar Inicio';toggle.setAttribute('aria-pressed','false');
+  const hint=document.createElement('span');hint.className='home-organizer__hint';hint.hidden=true;hint.textContent='Arrastra el asa. Tócala para fijar, mover u ocultar.';
+  toggle.addEventListener('click',()=>{const on=!els.home.classList.contains('home--editing');els.home.classList.toggle('home--editing',on);toggle.setAttribute('aria-pressed',String(on));toggle.textContent=on?'Listo':'Organizar Inicio';hint.hidden=!on;});
+  bar.append(toggle,hint);els.home.before(bar);
+  new MutationObserver(()=>{bar.hidden=els.home.hidden;}).observe(els.home,{attributes:true,attributeFilter:['hidden']});bar.hidden=els.home.hidden;
+  bindTouchSort(els.home,{rowSelector:'.shelf',handleSelector:'.shelf__organize',onMove:(row,target,after)=>{
+    const visible=[...new Set([...els.home.querySelectorAll('.shelf')].map(e=>e.dataset.section))];
+    const from=visible.indexOf(row.dataset.section),at=visible.indexOf(target.dataset.section);
+    moveSection(row.dataset.section,visible[dropPosition(from,at,after,visible.length)]);
+  }});
 }
 
 export function render() {

@@ -7,6 +7,7 @@
     <!-- La fuente va dentro de la app (src/fonts): sin internet se ve igual. -->
     <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="mobile.css" />
     <!-- El tema guardado, antes de pintar nada: sin esto la app abriría un
          instante en Grafito antes de pasar al tema del usuario. -->
     <script src="boot-theme.js"></script>
@@ -102,7 +103,7 @@
               class="field__input"
               id="search-input"
               type="text"
-              placeholder="Buscar una canción o pegar un enlace de YouTube"
+              placeholder="Buscar una canción o pegar un enlace de música"
               aria-label="Buscar canción"
               spellcheck="false"
             />
@@ -351,7 +352,7 @@
                 </div>
               </div>
 
-              <div class="setting desktop-only" data-keywords="compartir tema exportar importar archivo">
+              <div class="setting" data-keywords="compartir tema exportar importar archivo">
                 <div class="setting__text">
                   <span class="setting__label">Compartir el tema</span>
                   <span class="setting__value">Guárdalo en un archivo para llevarlo a otro equipo o pasárselo a alguien</span>
@@ -910,7 +911,7 @@
           </section>
 
           <!-- ── Sonido: todo pasa por la Web Audio API (ver sound.js) ── -->
-          <section class="settings__group desktop-only" data-group="sound">
+          <section class="settings__group" data-group="sound">
             <header class="settings__head">
               <h3 class="settings__title">Sonido</h3>
               <button class="btn btn--link" type="button" data-reset="sound">Restablecer</button>
@@ -942,7 +943,7 @@
                   </div>
                 </div>
                 <!-- Diez bandas, de graves a agudos. Las construye sound.js. -->
-                <div class="eq10" id="eq-bands"></div>
+                <div class="eq10" id="eq-bands"></div><p class="setting__value android-only" id="native-effects-status" role="status"></p>
               </div>
 
               <div class="setting setting--column" data-keywords="transición fundido crossfade mezcla entre canciones">
@@ -958,6 +959,30 @@
             </div>
           </section>
 
+          <section class="settings__group android-only" data-group="mobile">
+            <header class="settings__head"><h3 class="settings__title">Android y batería</h3>
+              <button class="btn btn--link" type="button" data-reset="mobile">Restablecer</button></header>
+            <div class="settings__card">
+              <div class="setting" data-keywords="batería ahorro energía rendimiento animación fondo">
+                <div class="setting__text"><span class="setting__label">Ahorrar batería</span>
+                  <span class="setting__value">Reduce animaciones y desenfoque. Conserva tus colores, temas y fondos.</span></div>
+                <label class="switch switch--bare"><input type="checkbox" data-pref="mobile.energySaver" />
+                  <span class="switch__track" aria-hidden="true"></span><span class="sr-only">Ahorrar batería</span></label>
+              </div>
+              <div class="setting" data-keywords="datos red siguiente precarga anticipar">
+                <div class="setting__text"><span class="setting__label">Preparar la siguiente canción</span>
+                  <span class="setting__value">Adelanta la resolución cuando la pantalla está visible. Consume más red.</span></div>
+                <label class="switch switch--bare"><input type="checkbox" data-pref="mobile.prefetch" />
+                  <span class="switch__track" aria-hidden="true"></span><span class="sr-only">Preparar la siguiente canción</span></label>
+              </div>
+            <div class="setting" data-keywords="vibración táctil haptics favoritos mover">
+                <div class="setting__text"><span class="setting__label">Respuesta táctil</span>
+                  <span class="setting__value">Una vibración breve al guardar un favorito o mover una canción. Respeta los ajustes de Android.</span></div>
+                <label class="switch switch--bare"><input type="checkbox" data-pref="mobile.haptics" />
+                  <span class="switch__track" aria-hidden="true"></span><span class="sr-only">Respuesta táctil</span></label>
+              </div>
+            </div>
+          </section>
           <!-- ── Sistema ────────────────────────────────────────── -->
           <section class="settings__group desktop-only" data-group="system">
             <header class="settings__head">
@@ -1058,7 +1083,7 @@
                 <ul class="people" id="profile-list"></ul>
               </div>
 
-              <div class="setting setting--column desktop-only" data-keywords="usuarios personas cuenta familia compartir pc">
+              <div class="setting setting--column" data-keywords="usuarios personas cuenta familia compartir pc">
                 <div class="setting__row">
                   <div class="setting__text">
                     <span class="setting__label">Usuarios</span>
@@ -1096,14 +1121,14 @@
                 </div>
                 <div class="setting__actions library-tools__row">
                   <button class="btn btn--mini" id="backup-now" type="button">Guardar copia ahora</button>
-                  <button class="btn btn--mini desktop-only" id="export-backup" type="button">Exportar copia completa</button>
+                  <button class="btn btn--mini" id="export-backup" type="button">Exportar copia completa</button>
                   <button class="btn btn--mini" id="import-backup" type="button">Restaurar archivo…</button>
                   <select id="backup-list" aria-label="Copias automáticas guardadas"></select>
                   <button class="btn btn--mini" id="restore-auto" type="button">Restaurar copia guardada…</button>
                   <input id="backup-input" type="file" accept=".json,application/json" hidden />
                 </div>
               </div>
-              <div class="setting desktop-only" data-keywords="copia seguridad exportar importar ajustes respaldo backup">
+              <div class="setting" data-keywords="copia seguridad exportar importar ajustes respaldo backup">
                 <div class="setting__text">
                   <span class="setting__label">Copia de los ajustes</span>
                   <span class="setting__value">Todos tus ajustes en un archivo, para guardarlos o pasarlos a otro equipo</span>
@@ -1580,7 +1605,7 @@
       <form class="dialog__box" id="import-form" method="dialog">
         <p class="dialog__title">Importar una lista</p>
         <p class="dialog__text">
-          Pega el enlace de una lista o un álbum de YouTube, YouTube Music, Spotify,
+          Pega el enlace de una lista pública o un álbum de YouTube, YouTube Music, Spotify,
           Deezer o Apple Music.
         </p>
         <textarea class="field__input dialog__area" id="import-text" rows="4" spellcheck="false"
