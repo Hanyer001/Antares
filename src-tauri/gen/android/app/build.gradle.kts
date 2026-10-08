@@ -107,10 +107,20 @@ dependencies {
 apply(from = "tauri.build.gradle.kts")
 
 androidComponents {
+    // Canal público: códigos crecientes para beta y estable, firmado con la
+    // clave privada de distribución; nunca se usa el identificador de pruebas.
+    onVariants(selector().withBuildType("release")) { variant ->
+        val beta = project.findProperty("antaresBeta")?.toString()?.toInt()
+        require(beta == null || beta in 1..98) { "antaresBeta debe estar entre 1 y 98" }
+        variant.outputs.forEach { output ->
+            output.versionCode.set(output.versionCode.get() * 100 + (beta ?: 99))
+            if (beta != null) output.versionName.set(output.versionName.get() + "-beta.$beta")
+        }
+    }
     onVariants(selector().withBuildType("debug")) { variant ->
         variant.outputs.forEach { output ->
-            output.versionCode.set(output.versionCode.get() * 100 + 8)
-            output.versionName.set(output.versionName.get() + "-preview.8")
+            output.versionCode.set(output.versionCode.get() * 100 + 10)
+            output.versionName.set(output.versionName.get() + "-preview.10")
         }
     }
 }
