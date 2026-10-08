@@ -1,0 +1,71 @@
+/* Local fonts; no network requests on the phone. SIL OFL licenses in fonts/. */
+@font-face {
+  font-family: 'Antares Roboto Condensed';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/android-modern.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Antares Lato';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/android-humanist.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Antares Nunito';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/android-soft.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Antares Source Sans 3';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/android-classic.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Antares Libre Baskerville';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/android-serif.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Antares Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/android-editorial.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Antares Cormorant Garamond';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/android-elegant.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Antares JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/android-mono.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Antares Cutive Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/android-typewriter.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Antares Caveat';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/android-handwritten.ttf) format('truetype');
+}
