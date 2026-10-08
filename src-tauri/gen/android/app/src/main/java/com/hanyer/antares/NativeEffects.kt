@@ -9,6 +9,9 @@ import kotlin.math.ln
 
 /** Procesamiento del sistema, sin copiar PCM ni mantener un AudioContext web. */
 class NativeEffects {
+    companion object {
+        fun headroom(values: FloatArray): Float = (values.maxOrNull() ?: 0f).coerceAtLeast(0f)
+    }
     private var equalizer: Equalizer? = null
     private var dynamics: Any? = null
     private var bands = FloatArray(10)
@@ -44,7 +47,7 @@ class NativeEffects {
                     val lower = (upper - 1).coerceAtLeast(0)
                     val fraction = if (upper == lower) 0f else
                         (ln(hz / frequencies[lower]) / ln(frequencies[upper] / frequencies[lower])).coerceIn(0f, 1f)
-                    val gain = bands[lower] + (bands[upper] - bands[lower]) * fraction
+                    val gain = bands[lower] + (bands[upper] - bands[lower]) * fraction - headroom(bands)
                     eq.setBandLevel(i.toShort(), (gain * 100).toInt().coerceIn(range[0].toInt(),range[1].toInt()).toShort())
                 }
                 eq.enabled = bands.any { it != 0f }
@@ -53,6 +56,7 @@ class NativeEffects {
     }
     @RequiresApi(28)
     private fun applyDynamics(dp: DynamicsProcessing) {
+        dp.setInputGainAllChannelsTo(-headroom(bands))
         val eq = DynamicsProcessing.Eq(true, bands.any { it != 0f }, 10)
         for (i in 0..9) eq.setBand(i, DynamicsProcessing.EqBand(true,
             if (i == 9) 22000f else frequencies[i] * 1.414214f, bands[i]))

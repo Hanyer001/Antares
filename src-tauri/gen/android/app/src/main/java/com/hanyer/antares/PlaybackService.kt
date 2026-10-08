@@ -147,6 +147,7 @@ class PlaybackService : MediaSessionService() {
             .put("title", metadata.title?.toString()).put("uploader", metadata.artist?.toString())
             .put("duration", metadata.extras?.getDouble("duration")?.takeIf { it > 0 })
             .put("thumbnail", metadata.artworkUri?.toString())
+            .put("is_music", metadata.extras?.takeIf { it.containsKey("is_music") }?.getBoolean("is_music"))
             .put("watch_url", "https://www.youtube.com/watch?v=${item.mediaId}")
         PlaybackResolver.record(JSONObject().put("track", track).put("started", started)
             .put("listened", listenedMs / 1000.0).put("ended", ended)
