@@ -97,6 +97,8 @@ pub struct ArtistPage {
     pub songs: Vec<SearchResult>,
     /// La lista con todas sus canciones populares, para "Ver todas".
     pub songs_playlist: Option<String>,
+    /// Endpoint completo: algunos catálogos necesitan también `params`.
+    pub songs_more: Option<More>,
     pub shelves: Vec<Shelf>,
 }
 
@@ -613,6 +615,7 @@ fn parse_artist(id: &str, response: &Value) -> ArtistPage {
         subscribers,
         songs: Vec::new(),
         songs_playlist: None,
+        songs_more: None,
         shelves: Vec::new(),
     };
 
@@ -634,11 +637,17 @@ fn parse_artist(id: &str, response: &Value) -> ArtistPage {
                         .filter_map(|r| parse_row(r, Some(&name), None))
                         .collect(),
                 );
-                page.songs_playlist = shelf
-                    .pointer("/bottomEndpoint/browseEndpoint/browseId")
-                    .or_else(|| shelf.pointer("/title/runs/0/navigationEndpoint/browseEndpoint/browseId"))
-                    .and_then(Value::as_str)
-                    .map(|id| id.strip_prefix("VL").unwrap_or(id).to_string());
+                if let Some(endpoint) = shelf.pointer("/bottomEndpoint/browseEndpoint")
+                    .or_else(|| shelf.pointer("/title/runs/0/navigationEndpoint/browseEndpoint"))
+                {
+                    if let Some(id) = endpoint.get("browseId").and_then(Value::as_str) {
+                        page.songs_playlist = id.strip_prefix("VL").map(str::to_string);
+                        page.songs_more = Some(More {
+                            browse_id: id.to_string(),
+                            params: endpoint.get("params").and_then(Value::as_str).map(str::to_string),
+                        });
+                    }
+                }
             }
         } else if let Some(carousel) = section.get("musicCarouselShelfRenderer") {
             let head = carousel.pointer("/header/musicCarouselShelfBasicHeaderRenderer");
@@ -667,6 +676,66 @@ fn parse_artist(id: &str, response: &Value) -> ArtistPage {
 pub async fn artist(id: &str) -> Result<ArtistPage, String> {
     let response = call("browse", json!({ "browseId": id })).await?;
     Ok(parse_artist(id, &response))
+}
+
+/// Solo la estantería de canciones de esta colección, sin recomendaciones.
+fn song_shelf(response: &Value) -> Option<&Value> {
+    ["musicPlaylistShelfRenderer", "musicShelfRenderer", "musicPlaylistShelfContinuation", "musicShelfContinuation", "appendContinuationItemsAction"]
+        .iter()
+        .find_map(|key| find_all(response, key).into_iter().next())
+}
+
+fn shelf_tracks(shelf: &Value, artist: Option<&str>, cover: Option<&str>) -> Vec<SearchResult> {
+    shelf.get("contents").or_else(|| shelf.get("continuationItems"))
+        .and_then(Value::as_array)
+        .into_iter().flatten()
+        .filter_map(|row| row.get("musicResponsiveListItemRenderer"))
+        .filter_map(|row| parse_row(row, artist, cover))
+        .collect()
+}
+
+fn song_continuation(shelf: &Value) -> Option<String> {
+    find_all(shelf, "nextContinuationData").into_iter()
+        .find_map(|data| data.get("continuation").and_then(Value::as_str))
+        .or_else(|| find_all(shelf, "continuationCommand").into_iter()
+            .find_map(|data| data.get("token").and_then(Value::as_str)))
+        .map(str::to_string)
+}
+
+/// Lee todas las páginas. Un fallo nunca se presenta como una lista completa.
+async fn complete_songs(response: &Value, artist: Option<&str>, cover: Option<&str>) -> Result<Vec<SearchResult>, String> {
+    let Some(shelf) = song_shelf(response) else { return Ok(Vec::new()) };
+    let mut tracks = shelf_tracks(shelf, artist, cover);
+    let mut next = song_continuation(shelf);
+    let mut seen = std::collections::HashSet::new();
+    while let Some(token) = next {
+        if seen.len() >= 50 || !seen.insert(token.clone()) {
+            return Err("YouTube Music no permitió completar esta colección. Vuelve a intentarlo.".into());
+        }
+        let response = call("browse", json!({ "continuation": token })).await?;
+        let shelf = song_shelf(&response)
+            .ok_or("YouTube Music no devolvió la siguiente página de canciones.")?;
+        tracks.extend(shelf_tracks(shelf, artist, cover));
+        next = song_continuation(shelf);
+    }
+    Ok(tracks)
+}
+
+/// Principales primero, seguidas de las demás canciones del propio artista.
+pub async fn artist_songs(id: &str) -> Result<Vec<SearchResult>, String> {
+    let page = artist(id).await?;
+    let mut tracks = page.songs;
+    if let Some(more) = page.songs_more {
+        let mut body = json!({ "browseId": more.browse_id });
+        if let Some(params) = more.params { body["params"] = json!(params); }
+        let response = call("browse", body).await?;
+        let rest = complete_songs(&response, Some(&page.name), None).await?;
+        if rest.is_empty() {
+            return Err("No se pudo cargar la lista de canciones del artista. Vuelve a intentarlo.".into());
+        }
+        tracks.extend(rest);
+    }
+    Ok(dedupe(tracks))
 }
 
 fn parse_album(id: &str, response: &Value) -> AlbumPage {
@@ -703,18 +772,9 @@ fn parse_album(id: &str, response: &Value) -> AlbumPage {
     // Las pistas son la primera estanteria de canciones; las demas (otras
     // versiones del album) son tarjetas y no se mezclan. Tampoco su lista: se
     // saca de las pistas, porque las otras versiones traen la suya.
-    let shelf = find_all(response, "musicShelfRenderer").into_iter().next();
-    let playlist_id = shelf.and_then(album_playlist).or_else(|| album_playlist(response));
-    let tracks = shelf
-        .and_then(|shelf| shelf.get("contents"))
-        .and_then(Value::as_array)
-        .map(|rows| {
-            rows.iter()
-                .filter_map(|r| r.get("musicResponsiveListItemRenderer"))
-                .filter_map(|r| parse_row(r, by.as_deref(), row_cover.as_deref()))
-                .collect()
-        })
-        .unwrap_or_default();
+    let shelf = song_shelf(response);
+    let playlist_id = shelf.and_then(album_playlist).or_else(|| header.and_then(album_playlist));
+    let tracks = shelf.map(|s| shelf_tracks(s, by.as_deref(), row_cover.as_deref())).unwrap_or_default();
 
     AlbumPage {
         id: id.to_string(),
@@ -724,13 +784,16 @@ fn parse_album(id: &str, response: &Value) -> AlbumPage {
         artists,
         thumbnail: thumbnail.map(|u| resize(&u, 544, 544)),
         playlist_id,
-        tracks: dedupe(tracks),
+        tracks,
     }
 }
 
 pub async fn album(id: &str) -> Result<AlbumPage, String> {
     let response = call("browse", json!({ "browseId": id })).await?;
-    Ok(parse_album(id, &response))
+    let mut page = parse_album(id, &response);
+    let by = page.artists.iter().map(|a| a.name.as_str()).collect::<Vec<_>>().join(", ");
+    page.tracks = complete_songs(&response, (!by.is_empty()).then_some(by.as_str()), page.thumbnail.as_deref()).await?;
+    Ok(page)
 }
 
 /// El resto de una estanteria (la discografia entera, por ejemplo).
@@ -1024,6 +1087,77 @@ mod tests {
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].name, "Radiohead");
         assert_eq!(hits[0].subtitle.as_deref(), Some("Artista • 5,4 M"));
+    }
+
+    #[test]
+    fn continuacion_pertenece_solo_a_la_coleccion() {
+        let response = json!({ "contents": [
+            { "musicPlaylistShelfRenderer": { "contents": [
+                { "musicResponsiveListItemRenderer": { "playlistItemData": { "videoId": "primera" } } },
+                { "continuationItemRenderer": { "continuationEndpoint": { "continuationCommand": { "token": "pagina-2" } } } }
+            ] } },
+            { "musicShelfRenderer": { "contents": [
+                { "musicResponsiveListItemRenderer": { "playlistItemData": { "videoId": "recomendada" } } }
+            ], "continuations": [{ "nextContinuationData": { "continuation": "otra-lista" } }] } }
+        ] });
+        let shelf = song_shelf(&response).unwrap();
+        assert_eq!(shelf_tracks(shelf, Some("Cantante"), None).iter().map(|t| t.id.as_str()).collect::<Vec<_>>(), vec!["primera"]);
+        assert_eq!(song_continuation(shelf).as_deref(), Some("pagina-2"));
+    }
+
+    #[test]
+    fn lee_continuaciones_musicales_y_acciones_sin_recortar_ni_reordenar() {
+        for key in ["musicShelfContinuation", "musicPlaylistShelfContinuation", "appendContinuationItemsAction"] {
+            let rows = json!([
+                { "musicResponsiveListItemRenderer": { "playlistItemData": { "videoId": "segunda" } } },
+                { "musicResponsiveListItemRenderer": { "playlistItemData": { "videoId": "primera" } } },
+                { "musicResponsiveListItemRenderer": { "playlistItemData": { "videoId": "segunda" } } }
+            ]);
+            let contents_key = if key == "appendContinuationItemsAction" { "continuationItems" } else { "contents" };
+            let response = json!({ key: { contents_key: rows, "continuations": [{ "nextContinuationData": { "continuation": "siguiente" } }] } });
+            let shelf = song_shelf(&response).unwrap();
+            assert_eq!(shelf_tracks(shelf, None, None).iter().map(|t| t.id.as_str()).collect::<Vec<_>>(), vec!["segunda", "primera", "segunda"]);
+            assert_eq!(song_continuation(shelf).as_deref(), Some("siguiente"));
+        }
+    }
+
+    #[test]
+    fn album_usa_su_estanteria_playlist_y_conserva_pistas_repetidas() {
+        let response = json!({ "musicPlaylistShelfRenderer": { "contents": [
+            { "musicResponsiveListItemRenderer": { "playlistItemData": { "videoId": "intro" } } },
+            { "musicResponsiveListItemRenderer": { "playlistItemData": { "videoId": "cancion" } } },
+            { "musicResponsiveListItemRenderer": { "playlistItemData": { "videoId": "intro" } } }
+        ] } });
+        let page = parse_album("MPREb_prueba", &response);
+        assert_eq!(page.tracks.iter().map(|t| t.id.as_str()).collect::<Vec<_>>(), vec!["intro", "cancion", "intro"]);
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn en_vivo_colecciones_completas() {
+        for name in ["Radiohead", "Bad Bunny"] {
+            let hit = find_artist_named(name).await.unwrap().unwrap();
+            let page = artist(&hit.id).await.unwrap();
+            let tracks = artist_songs(&hit.id).await.unwrap();
+            assert!(tracks.len() > page.songs.len());
+            assert_eq!(tracks.iter().take(page.songs.len()).map(|t| &t.id).collect::<Vec<_>>(), page.songs.iter().map(|t| &t.id).collect::<Vec<_>>());
+            assert_eq!(tracks.len(), tracks.iter().map(|t| &t.id).collect::<std::collections::HashSet<_>>().len());
+            if name == "Radiohead" { assert!(tracks.len() > 100); }
+            println!("COLECCION: {name} · principales {} · lista completa {}", page.songs.len(), tracks.len());
+            for card in page.shelves.iter().flat_map(|s| &s.items).filter(|c| c.kind == CardKind::Album).take(2) {
+                let album = album(&card.id).await.unwrap();
+                assert!(!album.tracks.is_empty());
+                println!("DISCO: {} · {} pistas", album.title, album.tracks.len());
+                if let Some(id) = &album.playlist_id {
+                    let response = call("browse", json!({ "browseId": format!("VL{id}") })).await.unwrap();
+                    let expected = complete_songs(&response, None, None).await.unwrap();
+                    assert!(!expected.is_empty());
+                    // La vista de álbum y su playlist pueden usar IDs regionales
+                    // distintos de la misma grabación; las pistas y su orden coinciden.
+                    assert_eq!(album.tracks.iter().map(|t| &t.title).collect::<Vec<_>>(), expected.iter().map(|t| &t.title).collect::<Vec<_>>());
+                }
+            }
+        }
     }
 
     /// Contra YouTube Music de verdad: `cargo test ytmusic -- --ignored --nocapture`.

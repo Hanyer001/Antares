@@ -8,6 +8,7 @@ use std::sync::OnceLock;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
+#[cfg(desktop)]
 use rusty_ytdl::{Video, VideoFormat};
 
 use crate::track::{SearchResult, TrackInfo};
@@ -178,7 +179,7 @@ fn field(raw: Option<&str>) -> Option<String> {
 pub fn build_target(query: &str) -> String {
     let query = query.trim();
 
-    if query.starts_with("http") || rusty_ytdl::get_video_id(query).is_some() {
+    if query.starts_with("http") || crate::innertube::video_id(query).is_some() {
         query.to_string()
     } else {
         format!("ytsearch1:{query}")
@@ -186,6 +187,7 @@ pub fn build_target(query: &str) -> String {
 }
 
 /// Solo audio primero; si no existe, permite un stream con audio y video.
+#[cfg(desktop)]
 fn select_audio(formats: &[VideoFormat], saver: bool) -> Result<&VideoFormat, String> {
     let playable = |format: &&VideoFormat| {
         format.has_audio
@@ -227,6 +229,7 @@ fn select_audio(formats: &[VideoFormat], saver: bool) -> Result<&VideoFormat, St
 
 /// Devuelve la misma URL directa y metadatos usando rusty_ytdl, sin procesos.
 /// `safe` se conserva por compatibilidad: el reintento vuelve a extraer el video.
+#[cfg(desktop)]
 pub async fn resolve_track(target: String, _safe: bool) -> Result<TrackInfo, String> {
     let target = target.trim();
     // El backend tambien permite reproducir el primer resultado de un texto.
@@ -277,6 +280,11 @@ pub async fn resolve_track(target: String, _safe: bool) -> Result<TrackInfo, Str
 // ---------------------------------------------------------------------------
 
 /// Plantilla para la busqueda plana. El orden importa: lo lee `parse_search`.
+#[cfg(mobile)]
+pub async fn resolve_track(target: String, _safe: bool) -> Result<TrackInfo, String> {
+    crate::innertube::resolve_track(target.strip_prefix("ytsearch1:").unwrap_or(&target), data_saver()).await
+}
+
 fn search_template() -> String {
     [
         "%(id|)s",
@@ -440,7 +448,7 @@ pub fn warm_up() {
     });
 }
 
-#[cfg(test)]
+#[cfg(all(test, desktop))]
 mod tests {
     use super::*;
 

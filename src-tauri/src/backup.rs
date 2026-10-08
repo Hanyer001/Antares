@@ -22,8 +22,16 @@ pub struct Backup {
     local: Value,
 }
 
-pub struct Backups { dir: PathBuf, lock: Mutex<()> }
-impl Backups { pub fn new(dir: PathBuf) -> Self { Self { dir, lock: Mutex::new(()) } } }
+pub struct Backups { dir: Mutex<PathBuf>, lock: Mutex<()> }
+impl Backups {
+    pub fn new(dir: PathBuf) -> Self { Self { dir: Mutex::new(dir), lock: Mutex::new(()) } }
+    fn dir(&self) -> Result<PathBuf,String> { self.dir.lock().map(|d| d.clone()).map_err(|_| "ruta de copias bloqueada".into()) }
+    #[cfg(mobile)]
+    pub(crate) fn retarget(&self, dir: PathBuf) -> Result<(),String> {
+        let _guard = self.lock.lock().map_err(|_| "copia ocupada")?;
+        *self.dir.lock().map_err(|_| "ruta de copias bloqueada")? = dir; Ok(())
+    }
+}
 
 fn clean_track(track: &mut SearchResult) -> Result<(), String> {
     if track.id.is_empty() || track.id.len() > 128 || !track.id.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'_' || c == b'-') {
@@ -91,15 +99,15 @@ fn automatic(dir: &Path, backup: &Backup) -> Result<(), String> {
 #[tauri::command]
 pub fn create_backup(local: Value, backups: State<'_, Backups>, playlists: State<'_, Playlists>, stats: State<'_, Stats>, store: State<'_, Store>, settings: State<'_, Settings>) -> Result<Backup, String> {
     let _guard = backups.lock.lock().map_err(|_| "Copia ocupada".to_string())?;
-    if backups.dir.join("pending-restore.json").exists() { return Err("Reinicia Antares para terminar la restauración pendiente.".into()); }
+    if backups.dir()?.join("pending-restore.json").exists() { return Err("Reinicia Antares para terminar la restauración pendiente.".into()); }
     let backup = Backup {
         app: "antares-backup".into(), version: 1, created_at: store::now_secs(),
         playlists: playlists.all(), stats: stats.snapshot().into_iter().map(|s| (s.track.id.clone(), s)).collect(),
         taste: stats.signals(), history: store.history(), settings: settings.get().unwrap_or(serde_json::json!({})),
         wallpaper: settings.wallpaper(), local,
     }.validate()?;
-    automatic(&backups.dir, &backup)?;
-    store::write_json_atomic(&backups.dir.join("workspace.json"), &backup.local).map_err(|e| e.to_string())?;
+    automatic(&backups.dir()?, &backup)?;
+    store::write_json_atomic(&backups.dir()?.join("workspace.json"), &backup.local).map_err(|e| e.to_string())?;
     Ok(backup)
 }
 
@@ -116,9 +124,9 @@ pub fn restore_backup(contents: String, previous: String, backups: State<'_, Bac
     let next = parse(&contents)?;
     let old = parse(&previous)?;
     let _guard = backups.lock.lock().map_err(|_| "Copia ocupada".to_string())?;
-    save(&backups.dir, "before-restore.json", &old)?;
+    save(&backups.dir()?, "before-restore.json", &old)?;
     // La marca se guarda de forma atómica. Si hay un fallo, el arranque repite la restauración completa.
-    store::write_json_atomic(&backups.dir.join("pending-restore.json"), &next).map_err(|e| e.to_string())
+    store::write_json_atomic(&backups.dir()?.join("pending-restore.json"), &next).map_err(|e| e.to_string())
 }
 
 #[derive(Serialize)]
@@ -126,7 +134,8 @@ pub struct SavedBackup { pub name: String, pub created_at: u64 }
 #[tauri::command]
 pub fn list_backups(backups: State<'_, Backups>) -> Vec<SavedBackup> {
     let mut result = Vec::new();
-    if let Ok(entries) = std::fs::read_dir(backups.dir.join("backups")) {
+    let Ok(dir) = backups.dir() else { return result };
+    if let Ok(entries) = std::fs::read_dir(dir.join("backups")) {
         for path in entries.filter_map(Result::ok).map(|e| e.path()) {
             if path.extension().is_none_or(|e| e != "json") { continue; }
             if let Ok(contents) = std::fs::read_to_string(&path) {
@@ -142,7 +151,7 @@ pub fn read_backup(name: String, backups: State<'_, Backups>) -> Result<String, 
     if !name.ends_with(".json") || !name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'.') || !(name.starts_with("auto-") || name == "before-restore.json") {
         return Err("Nombre de copia no válido.".into());
     }
-    std::fs::read_to_string(backups.dir.join("backups").join(name)).map_err(|e| e.to_string())
+    std::fs::read_to_string(backups.dir()?.join("backups").join(name)).map_err(|e| e.to_string())
 }
 #[tauri::command]
 pub fn restored_workspace(state: State<'_, UsersState>) -> Result<Value, String> {
@@ -155,7 +164,12 @@ pub fn acknowledge_restored_workspace(state: State<'_, UsersState>) -> Result<()
     Ok(())
 }
 #[tauri::command]
-pub fn restart_after_restore(app: tauri::AppHandle) { crate::restart_clean(&app); }
+pub fn restart_after_restore(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(desktop)]
+    crate::restart_clean(&app);
+    #[cfg(mobile)]
+    { crate::commands::flush_mobile_data(&app)?; crate::commands::reload_mobile_data(&app) }
+}
 
 pub fn apply_pending(dir: &Path) -> Result<(), String> {
     let path = dir.join("pending-restore.json");

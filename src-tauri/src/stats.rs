@@ -228,6 +228,21 @@ impl Stats {
         }
     }
 
+    #[cfg(mobile)]
+    pub(crate) fn flush_mobile(&self) -> Result<(), String> {
+        self.file.save_sync(self.tracks.lock().map_err(|_| "estadisticas bloqueadas")?.clone()).map_err(|e| e.to_string())?;
+        self.signals_file.save_sync(self.signals.lock().map_err(|_| "gustos bloqueados")?.clone()).map_err(|e| e.to_string())
+    }
+    #[cfg(mobile)]
+    pub(crate) fn reload_mobile(&self, dir: PathBuf) -> Result<(), String> {
+        let next = Self::load(dir.clone());
+        let mut tracks = self.tracks.lock().map_err(|_| "estadisticas bloqueadas")?;
+        let mut signals = self.signals.lock().map_err(|_| "gustos bloqueados")?;
+        self.file.retarget(dir.join(STATS_FILE)); self.signals_file.retarget(dir.join("taste.json"));
+        *tracks = next.tracks.into_inner().map_err(|_| "estadisticas bloqueadas")?;
+        *signals = next.signals.into_inner().map_err(|_| "gustos bloqueados")?;
+        Ok(())
+    }
     /// Apunta una escucha y devuelve como se clasifico.
     #[cfg(test)]
     pub fn record_listen(&self, track: SearchResult, listened: f64, ended: bool) -> Outcome {

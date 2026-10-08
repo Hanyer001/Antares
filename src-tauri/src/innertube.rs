@@ -1,6 +1,6 @@
 //! Cliente de la API interna de YouTube usado para el audio en Android.
 //!
-//! Usa ANDROID_VR para player, WEB para búsquedas, next para Mix y browse
+//! Usa VISIONOS para player, WEB para búsquedas, next para Mix y browse
 //! para listas. visitorData se obtiene de YouTube y se conserva temporalmente.
 //! Los parsers buscan objetos por nombre para tolerar cambios de estructura.
 
@@ -14,14 +14,14 @@ use crate::track::{SearchResult, TrackInfo};
 
 const API: &str = "https://www.youtube.com/youtubei/v1";
 
-/// Cliente de audio: ANDROID_VR (el de las gafas Quest).
-const VR_NAME: &str = "ANDROID_VR";
-const VR_ID: &str = "28";
-const VR_VERSION: &str = "1.65.10";
-/// El User-Agent de ese cliente. Las URLs de audio que da se piden con el
-/// mismo: el reproductor de Android lo usa tambien (ver PlayerPlugin.kt).
-pub const VR_USER_AGENT: &str =
-    "com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip";
+/// VISIONOS devuelve audio directo sin JavaScript de descifrado ni procesos externos.
+/// ANDROID_VR 1.65.10 puede dar URLs que el CDN rechaza después del primer bloque.
+const AUDIO_NAME: &str = "VISIONOS";
+const AUDIO_ID: &str = "101";
+const AUDIO_VERSION: &str = "1.02";
+/// El reproductor debe pedir el stream con el mismo User-Agent (PlaybackService.kt).
+pub const AUDIO_USER_AGENT: &str =
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15";
 
 /// Cliente WEB para buscar y leer listas. La version real sale de la pagina
 /// (ver `Session`); esta es la de respaldo.
@@ -332,14 +332,13 @@ async fn player(id: &str, s: &Session) -> Result<Value, String> {
     let body = json!({
         "context": {
             "client": {
-                "clientName": VR_NAME,
-                "clientVersion": VR_VERSION,
-                "deviceMake": "Oculus",
-                "deviceModel": "Quest 3",
-                "androidSdkVersion": 32,
-                "userAgent": VR_USER_AGENT,
-                "osName": "Android",
-                "osVersion": "12L",
+                "clientName": AUDIO_NAME,
+                "clientVersion": AUDIO_VERSION,
+                "deviceMake": "Apple",
+                "deviceModel": "RealityDevice17,1",
+                "userAgent": AUDIO_USER_AGENT,
+                "osName": "visionOS",
+                "osVersion": "26.5.23O471",
                 "hl": "es",
                 "gl": "ES",
                 "visitorData": s.visitor,
@@ -353,9 +352,9 @@ async fn player(id: &str, s: &Session) -> Result<Value, String> {
         "player",
         body,
         &[
-            ("User-Agent", VR_USER_AGENT),
-            ("X-YouTube-Client-Name", VR_ID),
-            ("X-YouTube-Client-Version", VR_VERSION),
+            ("User-Agent", AUDIO_USER_AGENT),
+            ("X-YouTube-Client-Name", AUDIO_ID),
+            ("X-YouTube-Client-Version", AUDIO_VERSION),
             ("X-Goog-Visitor-Id", &s.visitor),
         ],
     )

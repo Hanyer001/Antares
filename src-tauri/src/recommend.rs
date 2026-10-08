@@ -133,6 +133,8 @@ pub struct Tuning {
     pub exclude_words: Vec<String>,
     /// Canales que no se recomiendan nunca.
     pub blocked_channels: Vec<String>,
+    /// Preferencia suave: reduce su frecuencia sin impedir elegirlo.
+    pub less_channels: Vec<String>,
 }
 
 impl Default for Tuning {
@@ -144,6 +146,7 @@ impl Default for Tuning {
             max_duration_secs: MAX_DURATION_SECS,
             exclude_words: Vec::new(),
             blocked_channels: Vec::new(),
+            less_channels: Vec::new(),
         }
     }
 }
@@ -172,11 +175,16 @@ impl Tuning {
         };
         self.exclude_words = clean(self.exclude_words, |w| w.trim().to_lowercase());
         self.blocked_channels = clean(self.blocked_channels, |c| artist_key(Some(c)));
+        self.less_channels = clean(self.less_channels, |c| artist_key(Some(c.trim())));
         self
     }
 
     /// Si la pista puede salir: dentro de la duracion elegida, sin recopilatorios,
     /// sin palabras excluidas y de un canal no bloqueado.
+    pub fn preference_weight(&self, artist: &str) -> f64 {
+        if self.less_channels.iter().any(|channel| channel == artist) { 0.25 } else { 1.0 }
+    }
+
     pub fn allows(&self, track: &SearchResult) -> bool {
         if let Some(d) = track.duration {
             if d < self.min_duration_secs || d > self.max_duration_secs {
@@ -704,7 +712,7 @@ pub fn recommend(
         let wants_new = rng.next_f64() < adventure;
 
         let weights_of = |pool: &[Candidate], recent: &Recent| -> Vec<f64> {
-            pool.iter().map(|c| c.base * recent.diversity(c)).collect()
+            pool.iter().map(|c| c.base * recent.diversity(c) * params.tuning.preference_weight(&c.artist)).collect()
         };
 
         let known_w = weights_of(&known, &recent);
@@ -783,6 +791,25 @@ mod tests {
             now: AHORA,
             tuning: Tuning::default(),
         }
+    }
+
+    #[test]
+    fn preferencia_suave_disminuye_seleccion_y_sigue_permitiendo_el_artista() {
+        let lib = vec![conocida("a", "Radiohead", 5.0, 0.0, 3), conocida("b", "PSY", 5.0, 0.0, 3)];
+        let mut p = params(Mode::Mix, 1, 0.0);
+        p.tuning.less_channels = vec!["radiohead".into()];
+        let mut rng = Rng::seeded(917);
+        let chosen = (0..1000).filter(|_| recommend(&lib, &[], &p, &mut rng)[0].track.id == "a").count();
+        assert!(chosen > 100 && chosen < 350, "frecuencia reducida, no bloqueo: {chosen}/1000");
+    }
+
+    #[test]
+    fn menos_artista_reduce_el_peso_sin_bloquearlo() {
+        let tuning = Tuning { less_channels: vec![" Radiohead - Topic ".into()], ..Tuning::default() }.sanitized();
+        assert_eq!(tuning.less_channels, vec!["radiohead"]);
+        assert_eq!(tuning.preference_weight("radiohead"), 0.25);
+        assert_eq!(tuning.preference_weight("psy"), 1.0);
+        assert!(tuning.allows(&pista("a", "Creep", "Radiohead - Topic")));
     }
 
     #[test]
