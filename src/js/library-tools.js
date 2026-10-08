@@ -61,6 +61,10 @@ function renderRows() {
     return;
   }
   const tracks = visibleTracks(pl);
+  if (!tracks.length && !query && document.documentElement.dataset.platform === "android") {
+    results.renderEmpty("Busca una canción, abre ⋯ y elige Añadir a una lista. También puedes importar una playlist desde Playlists.");
+    return;
+  }
   const editable = !pl.system && !pl.rules;
   results.render(tracks, { removeLabel: pl.rules ? null : pl.system ? "Quitar de Me gusta" : "Quitar de la lista", reorderable: editable && !query && !selecting });
   if (!tracks.length) results.renderEmpty(pl.rules ? "Ninguna canción cumple las reglas todavía. Puedes editarlas." : query ? "No hay canciones que coincidan." : "Esta lista está vacía.");

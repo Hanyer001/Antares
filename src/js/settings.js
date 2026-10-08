@@ -11,6 +11,8 @@ import * as prefs from "./prefs.js";
 import { defaults, nodeAt, VERSION } from "./prefs-schema.js";
 
 const { invoke } = window.__TAURI__.core;
+const ANDROID = document.documentElement.dataset.platform === "android";
+const MOBILE_SUMMARIES = { appearance: "Diseños, colores y tipografías", layout: "Navegación y controles", home: "Secciones, orden y géneros", behavior: "Calidad, cola, privacidad y letras", discovery: "Solo música y tus preferencias", sound: "Ecualizador y volumen", mobile: "Batería, precarga y respuesta táctil", people: "Tus perfiles de personalización", data: "Biblioteca, copias e historial" };
 
 /**
  * Milisegundos que el botón de vaciar se queda esperando confirmación antes de
@@ -152,6 +154,18 @@ function renderBound() {
     row.hidden = !whenHolds(row.dataset.when);
   }
 
+  if (ANDROID) {
+    const motion = els.settings.querySelector('[data-pref="appearance.motion"]')?.closest(".setting");
+    let note = motion?.querySelector(".setting__value");
+    if (motion && !note) { note = document.createElement("span"); note.className = "setting__value"; motion.querySelector(".setting__text")?.append(note); }
+    if (note) note.textContent = prefs.get("mobile.energySaver") ? "Ahorrar batería limita las animaciones aunque elijas Todas." : "El sistema puede reducirlas si tienes activado Reducir movimiento.";
+    const blur = els.settings.querySelector('[data-pref="appearance.backgroundBlur"]');
+    if (blur) {
+      blur.disabled = prefs.get("mobile.energySaver");
+      blur.title = blur.disabled ? "Ahorrar batería fija un desenfoque ligero. Desactívalo para ajustar este valor." : "Desenfoque del fondo";
+      if (blur.disabled) els.settings.querySelector('[data-pref-value="appearance.backgroundBlur"]')?.replaceChildren("8 px · ahorro");
+    }
+  }
   // Lo que se ve depende también de las condiciones: rehacer el filtro.
   filter(els.settingsSearch.value);
 }
@@ -179,6 +193,7 @@ function bindPrefs() {
 
 /** De qué trata cada sección, y su icono (trazos de 24×24). */
 const GROUPS = {
+  mobile: ["Batería y controles táctiles", "M8 3h8v18H8zM11 18h2"],
   appearance: ["Tema, colores, fondo, tamaño y tipografía", "M12 3a9 9 0 1 0 0 18c1.1 0 1.5-.8 1.5-1.6 0-1.2-1-1.6-1-2.6 0-.9.7-1.3 1.6-1.3H16a5 5 0 0 0 5-5C21 6.4 17 3 12 3zM7.5 12.5h.01M9.5 8h.01M14.5 8h.01"],
   layout: ["Columnas, pestañas, carátula y botones de la consola", "M3.5 4.5h17v15h-17zM9 4.5v15M15 4.5v15"],
   player: ["La barra de reproducción y el mini reproductor", "M3.5 15.5h17v4h-17zM6.5 17.5h.01M10 12l4.5-3L10 6z"],
@@ -227,6 +242,14 @@ function svg(path, className) {
 const CHEVRON = "m6 9 6 6 6-6";
 
 function setOpen(key, box, button, open) {
+  if (ANDROID && open && box.classList.contains("settings__group")) {
+    for (const other of els.settings.querySelectorAll(".settings__group.is-open")) {
+      if (other === box) continue;
+      other.classList.remove("is-open");
+      other.querySelector(".settings__toggle")?.setAttribute("aria-expanded", "false");
+      opened.delete(other.dataset.group);
+    }
+  }
   box.classList.toggle("is-open", open);
   button.setAttribute("aria-expanded", String(open));
   if (open) opened.add(key);
@@ -284,8 +307,7 @@ function buildAccordion() {
     label.textContent = title.textContent.trim();
     const about = document.createElement("span");
     about.className = "settings__summary";
-    about.textContent = document.documentElement.dataset.platform === "android" && name === "layout"
-      ? "Navegación y botones del reproductor" : summary;
+    about.textContent = ANDROID ? MOBILE_SUMMARIES[name] ?? summary : summary;
     names.append(label, about);
 
     const badge = document.createElement("span");
@@ -330,13 +352,14 @@ function filter(query) {
   els.settings.classList.toggle("is-searching", words.length > 0);
 
   for (const group of els.settings.querySelectorAll(".settings__group")) {
-    const title = group.querySelector(".settings__title")?.textContent ?? "";
+    const title = group.querySelector(".settings__name")?.textContent ?? group.querySelector(".settings__title")?.textContent ?? "";
     let visible = 0;
 
     for (const row of group.querySelectorAll(".setting")) {
       const sub = row.closest(".settings__subbox")?.querySelector(".settings__subtoggle")?.textContent ?? "";
       const haystack = normalize(`${title} ${sub} ${row.textContent} ${row.dataset.keywords ?? ""}`);
-      const match = words.every((word) => haystack.includes(word));
+      const unavailable = ANDROID ? Boolean(row.closest(".desktop-only")) : Boolean(row.closest(".android-only"));
+      const match = !unavailable && words.every((word) => haystack.includes(word));
 
       row.classList.toggle("is-filtered", !match);
       if (match && !row.hidden) visible += 1;
@@ -348,7 +371,8 @@ function filter(query) {
       box.classList.toggle("is-filtered", words.length > 0 && !any);
     }
 
-    group.hidden = words.length > 0 && visible === 0;
+    group.hidden = visible === 0;
+    group.querySelector(".settings__toggle")?.setAttribute("aria-expanded", String(words.length > 0 ? visible > 0 : group.classList.contains("is-open")));
     anyVisible ||= !group.hidden;
   }
 
@@ -453,7 +477,7 @@ export function initSettings() {
   els.updateButton.addEventListener("click", () => handlers.onUpdate());
   els.fullscreenButton.addEventListener("click", () => handlers.onFullscreen());
 
-  els.settingsSearch.addEventListener("input", () => filter(els.settingsSearch.value));
+  els.settingsSearch.addEventListener("input", () => { filter(els.settingsSearch.value); els.settings.scrollTop = 0; });
   els.settingsSearch.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       els.settingsSearch.value = "";
@@ -488,6 +512,37 @@ export function initSettings() {
   });
   els.resetAll.addEventListener("click", resetAll);
 
+  if (ANDROID) {
+    // Solo textos de ayuda: los valores y sus manejadores siguen siendo los mismos.
+    const explain = (path, text, title) => {
+      const row = els.settings.querySelector(`[data-pref="${path}"]`)?.closest(".setting");
+      const box = row?.querySelector(".setting__text");
+      if (!box) return;
+      if (title) box.querySelector(".setting__label")?.replaceChildren(title);
+      let note = box.querySelector(".setting__value");
+      if (!note) { note = document.createElement("span"); note.className = "setting__value"; box.append(note); }
+      note.textContent = text;
+    };
+    explain("appearance.density", "Ajusta el espacio entre canciones, tarjetas y ajustes. Los botones conservan un tamaño cómodo para tocar.");
+    explain("appearance.corners", "Cambia los bordes de tarjetas, campos y paneles. Los avatares y el botón de reproducción siguen siendo circulares.");
+    explain("appearance.font", "Cambia la letra de la app al instante. Cada muestra usa su propia tipografía; todas están incluidas y funcionan sin conexión.");
+    explain("appearance.background", "Elige un fondo liso o una imagen tuya. Con imagen puedes ajustar su oscuridad y desenfoque.");
+    explain("layout.showRate", "Se aplican al reproductor abierto. Toca el mini reproductor para verlos.", "Controles del reproductor");
+    explain("layout.upnext", "Muestra la cola y las letras debajo de los controles, al abrir el reproductor.");
+    explain("layout.startTab", "Se aplica la próxima vez que abras la app.");
+    explain("lyrics.size", "Cambia el texto de las canciones en la pestaña Letra del reproductor.", "Tamaño de las letras de canciones");
+    explain("lyrics.align", "Alinea las letras de canciones dentro del reproductor.");
+    explain("mobile.energySaver", "Reduce animaciones y desenfoque, y desactiva las transiciones entre canciones. Conserva tus colores, fondos y preferencias para cuando lo desactives.");
+    explain("mobile.prefetch", "Prepara el enlace de la siguiente canción mientras la app está visible. Puede reducir la espera y consume más datos; no descarga la canción completa.");
+    for (const group of els.settings.querySelectorAll(".settings__group:not(.desktop-only)")) {
+      const reset = group.querySelector(".settings__head [data-reset]");
+      if (reset) group.querySelector(".settings__card")?.append(reset);
+    }
+    const quality = els.settings.querySelector('[data-pref="playback.quality"]')?.closest(".setting");
+    quality?.querySelector(".setting__value")?.replaceChildren("Alta elige el mejor audio disponible. Ahorro limita los datos. Se aplica en la próxima canción.");
+    els.settings.querySelector('[data-pref="behavior.rowClick"]')?.closest(".setting")?.querySelector(".setting__label")?.replaceChildren("Al tocar una canción");
+    els.settings.querySelector('[data-pref="layout.showVolume"]')?.closest("label")?.classList.add("desktop-only");
+  }
   // Después de enlazar "Restablecer", que lee el título tal cual.
   buildAccordion();
   filter(els.settingsSearch.value);

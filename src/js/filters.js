@@ -46,6 +46,11 @@ export function tuningFrom(discovery) {
  * Un filtro de pistas con estas preferencias.
  * @returns {(track) => boolean}
  */
+export function isMusic(track) {
+  if (typeof track?.is_music === "boolean") return track.is_music;
+  return /(?: - topic|vevo)$/i.test(String(track?.uploader ?? ""));
+}
+
 export function makeFilter(discovery) {
   const words = discovery.excludeWords.map((w) => w.trim().toLowerCase()).filter(Boolean);
   const channels = new Set(discovery.blockedChannels.map(artistKey).filter(Boolean));
@@ -53,6 +58,7 @@ export function makeFilter(discovery) {
   const max = discovery.maxMinutes * 60;
 
   return (track) => {
+    if (globalThis.document?.documentElement?.dataset.platform === "android" && !isMusic(track)) return false;
     const d = track?.duration;
     if (typeof d === "number" && (d < min || d > max)) return false;
 

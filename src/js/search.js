@@ -1,6 +1,8 @@
 // Acceso a los comandos de búsqueda y resolución de audio de Rust.
 
+import { createSearchCache } from "./search-cache.js";
 const { invoke } = window.__TAURI__.core;
+const cachedSearch = createSearchCache((query, limit) => invoke("search_tracks", { query, limit }));
 
 /**
  * Resuelve la URL de audio.
@@ -22,7 +24,7 @@ export function resolveTrack(query, safeMode = false, fresh = false) {
  * Con un enlace pegado Rust devuelve lista vacía: eso lo resuelve `resolveTrack`.
  */
 export function searchTracks(query, limit) {
-  return invoke("search_tracks", { query, limit });
+  return cachedSearch(query, limit);
 }
 
 /** Cuánto se espera a YouTube Music antes de enseñar la búsqueda sin él. */

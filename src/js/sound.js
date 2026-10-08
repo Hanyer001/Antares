@@ -26,6 +26,7 @@ const BAND_Q = 1.1;
 /** Preajustes de serie, en dB por banda (31 Hz … 16 kHz). */
 export const PRESETS = {
   flat: { name: "Plano", bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+  clarity: { name: "Claridad", bands: [-1, -1, -2, -1, 0, 1, 2, 1, 0, 0] },
   bass: { name: "Más graves", bands: [6, 5, 4, 2, 0, 0, 0, 0, -1, -1] },
   vocal: { name: "Voces", bands: [-2, -2, -1, 0, 2, 4, 4, 3, 1, 0] },
   treble: { name: "Más agudos", bands: [-1, -1, 0, 0, 0, 1, 2, 4, 5, 5] },

@@ -156,8 +156,8 @@ export function showHomeHead() {
 
 export function showOverviewHead() {
   show([
-    textButton("Nueva lista", () => handlers.onCreate()),
-    textButton("Importar lista…", () => handlers.onImport()),
+    textButton(document.documentElement.dataset.platform === "android" ? "+ Crear playlist" : "Nueva lista", () => handlers.onCreate()),
+    textButton(document.documentElement.dataset.platform === "android" ? "Importar enlace" : "Importar lista…", () => handlers.onImport()),
   ]);
 }
 

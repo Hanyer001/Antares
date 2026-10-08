@@ -1,6 +1,7 @@
 // Aplica las variables y atributos de themes.js y enlaza los controles de apariencia.
 // El zoom y la barra de título de Windows se actualizan en Rust al guardar.
 
+import { MOBILE_FONTS } from "./mobile-fonts.js";
 import { currentColor, onColor, setAccentOverride } from "./artwork.js";
 import { els } from "./dom.js";
 import { friendlyError } from "./format.js";
@@ -74,6 +75,7 @@ function apply() {
     artColor: currentColor(),
   });
   const root = document.documentElement;
+  if (ANDROID) look.vars["--font-ui"] = MOBILE_FONTS[appearance.font] ?? MOBILE_FONTS.inter;
 
   for (const [name, value] of Object.entries(look.vars)) root.style.setProperty(name, value);
   for (const [name, value] of Object.entries(look.attrs)) root.setAttribute(name, value);
@@ -378,7 +380,7 @@ export async function initAppearance() {
 
   // Cada opción de tipografía se escribe en su propia letra.
   for (const span of document.querySelectorAll("[data-font]")) {
-    span.style.fontFamily = FONTS[span.dataset.font];
+    span.style.fontFamily = (ANDROID ? MOBILE_FONTS : FONTS)[span.dataset.font];
   }
 
   prefs.on("appearance", apply);

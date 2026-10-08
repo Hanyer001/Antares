@@ -4,7 +4,7 @@ export function queuePayload(items, currentId, repeat = "off") {
   const tracks = items.filter(t => /^[\w-]{11}$/.test(t?.id ?? "") && !seen.has(t.id) && seen.add(t.id));
   if (!tracks.some(t => t.id === currentId)) return null;
   return { currentId, repeat: ["off","all","one"].includes(repeat) ? repeat : "off",
-    items: tracks.map(({id,title,uploader,duration}) => ({id,title,uploader,duration})) };
+    items: tracks.map(({id,title,uploader,duration,is_music}) => ({id,title,uploader,duration,...(typeof is_music === "boolean" ? {is_music} : {})})) };
 }
 export function primaryTabs(order, hidden, active) {
   const visible = order.filter(id => !hidden.includes(id));

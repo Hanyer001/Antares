@@ -86,8 +86,8 @@ export class NativeDeck extends EventTarget {
   }
 
   /** Título, artista y carátula para la notificación. Antes de `src`. */
-  setMetadata({ id, title, artist, artwork, duration } = {}) {
-    this._meta = { id, duration, title: title ?? null, artist: artist ?? null, artwork: artwork ?? null };
+  setMetadata({ id, title, artist, artwork, duration, is_music } = {}) {
+    this._meta = { id, duration, is_music, title: title ?? null, artist: artist ?? null, artwork: artwork ?? null };
   }
 
   load() {}
@@ -98,7 +98,7 @@ export class NativeDeck extends EventTarget {
       this._time = 0; this._buffered = 0;
     }
     this._src = `antares://video/${track.id}`;
-    this.setMetadata({id:track.id,title:track.title,artist:track.uploader,artwork:track.thumbnail,duration:track.duration});
+    this.setMetadata({id:track.id,title:track.title,artist:track.uploader,artwork:track.thumbnail,duration:track.duration,is_music:track.is_music});
     this._metadataSent = false;
     this.ended = false;
     this.error = null;
