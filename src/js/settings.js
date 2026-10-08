@@ -2,6 +2,7 @@
 // data-pref define la ruta, data-when condiciona la visibilidad y data-reset
 // restablece una sección. Los controles específicos viven en sus módulos.
 
+import { saveDocument } from "./documents.js";
 import { getWallpaper, setWallpaper } from "./appearance.js";
 import * as dialog from "./dialog.js";
 import { els } from "./dom.js";
@@ -283,7 +284,8 @@ function buildAccordion() {
     label.textContent = title.textContent.trim();
     const about = document.createElement("span");
     about.className = "settings__summary";
-    about.textContent = summary;
+    about.textContent = document.documentElement.dataset.platform === "android" && name === "layout"
+      ? "Navegación y botones del reproductor" : summary;
     names.append(label, about);
 
     const badge = document.createElement("span");
@@ -362,10 +364,11 @@ function today() {
 
 async function exportFile(name, payload, what) {
   try {
-    const path = await invoke("export_file", { name, contents: JSON.stringify(payload, null, 2) });
+    const path = await saveDocument({ name, contents: JSON.stringify(payload, null, 2) });
     // La carpeta se abre sola en el Explorador; la ruta entera sobra.
+    if (!path) return;
     const file = path.split(/[\\/]/).pop();
-    say(`${what} guardado en Descargas (${file}).`);
+    say(`${what} guardado (${file}).`);
   } catch (error) {
     say(friendlyError(error, "No se pudo guardar el archivo."), "error");
   }

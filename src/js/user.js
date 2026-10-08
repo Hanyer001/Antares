@@ -57,5 +57,8 @@ export const remove = (id) => update("delete_user", { id });
 
 /** Cambia de usuario: la app se reinicia con los datos del nuevo. */
 export function switchTo(id) {
+  if (document.documentElement.dataset.platform === "android") {
+    return invoke("plugin:player|stop").then(() => invoke("switch_user",{id})).then(() => location.reload());
+  }
   return invoke("switch_user", { id });
 }

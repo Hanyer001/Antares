@@ -16,6 +16,9 @@ import {
   THEMES,
 } from "./themes.js";
 import { key } from "./user.js";
+import { DESIGNS, applyDesign, matchingDesign, mobileAppearance } from "./designs.js";
+
+const ANDROID = document.documentElement.dataset.platform === "android";
 
 const { invoke } = window.__TAURI__.core;
 
@@ -24,7 +27,7 @@ const LOOK_KEY = () => key("antares.look");
 const WALLPAPER_KEY = () => key("antares.wallpaper");
 
 /** Lado mayor de la imagen de fondo guardada: de sobra para una pantalla 1080p. */
-const WALLPAPER_MAX_SIDE = 1920;
+const WALLPAPER_MAX_SIDE = document.documentElement.dataset.platform === "android" ? 1280 : 1920;
 const WALLPAPER_QUALITY = 0.85;
 
 /** Contraste mínimo entre texto y tarjetas antes de avisar (WCAG AA). */
@@ -59,6 +62,13 @@ function saveLook(look) {
 
 function apply() {
   const appearance = prefs.get("appearance");
+  if (ANDROID) {
+    const clean = mobileAppearance(appearance);
+    if (JSON.stringify(clean) !== JSON.stringify(appearance)) {
+      prefs.set("appearance", clean);
+      return; // La notificación vuelve a aplicar únicamente los valores compatibles.
+    }
+  }
   const look = computeLook(appearance, {
     prefersDark: darkQuery.matches,
     artColor: currentColor(),
@@ -105,7 +115,7 @@ function previewLayer(palette) {
 }
 
 function buildThemePicker() {
-  const all = [...THEMES, ...EXTRA_THEMES];
+  const all = [...THEMES, ...EXTRA_THEMES].filter(t => !ANDROID || t.id !== "artwork");
 
   for (const theme of all) {
     const card = document.createElement("button");
@@ -212,6 +222,7 @@ const ACCENT_HINTS = {
 
 function render(appearance) {
   renderThemePicker(appearance);
+  renderDesigns(appearance);
 
   for (const swatch of els.accentSwatches.querySelectorAll(".swatch")) {
     swatch.setAttribute("aria-checked", String(swatch.dataset.color === appearance.accentColor));
@@ -221,6 +232,69 @@ function render(appearance) {
   const palette = paletteFor(appearance, darkQuery.matches);
   els.contrastWarning.hidden =
     appearance.theme !== "custom" || contrast(palette.text, palette.surface) >= MIN_CONTRAST;
+}
+
+// --- Diseños Android -----------------------------------------------------
+
+let designRow = null;
+let designStatus = null;
+
+function buildDesigns() {
+  if (!ANDROID) return;
+  // La imagen musical se conserva; estas opciones solo personalizaban su uso.
+  for (const path of ["appearance.artTint", "layout.artwork"]) {
+    document.querySelector(`[data-pref="${path}"]`)?.closest(".setting")?.remove();
+  }
+  for (const path of ["appearance.accentMode", "appearance.background"]) {
+    document.querySelector(`[data-pref="${path}"][value="artwork"]`)?.closest("label")?.remove();
+  }
+  designRow = document.createElement("div");
+  designRow.className = "setting setting--column mobile-design-setting";
+  designRow.dataset.keywords = "diseños predefinidos estilos minimal medianoche menta claro personalización";
+  const text = document.createElement("div");text.className = "setting__text";
+  const title = document.createElement("span");title.className = "setting__label";title.textContent = "Diseños rápidos";
+  const hint = document.createElement("span");hint.className = "setting__value";
+  hint.textContent = "Elige un estilo y después ajústalo a tu gusto.";
+  text.append(title,hint);
+  const picker = document.createElement("div");picker.className = "design-picker";
+  picker.setAttribute("role","group");picker.setAttribute("aria-label","Diseños predefinidos");
+  for (const design of DESIGNS) {
+    const palette = paletteFor(applyDesign(prefs.get("appearance"),design.id));
+    const button = document.createElement("button");button.type = "button";button.className = "design-card";
+    button.dataset.design = design.id;
+    for (const [key,value] of Object.entries({bg:palette.bg,surface:palette.surface,text:palette.text,accent:design.appearance.accentColor})) {
+      button.style.setProperty(`--design-${key}`,value);
+    }
+    const preview = document.createElement("span");preview.className = "design-card__preview";
+    preview.setAttribute("aria-hidden","true");
+    preview.innerHTML = '<span class="dp-title"></span><span class="dp-row"></span><span class="dp-row"></span><span class="dp-player"></span><span class="dp-nav"></span>';
+    const name = document.createElement("span");name.className = "design-card__name";name.textContent = design.name;
+    const about = document.createElement("span");about.className = "design-card__about";about.textContent = design.description;
+    const badge = document.createElement("span");badge.className = "design-card__badge";badge.textContent = "Aplicado";
+    button.append(preview,name,about,badge);
+    button.addEventListener("click", () => {
+      prefs.set("appearance",applyDesign(prefs.get("appearance"),design.id));
+      designStatus.textContent = `Diseño ${design.name} aplicado. Puedes retocarlo abajo.`;
+    });
+    picker.append(button);
+  }
+  designStatus = document.createElement("p");designStatus.className = "design-status";
+  designStatus.setAttribute("role","status");designStatus.setAttribute("aria-live","polite");
+  designRow.append(text,picker,designStatus);
+  document.querySelector('[data-group="appearance"] .settings__card').prepend(designRow);
+}
+
+function renderDesigns(appearance) {
+  if (!designRow) return;
+  const active = matchingDesign(appearance);
+  for (const button of designRow.querySelectorAll("[data-design]")) {
+    const applied = button.dataset.design === active;
+    button.setAttribute("aria-pressed",String(applied));
+    button.querySelector(".design-card__badge").hidden = !applied;
+  }
+  designStatus.textContent = active
+    ? `Diseño ${DESIGNS.find(d => d.id === active).name}. Puedes retocarlo abajo.`
+    : "Estilo personalizado: tus ajustes siguen disponibles abajo.";
 }
 
 // --- Imagen de fondo -----------------------------------------------------
@@ -298,6 +372,7 @@ export function onError(callback) {
 }
 
 export async function initAppearance() {
+  buildDesigns();
   buildThemePicker();
   buildSwatches();
 
@@ -309,6 +384,7 @@ export async function initAppearance() {
   prefs.on("appearance", apply);
   // El tema "Carátula" cambia con cada canción; los demás, solo su miniatura.
   onColor(() => {
+    if (ANDROID) return;
     if (prefs.get("appearance.theme") === "artwork") apply();
     else renderThemePicker(prefs.get("appearance"));
   });

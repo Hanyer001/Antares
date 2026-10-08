@@ -242,9 +242,13 @@ export function setArtwork(url) {
       if (mine !== token) return;
       els.artImg.src = url;
       els.artwork.classList.add("has-art");
-      setBackdrop(url);
+      if (document.documentElement.dataset.platform !== "android") setBackdrop(url);
     })
     .catch(() => {});
+
+  // Android conserva la portada, pero ya no usa su color para personalizar.
+  // Evita la segunda descarga de muestreo y el trabajo del canvas.
+  if (document.documentElement.dataset.platform === "android") return;
 
   loadImage(sampleUrl(url), { anonymous: true })
     .then((img) => {

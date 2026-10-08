@@ -77,15 +77,24 @@ export function openMenu(anchor, items) {
     menu.append(button);
   }
 
+  const mobile = document.documentElement.dataset.platform === "android";
+  const backdrop = mobile ? document.createElement("div") : null;
+  if (backdrop) {
+    backdrop.className = "mobile-menu-backdrop";
+    backdrop.setAttribute("aria-hidden", "true"); document.body.append(backdrop);
+  }
   document.body.append(menu);
-  place(menu, anchor);
+  if (!mobile) place(menu, anchor);
 
   const buttons = [...menu.querySelectorAll(".menu__item")];
   buttons[0]?.focus();
 
   const onPointerDown = (event) => {
     // El propio botón se deja pasar: su clic ya alterna el menú.
-    if (!menu.contains(event.target) && !anchor.contains(event.target)) closeMenu();
+    if (!menu.contains(event.target) && !anchor.contains(event.target)) {
+      if (mobile) { event.preventDefault(); event.stopPropagation(); }
+      closeMenu();
+    }
   };
 
   const onKeyDown = (event) => {
@@ -122,6 +131,7 @@ export function openMenu(anchor, items) {
     menu,
     anchor,
     cleanup: () => {
+      backdrop?.remove();
       document.removeEventListener("pointerdown", onPointerDown, true);
       document.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", closeMenu);

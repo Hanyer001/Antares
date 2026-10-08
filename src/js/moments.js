@@ -14,7 +14,13 @@ export function allowed(track){return !(state.snoozed[track.id]>Date.now());}
 export function seeds(){return focused?[focused]:current==="usual"?[]:state.contexts[current]||[];}
 export function contextual(){return current!=="usual"||Boolean(focused);}
 export function notePick(track){if(!track?.id)return;focused=null;if(current!=="usual"){state.contexts[current]=[track,...(state.contexts[current]||[]).filter(t=>t.id!==track.id)].slice(0,3);save();render();}}
-export function more(track){focused=track;changed();render();toast(`Las próximas recomendaciones partirán de «${track.title||"esta canción"}».`);}
+export function more(track,{undo=false}={}){
+  const before=focused, context=current;focused=track;changed();render();
+  toast(`Las próximas recomendaciones partirán de «${track.title||"esta canción"}».`,undo?{action:{label:"Deshacer",onClick:()=>{
+    if(current!==context || focused!==track)return;
+    focused=before;changed();render();
+  }}}:{});
+}
 export function snooze(track){state.snoozed[track.id]=nextMidnight();save();changed();render();toast("No se recomendará esta canción durante el resto del día.",{action:{label:"Deshacer",onClick:()=>{delete state.snoozed[track.id];save();changed();render();}}});}
 function change(id){current=id;learn=id==="usual";focused=null;render();changed(true);}
 function render(){
@@ -37,7 +43,12 @@ export function init(onChange){
   const unblock=document.createElement("button");unblock.type="button";unblock.className="btn btn--mini";unblock.textContent="Quitar «hoy no»";
   unblock.addEventListener("click",()=>{state.snoozed={};save();changed();render();toast("Se quitaron los bloqueos de hoy.");});
   select.addEventListener("change",()=>change(select.value));checkbox.addEventListener("change",()=>{learn=checkbox.checked;changed(false);});
-  panel.append(label,learning,status,reset,unblock);els.discover.prepend(panel);
+  panel.append(label,learning,status,reset,unblock);
+  if (document.documentElement.dataset.platform === "android") {
+    const details=document.createElement("details");details.className="mobile-moments";
+    const summary=document.createElement("summary");summary.textContent="Momento y recomendaciones";
+    details.append(summary,panel);els.discover.prepend(details);
+  } else els.discover.prepend(panel);
   let profile=prefs.activeProfileId();
   if(profile){current=`profile:${profile}`;learn=false;}
   prefs.onProfiles(()=>{const next=prefs.activeProfileId();if(next!==profile){profile=next;change(next?`profile:${next}`:"usual");}else render();});

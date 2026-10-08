@@ -7,15 +7,24 @@ export class Recovery {
   clear() { this.cancel(this.handle); this.handle = null; }
   begin(position = 0) {
     this.clear(); this.generation++; this.intent = true; this.inFlight = false;
-    this.attempts = 0; this.position = Math.max(0, Number(position) || 0); this.pending = false;
+    this.attempts = 0; this.position = Math.max(0, Number(position) || 0); this.pending = false; this.healthySince = null;
     this.buffering();
   }
   buffering() {
+    this.healthySince = null;
     if (!this.intent || this.handle || this.inFlight) return;
     this.handle = this.timer(() => { this.handle = null; this.fail(); }, this.timeout);
   }
-  progress(position) { if (Number.isFinite(position) && position >= 0) this.position = position; }
-  playing() { this.clear(); this.pending = false; this.recovered(); }
+  progress(position) {
+    if (!Number.isFinite(position) || position < 0) return;
+    if (this.intent && !this.handle && !this.inFlight && position > this.position) {
+      this.healthySince ??= position;
+      // Un corte nuevo tras diez segundos de audio tiene su propio reintento.
+      if (position - this.healthySince >= 10) this.attempts = 0;
+    } else this.healthySince = null;
+    this.position = position;
+  }
+  playing() { this.clear(); this.pending = false; this.healthySince = null; this.recovered(); }
   pause() { this.clear(); this.intent = false; this.pending = false; this.generation++; }
   async fail() {
     if (!this.intent || this.inFlight) return;

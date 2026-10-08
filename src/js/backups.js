@@ -1,3 +1,4 @@
+import { saveDocument } from "./documents.js";
 import { key } from "./user.js";
 import * as session from "./session.js";
 import * as moments from "./moments.js";
@@ -5,6 +6,12 @@ import * as dialog from "./dialog.js";
 import { toast } from "./toast.js";
 import { cleanSession } from "./session-model.js";
 const { invoke } = window.__TAURI__.core;
+async function restart() {
+  const android = document.documentElement.dataset.platform === "android";
+  if (android) await invoke("plugin:player|stop");
+  await invoke("restart_after_restore");
+  if (android) location.reload();
+}
 let callbacks, busy=false, restoring=false, timer;
 function message(error){toast(String(error?.message||error),{tone:"error"});}
 export async function restoreWorkspace(){
@@ -38,16 +45,16 @@ async function restore(contents){
   restoring=true;clearInterval(timer);
   const notice=document.createElement("dialog");notice.className="library-editor";
   const text=document.createElement("p");text.textContent="La copia está lista para restaurarse. Antares necesita reiniciarse para aplicarla.";
-  const restart=document.createElement("button");restart.type="button";restart.className="btn";restart.textContent="Reiniciar Antares";
-  restart.addEventListener("click",()=>invoke("restart_after_restore").catch(message));notice.append(text,restart);document.body.append(notice);notice.addEventListener("cancel",e=>e.preventDefault());notice.showModal();
-  await invoke("restart_after_restore");
+  const restartButton=document.createElement("button");restartButton.type="button";restartButton.className="btn";restartButton.textContent="Reiniciar Antares";
+  restartButton.addEventListener("click",()=>restart().catch(message));notice.append(text,restartButton);document.body.append(notice);notice.addEventListener("cancel",e=>e.preventDefault());notice.showModal();
+  await restart();
 }
 export function init(options){
   callbacks=options;
   document.getElementById("export-backup").addEventListener("click",()=>run(async()=>{
     const copy=await snapshot();
-    const path=await invoke("export_file",{name:`antares-copia-${new Date().toISOString().slice(0,10)}.json`,contents:JSON.stringify(copy)});
-    toast(`Copia completa guardada: ${path}`);await refresh();
+    const path=await saveDocument({name:`antares-copia-${new Date().toISOString().slice(0,10)}.json`,contents:JSON.stringify(copy)});
+    if(!path)return;toast(`Copia completa guardada: ${path}`);await refresh();
   }));
   document.getElementById("backup-now").addEventListener("click",()=>run(async()=>{await snapshot();await refresh();toast("Copia completa guardada en este dispositivo.");}));
   const input=document.getElementById("backup-input");
@@ -62,5 +69,5 @@ export function init(options){
   }));
   refresh().catch(message);
   setTimeout(()=>run(async()=>{await snapshot();await refresh();}),30000);
-  timer=setInterval(()=>run(async()=>{await snapshot();await refresh();}),15*60*1000);
+  timer=setInterval(()=>{if(document.hidden && document.documentElement.dataset.platform==="android")return;run(async()=>{await snapshot();await refresh();});},15*60*1000);
 }

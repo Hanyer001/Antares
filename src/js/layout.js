@@ -29,7 +29,7 @@ function apply() {
 
   root.dataset.sidebar = layout.sidebar;
   root.toggleAttribute("data-mirrored", layout.mirrored);
-  root.dataset.artwork = layout.artwork;
+  root.dataset.artwork = root.dataset.platform === "android" ? "medium" : layout.artwork;
   root.toggleAttribute("data-no-upnext", !layout.upnext);
 
   const hidden = Object.entries(CONSOLE_PARTS)

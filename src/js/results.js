@@ -5,6 +5,7 @@
 import { els } from "./dom.js";
 import { formatTime } from "./format.js";
 import { icon, iconButton } from "./icons.js";
+import { bindTouchSort, dropPosition } from "./mobile-interactions.js";
 
 /**
  * Milisegundos de ratón quieto sobre una fila antes de resolverla por
@@ -19,6 +20,7 @@ let hoverTimer = null;
 
 /** Posición de la fila que se está arrastrando, o null. */
 let dragFrom = null;
+const touchLists = new WeakSet();
 
 /**
  * Las listas donde se han pintado filas: la del panel y la de la página de un
@@ -90,7 +92,8 @@ function buildActions(track, removeLabel, playNext) {
   const wrap = document.createElement("div");
   wrap.className = "result__actions";
 
-  if (playNext) {
+  const mobile = document.documentElement.dataset.platform === "android";
+  if (playNext && !mobile) {
     wrap.append(
       iconButton({
         icon: "playNext",
@@ -112,7 +115,7 @@ function buildActions(track, removeLabel, playNext) {
     className: "result__action",
     onClick: (event, button) => {
       event.stopPropagation();
-      handlers.onMenu(track, button);
+      handlers.onMenu(track, button, { removeLabel, onRemove: () => handlers.onRemove(track) });
     },
   });
   listButton.setAttribute("aria-haspopup", "menu");
@@ -128,7 +131,7 @@ function buildActions(track, removeLabel, playNext) {
     },
   });
 
-  wrap.append(mainButton, listButton);
+  wrap.append(...(mobile ? [listButton] : [mainButton, listButton]));
   return wrap;
 }
 
@@ -149,7 +152,25 @@ function isLowerHalf(event, li) {
  * propias: la cola se reordena sola con el aleatorio, y los resultados o el
  * historial no tienen un orden que cambiar.
  */
-function makeReorderable(li, position, count) {
+function makeReorderable(li, position, count, min=0) {
+  if (document.documentElement.dataset.platform === "android") {
+    li.classList.add("result--reorderable");
+    const move = document.createElement("button");
+    move.type = "button"; move.className = "btn result__move";
+    move.append(icon("grip")); move.setAttribute("aria-label","Mover canción: arrastra o toca para opciones");
+    move.title="Arrastra para ordenar; toca para subir o bajar";
+    move.addEventListener("click",async event => {
+      event.stopPropagation();
+      const {openMenu} = await import("./menu.js");
+      openMenu(move,[{heading:"Mover canción"},
+        ...(position > min ? [{label:"Subir",onSelect:()=>handlers.onMove(position,position-1)},
+          {label:"Al principio",onSelect:()=>handlers.onMove(position,min)}] : []),
+        ...(position+1 < count ? [{label:"Bajar",onSelect:()=>handlers.onMove(position,position+1)},
+          {label:"Al final",onSelect:()=>handlers.onMove(position,count-1)}] : [])]);
+    });
+    li.prepend(move);
+    return;
+  }
   li.draggable = true;
   li.classList.add("result--reorderable");
 
@@ -244,10 +265,11 @@ function buildBy(track) {
   return by;
 }
 
-function buildRow(track, { removeLabel, reorderable, count, playNext }, position) {
+function buildRow(track, { removeLabel, reorderable, count, playNext, minReorderIndex = 0 }, position) {
   const li = document.createElement("li");
   li.className = "result";
   li.dataset.id = track.id;
+  li.dataset.position = String(position);
 
   // Es una fila que se pulsa: debe poder recibir foco y responder al teclado,
   // no solo al ratón.
@@ -275,7 +297,7 @@ function buildRow(track, { removeLabel, reorderable, count, playNext }, position
 
   const actions = buildActions(track, removeLabel, playNext);
   li.append(art, text, time, actions);
-  if (reorderable) makeReorderable(li, position, count);
+  if (reorderable && position >= minReorderIndex) makeReorderable(li, position, count, minReorderIndex);
 
   // Clic derecho: el mismo menú que el botón "Más", como en Spotify.
   li.addEventListener("contextmenu", (event) => {
@@ -296,6 +318,7 @@ function buildRow(track, { removeLabel, reorderable, count, playNext }, position
   });
 
   li.addEventListener("pointerenter", () => {
+    if (document.documentElement.dataset.platform === "android") return;
     clearTimeout(hoverTimer);
     hoverTimer = setTimeout(() => handlers.onHover(track), HOVER_PREFETCH_MS);
   });
@@ -350,15 +373,24 @@ function buildDivider({ text, action }) {
 export function renderInto(
   list,
   tracks,
-  { removeLabel = null, reorderable = false, playNext = true, dividers = [], lead = null } = {},
+  { removeLabel = null, reorderable = false, playNext = true, dividers = [], lead = null, minReorderIndex = 0 } = {},
 ) {
+  if(document.documentElement.dataset.platform==='android' && list===els.resultsList && !touchLists.has(list)){
+    touchLists.add(list);
+    bindTouchSort(list,{rowSelector:'.result',handleSelector:'.result__move',onMove:(row,target,after)=>{
+      if(!target.classList.contains('result--reorderable'))return;
+      const from=Number(row.dataset.position),at=Number(target.dataset.position);
+      const count=list.querySelectorAll('.result').length;
+      handlers.onMove(from,dropPosition(from,at,after,count),{id:row.dataset.id,targetId:target.dataset.id});
+    }});
+  }
   clearTimeout(hoverTimer);
   lists.add(list);
   list.replaceChildren();
   if (lead) list.append(lead);
 
   const all = tracks ?? [];
-  const opts = { removeLabel, reorderable, playNext, count: all.length };
+  const opts = { removeLabel, reorderable, playNext, count: all.length, minReorderIndex };
   all.forEach((track, position) => {
     for (const divider of dividers) {
       if (divider.at === position) list.append(buildDivider(divider));

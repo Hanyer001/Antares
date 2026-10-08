@@ -2,6 +2,8 @@
 // usan relleno; los demás usan contorno.
 
 const PATHS = {
+  spark: ["fill:M12 2l2.7 7.3L22 12l-7.3 2.7L12 22l-2.7-7.3L2 12l7.3-2.7z"],
+  search: ["M18 18l3 3", "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z"],
   plus: ["M12 6v12M6 12h12"],
   close: ["M7 7l10 10M17 7L7 17"],
   back: ["m15 18-6-6 6-6"],
