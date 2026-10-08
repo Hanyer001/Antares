@@ -46,6 +46,17 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib firma_publicada -- --ignor
 
 ## Android
 
+Publicación Beta con la firma de distribución existente:
+
+```powershell
+.\scripts\build-android.ps1 -Beta 1
+```
+
+El paquete público es `com.hanyer.antares`; salida `Antares-0.3.3-android-beta.1.apk`. Beta 1 usa `versionCode 300301`; una edición estable de 0.3.3 usaría 300399. Las versiones siguientes aumentan el código. La app de desarrollo puede coexistir y sus datos se trasladan con una copia completa.
+
+Publica la etiqueta `android-v0.3.3-beta.1` como **Pre-release**, con `Antares-Android.apk`, `SHA256SUMS.txt`, notas y `android-latest.json`. Conserva Windows como la última release estable: nunca reemplaces su `latest.json` con un manifiesto Android. El manifiesto Android es preparación para un futuro aviso; actualmente la app no lo consulta.
+
+
 Con el SDK, NDK y Java configurados:
 
 ```powershell
