@@ -43,6 +43,7 @@ test("los valores por defecto tienen todas las secciones", () => {
     "behavior",
     "shortcuts",
     "lyrics",
+    "mobile",
     "system",
   ]);
   assert.equal(d.appearance.theme, "dark");
