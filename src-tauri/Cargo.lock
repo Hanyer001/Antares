@@ -69,9 +69,10 @@ dependencies = [
 
 [[package]]
 name = "antares"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "base64 0.22.1",
+ "jni 0.21.1",
  "minisign-verify",
  "percent-encoding",
  "reqwest 0.12.28",

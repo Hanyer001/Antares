@@ -1,6 +1,6 @@
 [package]
 name = "antares"
-version = "0.3.2"
+version = "0.3.3"
 description = "Antares - reproductor de musica"
 authors = ["Hanyer"]
 edition = "2021"
@@ -28,7 +28,7 @@ serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 
 # Extraccion nativa con el parche local de cliente YouTube (ver vendor/rusty_ytdl/ANTARES_PATCH.md).
-rusty_ytdl = { path = "vendor/rusty_ytdl", default-features = false, features = ["rustls", "live"] }
+
 
 # Solo para la autoactualizacion de yt-dlp. `blocking` porque la comprobacion
 # corre en su propio hilo y no necesita el runtime async; `rustls-tls` para no
@@ -44,6 +44,7 @@ tauri-plugin-notification = "2"
 
 # Solo escritorio: no existen (ni compilan) en Android.
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+rusty_ytdl = { path = "vendor/rusty_ytdl", default-features = false, features = ["rustls", "live"] }
 # Atajos de teclado que funcionan con la app minimizada o en segundo plano.
 tauri-plugin-global-shortcut = "2"
 # "Abrir Antares al iniciar Windows" (una entrada en HKCU\...\Run).
@@ -70,6 +71,9 @@ windows = { version = "0.62", features = [
 
 # Solo para las pruebas: comprobar que el instalador publicado lleva una firma
 # que la app acepta (las mismas versiones que ya usa el actualizador).
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+
 [dev-dependencies]
 minisign-verify = "0.2"
 base64 = "0.22"
