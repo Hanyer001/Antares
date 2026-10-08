@@ -27,7 +27,7 @@ pub async fn resolve(query: &str, safe: bool) -> Result<TrackInfo, String> {
 
 pub async fn search(query: String, limit: usize) -> Result<Vec<SearchResult>, String> {
     if native() {
-        innertube::search_tracks(&query, limit).await
+        crate::ytmusic::search_songs(&query, limit).await.map(|songs| songs.into_iter().filter(|s| s.track.is_music == Some(true)).map(|s| s.track).collect())
     } else {
         ytdlp::search_tracks(query, limit).await
     }

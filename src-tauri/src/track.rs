@@ -57,6 +57,8 @@ pub struct HistoryEntry {
 /// solo para el que el usuario elija.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SearchResult {
+    #[serde(default)]
+    pub is_music: Option<bool>,
     pub id: String,
     pub title: Option<String>,
     pub uploader: Option<String>,
@@ -81,6 +83,8 @@ impl SearchResult {
 /// una fila de cualquier lista (que trae `watch_url` y hasta `played_at`).
 #[derive(Deserialize)]
 pub struct TrackInput {
+    #[serde(default)]
+    pub is_music: Option<bool>,
     pub id: String,
     pub title: Option<String>,
     pub uploader: Option<String>,
@@ -98,7 +102,7 @@ impl TrackInput {
             return Err("La pista no tiene id.".to_string());
         }
 
-        Ok(SearchResult {
+        Ok(SearchResult { is_music: self.is_music,
             watch_url: SearchResult::watch_url_for(&id),
             id,
             title: self.title,

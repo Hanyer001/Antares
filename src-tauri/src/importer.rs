@@ -828,7 +828,7 @@ mod tests {
     use super::*;
 
     fn hit(id: &str, duration: f64) -> SearchResult {
-        SearchResult {
+        SearchResult { is_music: None,
             id: id.into(),
             title: Some(format!("Creep {id}")),
             uploader: None,
@@ -1113,7 +1113,7 @@ mod tests {
 
     #[test]
     fn lo_que_no_se_parece_no_entra() {
-        let song = |title: &str, uploader: &str| SearchResult {
+        let song = |title: &str, uploader: &str| SearchResult { is_music: None,
             id: "x".into(),
             title: Some(title.into()),
             uploader: Some(uploader.into()),

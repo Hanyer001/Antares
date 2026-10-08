@@ -307,7 +307,7 @@ mod tests {
     }
 
     fn pista(id: &str) -> SearchResult {
-        SearchResult {
+        SearchResult { is_music: None,
             id: id.to_string(),
             title: Some(id.to_uppercase()),
             uploader: None,
@@ -544,7 +544,7 @@ impl SmartRules {
 mod feature_tests {
     use super::*;
     use crate::stats::{TrackStats, Rating};
-    fn track(id: &str) -> SearchResult { SearchResult { id:id.into(), title:Some(id.into()), uploader:Some("Artista".into()), duration:Some(100.0), thumbnail:None, watch_url:SearchResult::watch_url_for(id) } }
+    fn track(id: &str) -> SearchResult { SearchResult { is_music: None, id:id.into(), title:Some(id.into()), uploader:Some("Artista".into()), duration:Some(100.0), thumbnail:None, watch_url:SearchResult::watch_url_for(id) } }
     fn lists() -> Playlists { Playlists::load(std::env::temp_dir().join(format!("antares-library-{}-{:?}",std::process::id(),std::thread::current().id()))) }
     fn rules() -> SmartRules { SmartRules { liked_only:true, not_played_days:30, discovered_days:0,min_plays:0,max_skip_percent:100,artist:String::new(),limit:100 } }
     #[test] fn smart_rules_refresh_after_a_listen_or_rating() {

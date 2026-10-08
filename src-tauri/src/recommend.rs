@@ -186,6 +186,7 @@ impl Tuning {
     }
 
     pub fn allows(&self, track: &SearchResult) -> bool {
+        if crate::source::native() && !is_music(track) { return false; }
         if let Some(d) = track.duration {
             if d < self.min_duration_secs || d > self.max_duration_secs {
                 return false;
@@ -310,6 +311,12 @@ fn contribution(seed_taste: f64, pos: usize) -> f64 {
 }
 
 /// 0 para lo que no es una cancion: recopilatorios de una hora, cortes.
+pub fn is_music(track: &SearchResult) -> bool {
+    if let Some(value) = track.is_music { return value; }
+    let channel = track.uploader.as_deref().unwrap_or("").to_lowercase();
+    channel.ends_with(" - topic") || channel.ends_with("vevo")
+}
+
 pub fn quality(track: &SearchResult) -> f64 {
     if let Some(d) = track.duration {
         if !(MIN_DURATION_SECS..=MAX_DURATION_SECS).contains(&d) {
@@ -759,7 +766,7 @@ mod tests {
     const DIA: u64 = 24 * 3600;
 
     fn pista(id: &str, titulo: &str, canal: &str) -> SearchResult {
-        SearchResult {
+        SearchResult { is_music: None,
             id: id.to_string(),
             title: Some(titulo.to_string()),
             uploader: Some(canal.to_string()),

@@ -168,7 +168,7 @@ mod tests {
     const NOW: u64 = 1_800_000_000;
 
     fn stats(id: &str, title: &str, uploader: &str) -> TrackStats {
-        let mut t = TrackStats::new(SearchResult {
+        let mut t = TrackStats::new(SearchResult { is_music: None,
             id: id.to_string(),
             title: Some(title.to_string()),
             uploader: Some(uploader.to_string()),

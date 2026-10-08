@@ -198,6 +198,7 @@ impl TrackStats {
         old.title = fresh.title.or(old.title.take());
         old.uploader = fresh.uploader.or(old.uploader.take());
         old.duration = fresh.duration.or(old.duration);
+        old.is_music = fresh.is_music.or(old.is_music);
         old.thumbnail = fresh.thumbnail.or(old.thumbnail.take());
     }
 }
@@ -574,7 +575,7 @@ mod tests {
     }
 
     fn pista(id: &str, duracion: Option<f64>) -> SearchResult {
-        SearchResult {
+        SearchResult { is_music: None,
             id: id.to_string(),
             title: Some(format!("Titulo {id}")),
             uploader: Some("Canal".to_string()),
@@ -844,7 +845,7 @@ mod learning_tests {
     #[test] fn an_empty_taste_library_survives_restart_after_temporary_listening() {
         let dir=std::env::temp_dir().join(format!("antares-first-temporary-{}-{:?}",std::process::id(),std::thread::current().id()));
         let stats=Stats::load(dir.clone());
-        let track=SearchResult {id:"party".into(),title:None,uploader:None,duration:Some(100.0),thumbnail:None,watch_url:SearchResult::watch_url_for("party")};
+        let track=SearchResult { is_music: None,id:"party".into(),title:None,uploader:None,duration:Some(100.0),thumbnail:None,watch_url:SearchResult::watch_url_for("party")};
         stats.record_context(track,100.0,true,false);
         stats.file.save_sync(stats.snapshot().into_iter().map(|s|(s.track.id.clone(),s)).collect::<HashMap<_,_>>()).unwrap();
         let reloaded=Stats::load(dir);
@@ -853,7 +854,7 @@ mod learning_tests {
     #[test] fn temporary_listens_count_without_training_taste() {
         let dir=std::env::temp_dir().join(format!("antares-temporary-{}-{:?}",std::process::id(),std::thread::current().id()));
         let stats=Stats::load(dir);
-        let track=SearchResult {id:"temporary".into(),title:Some("Fiesta".into()),uploader:None,duration:Some(100.0),thumbnail:None,watch_url:SearchResult::watch_url_for("temporary")};
+        let track=SearchResult { is_music: None,id:"temporary".into(),title:Some("Fiesta".into()),uploader:None,duration:Some(100.0),thumbnail:None,watch_url:SearchResult::watch_url_for("temporary")};
         stats.record_context(track.clone(),100.0,true,false);
         assert_eq!(stats.snapshot()[0].plays,1);assert!(stats.recommendation_snapshot().is_empty());
         stats.record_context(track.clone(),100.0,true,true);

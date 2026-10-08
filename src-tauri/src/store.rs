@@ -286,7 +286,7 @@ mod tests {
     }
 
     fn candidato(id: &str, titulo: &str) -> SearchResult {
-        SearchResult {
+        SearchResult { is_music: None,
             id: id.to_string(),
             title: Some(titulo.to_string()),
             uploader: None,
