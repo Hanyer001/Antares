@@ -1,0 +1,165 @@
+/* Android: superficies sencillas, controles tÃ¡ctiles y los colores del usuario. */
+.mobile-search-entry, .mobile-header { display: none; }
+:root[data-platform="android"] .app { background: color-mix(in srgb, var(--bg) 88%, transparent); }
+:root[data-platform="android"] .main { padding: 18px 22px 8px; gap: 22px; }
+:root[data-platform="android"] .mobile-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex: none; }
+:root[data-platform="android"] .mobile-wordmark { display: inline-flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 650; letter-spacing: .2em; color: var(--text); }
+.mobile-wordmark svg { width: 22px; height: 22px; fill: var(--accent); color: var(--accent); }
+:root[data-platform="android"] .mobile-profile { width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 50%; background: var(--accent-wash); color: var(--accent); font: inherit; font-weight: 650; cursor: pointer; }
+:root[data-platform="android"]:not([data-mobile-tab="results"]) #search-form { display: none; }
+:root[data-platform="android"][data-mobile-tab="home"] .mobile-search-entry { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 12px 16px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); color: var(--text-dim); font: inherit; font-size: 14px; text-align: left; }
+.mobile-search-entry svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+:root[data-platform="android"] .search { gap: 8px; }
+:root[data-platform="android"] .field__input, :root[data-platform="android"] .btn--search { height: 48px; border-radius: var(--radius-lg); }
+:root[data-platform="android"] .view-head { flex-wrap: wrap; align-items: center; gap: 12px; }
+:root[data-platform="android"] .view-title { font-size: 27px; letter-spacing: -.04em; line-height: 1.2; }
+:root[data-platform="android"] .view-meta { margin-top: 8px; line-height: 1.5; }
+:root[data-platform="android"] .home { gap: 30px; }
+:root[data-platform="android"] .shelf { gap: 16px; }
+:root[data-platform="android"] .shelf__head { align-items: center; gap: 12px; }
+:root[data-platform="android"] .shelf__title { font-size: 18px; letter-spacing: -.02em; }
+:root[data-platform="android"] .shelf__sub { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; margin-top: 6px; line-height: 1.4; }
+:root[data-platform="android"] .shelf__actions .btn--with-icon { width: 44px; height: 44px; padding: 0; border-radius: 50%; background: var(--accent-wash); color: var(--accent); border-color: transparent; }
+:root[data-platform="android"] .shelf__actions .btn--with-icon span { display: none; }
+:root[data-platform="android"] .shelf__row { --card-w: clamp(138px, calc(37vw + 8px * var(--density)), 188px); gap: 16px; padding-bottom: 2px; scrollbar-width: none; }
+:root[data-platform="android"] .shelf__row::-webkit-scrollbar { display: none; }
+:root[data-platform="android"] .card__cover { box-shadow: none; margin-bottom: 5px; border-radius: var(--radius-lg); }
+:root[data-platform="android"] .card--artist .card__cover { border-radius: 50%; }
+:root[data-platform="android"] .card:hover .card__art { transform: none; }
+:root[data-platform="android"] .mobile-card-meta { display: grid; grid-template-columns: minmax(0,1fr) 40px; align-items: start; gap: 2px; }
+:root[data-platform="android"] .mobile-card-meta > div { min-width: 0; }
+:root[data-platform="android"] .card__title { font-size: 14px; font-weight: 600; line-height: 1.45; }
+:root[data-platform="android"] .card__by { font-size: 12px; line-height: 1.5; margin-top: 4px; }
+:root[data-platform="android"] .card__more { position: static; width: 40px; height: 44px; border-radius: var(--radius); background: transparent; color: var(--text-dim); }
+:root[data-platform="android"] .result { --art: calc(46px + 4px * var(--density)); grid-template-columns: var(--art) minmax(0, 1fr) 44px; min-height: 76px; padding: 12px 0; gap: 12px; border-bottom-color: var(--line); }
+:root[data-platform="android"] .result--reorderable { grid-template-columns: 36px var(--art) minmax(0, 1fr) 44px; }
+:root[data-platform="android"] .result.result--selectable { grid-template-columns: 24px var(--art) minmax(0, 1fr) 44px; }
+:root[data-platform="android"] .result__move { width: 36px; }
+:root[data-platform="android"] .result__title { font-size: 14px; line-height: 1.45; }
+:root[data-platform="android"] .result__by { font-size: 12px; line-height: 1.5; }
+:root[data-platform="android"] .result__action { width: 44px; height: 44px; }
+:root[data-platform="android"] .sidebar { background: var(--bg); border-top-color: var(--line); height: 72px; padding-inline: 8px; }
+:root[data-platform="android"] .tab { gap: 5px; font-size: 11px; position: relative; isolation: isolate; }
+:root[data-platform="android"] .tab[aria-current="page"]::before { display: none; }
+:root[data-platform="android"] .tab::after { content: ""; position: absolute; z-index: -1; top: 6px; left: 50%; transform: translateX(-50%); width: 50px; height: 30px; border-radius: 18px; background: transparent; }
+:root[data-platform="android"] .tab[aria-current="page"]::after, :root[data-platform="android"] .mobile-more.is-active::after { background: var(--accent-wash); }
+:root[data-platform="android"] .tab svg { width: 22px; height: 22px; }
+:root[data-platform="android"] .mobile-more > span:first-child { font-size: 20px; height: 22px; line-height: 16px; letter-spacing: 2px; }
+:root[data-platform="android"] .nowplaying { padding: 0 12px 8px; background: transparent; }
+:root[data-platform="android"]:not([data-focus]) .console { min-height: 72px; box-shadow: none; background: color-mix(in srgb, var(--surface) 93%, var(--accent)); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 10px 12px 3px; grid-template-columns: 46px minmax(0,1fr) auto; column-gap: 12px; }
+:root[data-platform="android"]:not([data-focus]) .artwork { width: 46px; border-radius: var(--radius); }
+:root[data-platform="android"]:not([data-focus]) #next-button { display: none; }
+:root[data-platform="android"]:not([data-focus]) .btn--play { width: 46px; height: 46px; }
+:root[data-platform="android"]:not([data-focus]) .scrub { height: 4px; }
+:root[data-platform="android"] .console__glow, :root[data-platform="android"] .meter { display: none; }
+:root[data-platform="android"][data-focus] .nowplaying { padding: 60px 24px 24px; gap: 28px; }
+:root[data-platform="android"][data-focus] .console { border: none; background: transparent; box-shadow: none; padding: 8px 0; gap: 22px; }
+:root[data-platform="android"][data-focus] .artwork { width: min(72vw, 320px, 36dvh); border-radius: var(--radius-lg); }
+:root[data-platform="android"][data-focus] .track__title { font-size: 23px; line-height: 1.3; }
+:root[data-platform="android"][data-focus] .track__by { margin-top: 8px; }
+:root[data-platform="android"][data-focus] .btn--play { width: 72px; height: 72px; }
+:root[data-platform="android"][data-focus] .transport__main { gap: 24px; }
+:root[data-platform="android"][data-focus] .upnext { height: 40dvh; min-height: 240px; }
+:root[data-platform="android"][data-focus] .mode-exit { width: 44px; height: 44px; left: 14px; top: 10px; border-radius: 50%; background: var(--surface); }
+:root[data-platform="android"]:not([data-focus]) .nowplaying:has(.track__title.is-empty) { display: none; }
+:root[data-platform="android"] .settings { padding: 0; }
+:root[data-platform="android"] .settings-search { flex-basis: 100%; }
+:root[data-platform="android"] .settings__group { margin-bottom: 2px; border-radius: var(--radius-lg); }
+:root[data-platform="android"] .settings__head { padding: 0; flex-wrap: wrap; gap: 0; background: var(--surface); }
+:root[data-platform="android"] .settings__title { flex-basis: 100%; }
+:root[data-platform="android"] .settings__head [data-reset] { min-height: 44px; margin: -4px 14px 8px auto; }
+:root[data-platform="android"] .setting { padding: 16px 14px; gap: 12px; flex-wrap: wrap; }
+:root[data-platform="android"] .setting--column { flex-wrap: nowrap; }
+:root[data-platform="android"] .themes { grid-auto-rows: max-content; align-content: start; }
+:root[data-platform="android"] .segmented { max-width: 100%; flex-wrap: wrap; }
+:root[data-platform="android"] .library-tools__row { gap: 8px; }
+:root[data-platform="android"] .library-tools__row input { min-width: 0; }
+:root[data-platform="android"] .mobile-moments { padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); margin-bottom: 16px; }
+:root[data-platform="android"] .mobile-moments summary { cursor: pointer; font-size: 14px; min-height: 24px; }
+:root[data-platform="android"] .mobile-moments .moment-controls { padding-bottom: 0; }
+:root[data-platform="android"] .mobile-menu-backdrop { position: fixed; z-index: 149; inset: 0; background: #0008; touch-action: none; }
+:root[data-platform="android"] .menu { z-index: 150; inset: auto 8px max(8px,env(safe-area-inset-bottom)); width: auto; min-width: 0; max-width: none; max-height: 72dvh; border-radius: var(--radius-lg); background: var(--surface-2); padding: 12px 10px; box-shadow: 0 -8px 32px #0003; overscroll-behavior: contain; }
+:root[data-platform="android"] .menu::before { content: ""; display: block; width: 36px; height: 4px; margin: 0 auto 12px; border-radius: 4px; background: var(--line-strong); }
+:root[data-platform="android"] .menu__item { min-height: 48px; padding: 14px 12px; }
+:root[data-platform="android"] .menu__heading { padding-inline: 12px; }
+
+/* Solo el control solicitado anima: sin bucles decorativos ni trabajo en segundo plano. */
+:root[data-platform="android"] #play-button:hover:not(:disabled) { transform: none; background: var(--accent); box-shadow: none; }
+:root[data-platform="android"] #play-button:active:not(:disabled) { transform: scale(.92); }
+:root[data-platform="android"]:not([data-motion="none"]):not([data-motion="reduced"]) #play-button { transition: transform 140ms ease !important; }
+:root[data-platform="android"]:not([data-motion="none"]):not([data-motion="reduced"]) #play-button svg:not(.is-hidden) { animation: mobile-control-in 180ms ease-out !important; }
+:root[data-platform="android"] #play-button[data-playback="paused"].is-loading::after { display: none; }
+:root[data-platform="android"]:not([data-motion="none"]):not([data-motion="reduced"]) #play-button.is-loading::after { animation: spin 1s linear infinite !important; }
+:root[data-platform="android"][data-ui-hidden] #play-button svg,
+:root[data-platform="android"][data-ui-hidden] #play-button::after { animation-play-state: paused !important; }
+@keyframes mobile-control-in { from { opacity: .3; transform: scale(.65); } to { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  :root[data-platform="android"] #play-button#play-button,
+  :root[data-platform="android"] #play-button#play-button svg,
+  :root[data-platform="android"] #play-button#play-button::after { animation: none !important; transition: none !important; }
+}
+@media (max-width: 350px) {
+  :root[data-platform="android"] .main { padding-inline: 16px; gap: 18px; }
+  :root[data-platform="android"] .view-title { font-size: 24px; }
+  :root[data-platform="android"] .shelf__title { font-size: 16px; }
+  :root[data-platform="android"] .shelf__row { --card-w: 138px; gap: 14px; }
+  :root[data-platform="android"][data-focus] .nowplaying { padding-inline: 16px; }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  :root[data-platform="android"] .main { padding-top: 12px; gap: 12px; }
+  :root[data-platform="android"] .sidebar { height: 54px; }
+  :root[data-platform="android"] .mobile-header { display: none; }
+  :root[data-platform="android"][data-focus] .artwork { width: min(22vw,160px); }
+}
+
+:root[data-platform="android"] .main, :root[data-platform="android"] .nowplaying { scrollbar-width: none; }
+:root[data-platform="android"] .main::-webkit-scrollbar, :root[data-platform="android"] .nowplaying::-webkit-scrollbar { display: none; }
+
+:root[data-platform="android"] .home, :root[data-platform="android"] .settings, :root[data-platform="android"] .results { scrollbar-width: none; }
+:root[data-platform="android"] .home::-webkit-scrollbar, :root[data-platform="android"] .settings::-webkit-scrollbar, :root[data-platform="android"] .results::-webkit-scrollbar { display: none; }
+:root[data-platform="android"] .card__by, :root[data-platform="android"] .shelf__sub, :root[data-platform="android"] .setting__value { color: var(--text-dim); }
+
+/* Diseños de un toque: miniaturas vectoriales sin descargas ni animaciones continuas. */
+:root[data-platform="android"] .design-picker { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; width: 100%; }
+:root[data-platform="android"] .design-card { position: relative; min-width: 0; display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 10px; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--surface); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+:root[data-platform="android"] .design-card[aria-pressed="true"] { border: 2px solid var(--accent); padding: 9px; }
+:root[data-platform="android"] .design-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+:root[data-platform="android"] .design-card__preview { display: flex; flex-direction: column; gap: 7px; height: 96px; padding: 10px; border: 1px solid color-mix(in srgb,var(--design-text) 15%,var(--design-bg)); border-radius: calc(var(--radius-lg) * .7); background: var(--design-bg); color: var(--design-text); overflow: hidden; }
+:root[data-platform="android"] .dp-title { width: 56%; height: 5px; margin-bottom: 3px; border-radius: 5px; background: var(--design-text); }
+:root[data-platform="android"] .dp-row { height: 18px; border-radius: 5px; background: var(--design-surface); position: relative; }
+:root[data-platform="android"] .dp-row::after { content: ""; position: absolute; left: 9px; top: 7px; width: 55%; height: 3px; border-radius: 3px; background: color-mix(in srgb,var(--design-text) 55%,transparent); }
+:root[data-platform="android"] .dp-player { height: 22px; margin-top: auto; border-radius: 5px; background: var(--design-surface); position: relative; }
+:root[data-platform="android"] .dp-player::after { content: ""; width: 12px; height: 12px; border-radius: 50%; position: absolute; right: 7px; top: 5px; background: var(--design-accent); }
+:root[data-platform="android"] .dp-nav { width: 70%; height: 3px; margin-inline: auto; border-radius: 3px; background: var(--design-accent); }
+:root[data-platform="android"] .design-card__name { font-size: 15px; font-weight: 650; }
+:root[data-platform="android"] .design-card__about { font-size: 12px; line-height: 1.5; color: var(--text-dim); }
+:root[data-platform="android"] .design-card__badge { position: absolute; right: 15px; top: 16px; border-radius: 20px; padding: 4px 7px; background: var(--accent); color: var(--on-accent); font-size: 10px; font-weight: 650; }
+:root[data-platform="android"] .design-status { margin: 0; min-height: 2.8em; font-size: 12px; line-height: 1.5; color: var(--text-dim); }
+@media (min-width: 700px) { :root[data-platform="android"] .design-picker { grid-template-columns: repeat(4,minmax(0,1fr)); } }
+
+
+/* Interacciones móviles: el trabajo y las animaciones solo duran el gesto. */
+:root[data-platform="android"] .result--reorderable { grid-template-columns: 44px var(--art) minmax(0,1fr) 44px; gap: 8px; }
+:root[data-platform="android"] .result__move { width: 44px; min-height: 48px; padding: 10px; touch-action: none; color: var(--text-dim); }
+:root[data-platform="android"] .result__move svg { width: 20px; height: 20px; }
+:root[data-platform="android"] .is-touch-dragging { opacity: .65; outline: 1px solid var(--accent); outline-offset: -1px; }
+:root[data-platform="android"] .is-drop-before { box-shadow: inset 0 3px var(--accent); }
+:root[data-platform="android"] .is-drop-after { box-shadow: inset 0 -3px var(--accent); }
+:root[data-platform="android"]:not([data-focus]) .console { touch-action: pan-y; }
+:root[data-platform="android"]:not([data-focus]):not([data-motion="none"]):not([data-motion="reduced"]) .console.is-swiping { transform: translateX(var(--swipe-x,0)); }
+:root[data-platform="android"]:not([data-focus]) #next-button { display: flex; width: 44px; height: 48px; }
+:root[data-platform="android"]:not([data-focus]) .console { column-gap: 8px; padding-inline: 10px; }
+:root[data-platform="android"]:not([data-focus]) .transport__main { gap: 0; }
+.home-organizer { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.home-organizer__hint { font-size: 12px; line-height: 1.5; color: var(--text-dim); }
+.home-organizer .btn { min-height: 48px; }
+.shelf__organize { display: none; }
+:root[data-platform="android"] .home--editing .shelf__organize { display: flex; width: 48px; height: 48px; padding: 12px; touch-action: none; }
+:root[data-platform="android"] .home--editing .shelf__actions .btn--with-icon { display: none; }
+.shelf__pinned { display: inline-block; font-size: 11px; color: var(--accent); margin-top: 4px; }
+:root[data-platform="android"] .toast__action { min-width: 64px; min-height: 48px; }
+@media (prefers-reduced-motion: reduce) { :root[data-platform="android"] .console.is-swiping { transform: none !important; } }
+.home-organizer[hidden] { display: none; }
+
+:root[data-platform="android"] .result__move { background: transparent; border: 1px solid var(--line); border-radius: var(--radius); }
+.feedback-artists summary { min-height: 48px; display: flex; align-items: center; cursor: pointer; } .feedback-artists > div { display: flex; flex-wrap: wrap; gap: 8px; } .feedback-artists .btn { min-height: 48px; } .feedback-artists[hidden] { display: none; }

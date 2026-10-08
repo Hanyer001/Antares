@@ -25,7 +25,10 @@ import * as lyrics from "./js/lyrics.js";
 import * as appUpdate from "./js/appupdate.js";
 import * as importList from "./js/importlist.js";
 import * as media from "./js/mediasession.js";
-import { connectNative, NativeDeck, sendToBackground } from "./js/native-deck.js";
+import { initMobile } from "./js/mobile.js";
+import { queuePayload } from "./js/mobile-policy.js";
+import { playbackQuery, assertSelectedTrack } from "./js/playback-policy.js";
+import { connectNative, nativeCall, NativeDeck, sendToBackground } from "./js/native-deck.js";
 import { closeMenu, isMenuOpen, openMenu } from "./js/menu.js";
 import * as people from "./js/people.js";
 import * as player from "./js/player.js";
@@ -45,6 +48,8 @@ import { prefetchTrack, resolveTrack, searchSongs, searchTracks } from "./js/sea
 import { rankSearch } from "./js/searchrank.js";
 import * as settings from "./js/settings.js";
 import { toast } from "./js/toast.js";
+import { haptic } from "./js/haptics.js";
+import { feedback, initFeedbackSettings } from "./js/feedback.js";
 import { checkNow, installedVersion, onUpdated } from "./js/updater.js";
 import * as user from "./js/user.js";
 import {
@@ -74,6 +79,8 @@ const volumeStep = () => prefs.get("behavior.volumeStep") / 100;
 
 /** Excluye la sesión del historial y las estadísticas. Se desactiva al reiniciar. */
 let incognito = false;
+let nativeDeck = null;
+let nativeSyncTimer = null;
 let learnCurrent = true;
 
 /** Cuántas se ven en "A continuación". */
@@ -124,6 +131,8 @@ function showRecovery(waiting = false) {
   }
 }
 const recovery = new Recovery({
+  // Android ya reintenta los cortes en el hilo de carga, con límites propios.
+  timeout: ANDROID ? 120000 : 20000,
   retry: (startAt) => {
     // En segundo plano, timeupdate puede retrasarse. Consultar también el audio
     // y conservar la última posición si la fuente fallida la ha reiniciado a cero.
@@ -234,6 +243,7 @@ let lastSessionSave = 0;
  *                                   vez de cortar.
  */
 async function reproducir(query, { safeMode = false, hint = null, startAt = 0, crossfade = 0, fresh = false, recovering = false } = {}) {
+  query = playbackQuery(query, hint);
   if (!query) {
     setStatus("Escribe el nombre de una canción o pega un enlace.", "error");
     setEngine("error");
@@ -245,6 +255,7 @@ async function reproducir(query, { safeMode = false, hint = null, startAt = 0, c
   const currentRequest = ++requestId;
   const startedAt = performance.now();
   playing.loading = true;
+  clearTimeout(nativeSyncTimer);
 
   // Una reproducción nueva empieza sin haber gastado el reintento.
   if (!safeMode) {
@@ -268,6 +279,7 @@ async function reproducir(query, { safeMode = false, hint = null, startAt = 0, c
 
     // Llegó tarde: ya hay otra reproducción en curso, la descartamos.
     if (currentRequest !== requestId) return;
+    assertSelectedTrack(result, hint);
 
     const resolvedMs = Math.round(performance.now() - startedAt);
     const origen = describeOrigin(result);
@@ -308,7 +320,10 @@ async function reproducir(query, { safeMode = false, hint = null, startAt = 0, c
       if (!recovering || playing.track?.id !== (result.id ?? hint?.id)) cerrarEscucha(false);
       const videoId = result.id ?? hint?.id;
       playing.audioQuery = query;
+      if (ANDROID) await nativeCall("setPrivacy",{incognito,learn:moments.shouldLearn()});
+      if (currentRequest !== requestId) return false;
       player.load(result.url, knownDuration, startAt, {
+        id: videoId, duration: knownDuration,
         title: result.title || hint?.title || null,
         artist: result.uploader || hint?.uploader || null,
         artwork: videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null,
@@ -317,6 +332,7 @@ async function reproducir(query, { safeMode = false, hint = null, startAt = 0, c
       // play() devuelve una promesa: si el navegador rechaza la URL (formato no
       // soportado, enlace caducado, 403 de YouTube) se captura abajo.
       await player.play();
+      if (ANDROID) await nativeDeck.waitUntilPlaying();
     }
 
     if (currentRequest !== requestId) return false;
@@ -341,9 +357,10 @@ async function reproducir(query, { safeMode = false, hint = null, startAt = 0, c
 
     if (!recovering || !playing.track || playing.track.id !== track.id) {
       empezarEscucha(track);
-      if (!incognito) recordPlay(track).then(refrescarHistorial);
+      if (!incognito && !ANDROID) recordPlay(track).then(refrescarHistorial);
     }
     playing.hint = track;
+    if (ANDROID) syncNativeQueue();
     prefetchSiguiente();
     asegurarContinuacion();
     return true;
@@ -360,7 +377,35 @@ async function reproducir(query, { safeMode = false, hint = null, startAt = 0, c
 }
 
 /** Resuelve la próxima pista mientras suena la actual para reducir la espera. */
+function syncNativeQueue() {
+  clearTimeout(nativeSyncTimer);
+  nativeSyncTimer = setTimeout(() => {
+    const payload = queuePayload(queue.all(),playing.track?.id,queue.repeatMode());
+    nativeCall("setRepeat",{repeat:queue.repeatMode()}).catch(console.warn);
+    if (payload) nativeDeck?.syncQueue(payload).catch(console.warn);
+  },100);
+}
+function adoptNativeItem(data) {
+  if (!data?.id || playing.loading) return;
+  const track = queue.all().find(t => t.id === data.id) ?? {...data,watch_url:`https://www.youtube.com/watch?v=${data.id}`};
+  nativeDeck?.adopt(track);
+  if (playing.track?.id !== track.id) {
+    ++requestId;
+    recovery.begin(0); recoveryNotice.hidden = true;
+    queue.pointAt(track.id);
+    setTrack({title:track.title,uploader:track.uploader}); setArtwork(track.thumbnail);
+    results.markCurrent(track.id);
+    empezarEscucha(track);
+    playing.query = playbackQuery(track.watch_url, track);
+    playing.audioQuery = playing.query; playing.hint = track;
+    setTransportEnabled(true);
+    refrescarHistorial();
+    refrescarListas().catch(console.warn);
+    asegurarContinuacion();
+  }
+}
 function prefetchSiguiente() {
+  if (ANDROID && (!prefs.get("mobile.prefetch") || document.hidden)) return;
   const siguiente = queue.peekNext();
   if (siguiente) prefetchTrack(siguiente.watch_url);
 }
@@ -374,6 +419,7 @@ function prefetchSiguiente() {
 
 /** Reproduce una pista de cualquier lista, con sus metadatos ya conocidos. */
 function reproducirPista(track) {
+  artistView.cancelPendingPlay();
   reproducir(track.watch_url, { hint: track });
 }
 
@@ -395,6 +441,7 @@ function empezarEscucha(track) {
   pendingResume = null;
   learnCurrent = moments.shouldLearn();
   listening.start(track);
+  if (ANDROID) nativeCall("setPrivacy",{incognito,learn:learnCurrent}).catch(console.warn);
   cargarValoracion(track.id);
   els.radioButton.hidden = !track.id;
 
@@ -420,6 +467,7 @@ function empezarEscucha(track) {
 /** Activa o quita el modo incógnito (Ajustes › Reproducción, o su chip). */
 function ponerIncognito(activo) {
   incognito = activo;
+  if (ANDROID) nativeCall("setPrivacy",{incognito,learn:learnCurrent}).catch(console.warn);
   els.incognitoChip.hidden = !activo;
   els.incognitoToggle.checked = activo;
   setStatus(
@@ -549,6 +597,8 @@ async function salir() {
  * se repite esta canción, o si el temporizador tiene que parar al acabar.
  */
 function comprobarTransicion(time) {
+  // Media3 gestiona los fundidos de Android; el plato WebView secundario es inerte.
+  if (ANDROID || playing.loading) return;
   const seconds = sound.crossfadeSeconds();
   if (seconds <= 0 || !playing.track || transitionFrom === playing.track.id) return;
   if (queue.repeatMode() === "one" || sleep.stopsAfterTrack()) return;
@@ -573,7 +623,7 @@ function comprobarTransicion(time) {
  */
 function cerrarEscucha(ended) {
   const escucha = listening.finish(ended);
-  if (!escucha || incognito) return;
+  if (!escucha || incognito || ANDROID) return;
 
   return library.recordListen({ ...escucha, learn: learnCurrent }).then((outcome) => {
     if (!outcome) return;
@@ -782,7 +832,7 @@ let resolvePending = () => {};
  * que acabas de elegir. Lo que elegiste tú no se toca.
  */
 function recomendarDetras() {
-  if (!discovery.autoplayEnabled()) return;
+  if (queue.isArtistOnly() || !discovery.autoplayEnabled()) return;
 
   clearTimeout(recommendTimer);
   const scheduledToken = ++recommendToken;
@@ -830,6 +880,7 @@ function recomendarDetras() {
  * cola (y la primera, resuelta).
  */
 function asegurarContinuacion() {
+  if (queue.isArtistOnly()) return Promise.resolve();
   if (continuation) return continuation;
   if (!discovery.autoplayEnabled() || queue.repeatMode() !== "off") return Promise.resolve();
   if (!playing.track?.id) return Promise.resolve();
@@ -848,6 +899,7 @@ function asegurarContinuacion() {
 }
 
 async function continuar() {
+  const selection = recommendToken;
   try {
     const recs = await discovery.request("radio", {
       seeds: discovery.seedsFor(playing.track),
@@ -855,6 +907,7 @@ async function continuar() {
       exclude: queue.all().map((t) => t.id),
     });
 
+    if (selection !== recommendToken) return;
     queue.appendAuto(recs);
     if (activeTab === "queue") renderPanel();
     prefetchSiguiente();
@@ -936,8 +989,21 @@ async function guardarComoLista(name, tracks) {
  * Deezer, Apple Music) o con las canciones pegadas o en un CSV. Las que no son
  * de YouTube se buscan una a una en YouTube Music: el aviso va contando.
  */
-async function importarLista() {
-  const pedido = await importList.ask();
+async function importarLista(initial = "") {
+  // Una sola importación activa: mantiene un único contador de progreso.
+  if (importingList) return;
+  importingList = true;
+  try {
+    await importarListaActiva(initial);
+  } finally {
+    importingList = false;
+  }
+}
+
+let importingList = false;
+
+async function importarListaActiva(initial) {
+  const pedido = await importList.ask(initial);
   if (!pedido) return;
 
   const aviso = (texto, opciones = {}) => toast(texto, { key: "import", ...opciones });
@@ -955,7 +1021,7 @@ async function importarLista() {
 
     const faltan = r.missing.length;
     aviso(
-      `Importada «${r.name}» · ${lists.countLabel(r.count)}${faltan ? ` · ${faltan} sin encontrar` : ""}`,
+      importList.importSummary(r),
       {
         tone: faltan ? "warn" : "ok",
         // Con canciones sin encontrar, tiempo de leerlo y de pulsar "Ver cuáles".
@@ -1023,7 +1089,7 @@ async function anadirALista(id, track) {
     await refrescarListas();
 
     // Distinguir una pista ya presente de una inserción nueva.
-    if (added) toast(`Añadida a «${nombreDe(id)}».`, { action: verLista });
+    if (added) { toast(`Añadida a «${nombreDe(id)}».`, { action: verLista }); if(id===library.LIKES_ID)haptic(); }
     else toast(`«${track.title ?? "Esta canción"}» ya está en «${nombreDe(id)}».`, { tone: "warn", action: verLista });
 
     // Añadir a "Me gusta" la pista que suena es marcar su corazón.
@@ -1059,7 +1125,7 @@ function nombreArtista(track) {
  * Menú de una fila: cola, radio, ir al artista, y "Añadir a lista" con una
  * marca en las listas que ya la tienen.
  */
-function menuDeFila(track, button) {
+function menuDeFila(track, button, { removeLabel, onRemove } = {}) {
   const propias = playlists.filter((pl) => !pl.system && !pl.rules);
   const meGusta = playlists.find((pl) => pl.id === library.LIKES_ID);
 
@@ -1095,9 +1161,14 @@ function menuDeFila(track, button) {
   };
 
   openMenu(button, [
+    ...(removeLabel ? [{ label: removeLabel, onSelect: onRemove }] : []),
     ...encolar,
     { label: "Iniciar radio", onSelect: () => iniciarRadio(track) },
-    { label: "Más de este estilo", onSelect: () => moments.more(track) },
+    ...(ANDROID?[{heading:'Tus recomendaciones'},
+      {label:'Más como esta',onSelect:()=>moments.more(track,{undo:true})},
+      ...(track.uploader?[{label:'Menos de este artista',onSelect:()=>feedback(track,'less')}]:[]),
+      {label:'Ya la conozco',onSelect:()=>feedback(track,'known')}
+    ]:[{ label: "Más de este estilo", onSelect: () => moments.more(track) }]),
     { label: "Hoy no quiero esta canción", onSelect: () => moments.snooze(track) },
     ...(track.uploader
       ? [
@@ -1260,6 +1331,7 @@ async function moverEnLista(from, to, { keyboard = false } = {}) {
 
   try {
     await library.moveInPlaylist(pl.id, from, to);
+    haptic();
   } catch (error) {
     toast(friendlyError(error), { tone: "error" });
     await refrescarListas();
@@ -1279,12 +1351,22 @@ function reproducirLista(pl) {
  * Pone a sonar estas canciones como cola, desde `start` (o una al azar con
  * aleatorio). `name`: qué son ("Mi lista", "OK Computer"), para la cola.
  */
-function reproducirPistas(tracks, start = 0, { shuffle = false, name = null } = {}) {
+function reproducirPistas(tracks, start = 0, { shuffle = false, ordered = false, selected = false, artistOnly = false, name = null } = {}) {
   if (!tracks?.length) return;
-  if (shuffle && !queue.isShuffled()) alternarAleatorio();
+  if (ordered && queue.isShuffled() !== shuffle) {
+    queue.setShuffle(shuffle);
+    setModes({ shuffle, repeat: queue.repeatMode() });
+    guardarModos();
+  } else if (shuffle && !queue.isShuffled()) alternarAleatorio();
 
-  const desde = queue.isShuffled() && (shuffle || start === 0) ? Math.floor(Math.random() * tracks.length) : start;
-  cargarCola(tracks, desde, {}, name);
+  // Una radio pendiente de la selección anterior no pertenece a este disco.
+  clearTimeout(recommendTimer);
+  recommendToken++;
+  resolvePending();
+  pendingRecs = null;
+
+  const desde = queue.isShuffled() && (shuffle || (start === 0 && !selected)) ? Math.floor(Math.random() * tracks.length) : start;
+  cargarCola(tracks, desde, { ordered: ordered && !shuffle, artistOnly }, name);
   renderPanel();
   reproducirPista(queue.current());
 }
@@ -1365,20 +1447,6 @@ async function irAlArtista(track, anchor = null) {
   }
 }
 
-/** Un álbum o lista de YouTube a sonar sin abrirlo (el play de su tarjeta). */
-async function reproducirListaYoutube(playlistId, titulo) {
-  try {
-    const { tracks } = await artistView.fetchList(playlistId);
-    if (tracks.length === 0) {
-      toast(`«${titulo}» no tiene canciones disponibles.`, { tone: "warn" });
-      return;
-    }
-    reproducirPistas(tracks, 0, { name: titulo });
-  } catch (error) {
-    toast(friendlyError(error, "No se pudo cargar ahora mismo."), { tone: "error" });
-  }
-}
-
 // --- Aleatorio y repetir -------------------------------------------------
 
 /** Aleatorio y repetir se recuerdan entre sesiones, con las demás preferencias. */
@@ -1445,7 +1513,7 @@ async function alternarPantallaCompleta() {
 function fuenteDe(tab) {
   if (tab === "queue") return queue.all();
   if (tab === "results") return lastResults;
-  if (tab === "discover") return lastMix;
+  if (tab === "discover") return lastMix.filter(track=>!prefs.get("discovery.knownTracks").includes(track.id));
   if (tab === "lists") return listaAbierta()?.tracks ?? [];
   if (tab === "history") return lastHistory;
   if (tab === "summary") return lastSummary;
@@ -1527,7 +1595,7 @@ function renderPanel() {
     case "discover":
       lists.showDiscoverHead(mixBusy);
       setView("Descubrir", lastMix.length ? `Tu mezcla · ${cuenta(lastMix.length)}` : "Aleatorio inteligente");
-      pintarPistas(lastMix, {}, "Pulsa «Nueva mezcla» para empezar. Cuanto más escuches, mejor acierta.");
+      pintarPistas(lastMix.filter(track=>!prefs.get("discovery.knownTracks").includes(track.id)), {}, "Pulsa «Nueva mezcla» para empezar. Cuanto más escuches, mejor acierta.");
       break;
 
     case "queue":
@@ -1535,7 +1603,7 @@ function renderPanel() {
       setView("Cola", total ? `${cuenta(total)}${queue.isShuffled() ? " · en aleatorio" : ""}` : "");
       pintarPistas(
         queue.all(),
-        { removeLabel: "Quitar de la cola", dividers: separadoresDeCola() },
+        { removeLabel: "Quitar de la cola", dividers: separadoresDeCola(), reorderable:ANDROID, minReorderIndex:queue.currentIndex()+1 },
         "La cola está vacía. Busca algo y añádelo, abre una lista o prepara una mezcla en Descubrir.",
       );
       break;
@@ -1735,6 +1803,11 @@ function buscar() {
     return;
   }
 
+  if (importList.isPlaylistLink(query)) {
+    importarLista(query);
+    return;
+  }
+
   // Limpiar los resultados de la búsqueda anterior.
   lastQuery = query;
   lastResults = [];
@@ -1765,25 +1838,24 @@ layout.initLayout();
 // En Android suena el sistema (native-deck.js), no un <audio> de la página:
 // el reproductor usa esos platos y no hay cadena de Web Audio que montar.
 if (ANDROID) {
-  const deck = new NativeDeck();
+  const deck = nativeDeck = new NativeDeck();
   player.useDecks(deck, new NativeDeck({ inert: true }));
   connectNative(deck, {
-    // "Siguiente" y "anterior" de la notificación, los auriculares o el coche.
-    onCommand: (action) => {
-      if (action === "next") saltarASiguiente();
-      else if (action === "prev") anterior();
-    },
+    onItem: adoptNativeItem,
+    onSleep: () => { sleep.nativeExpired(); setStatus("Temporizador: música en pausa.","ok"); },
   }).catch((error) => console.warn("Reproductor nativo:", error));
 }
 
 // El sonido antes que el reproductor: este conecta sus platos a la cadena que
 // crea aquel.
-sound.initSound({ enabled: !ANDROID });
+sound.initSound({ enabled: !ANDROID, native: ANDROID ? nativeCall : null });
+if (ANDROID) initMobile({openTab:abrirPestana,next:saltarASiguiente,previous:anterior,canSwipe:()=>!layout.isFocus() && Boolean(playing.track) && !document.hidden});
 player.initPlayer();
 dialog.initDialog();
 libraryTools.init({ refresh: refrescarListas, open: abrirLista });
 moments.init((contextChanged) => {
   learnCurrent &&= moments.shouldLearn();
+  if (ANDROID) nativeCall("setPrivacy",{incognito,learn:learnCurrent}).catch(console.warn);
   if (contextChanged) { discovery.setPicks([]); lastMix = []; }
   else lastMix = lastMix.filter(moments.allowed);
   for (const track of [...queue.all()]) {
@@ -1795,6 +1867,11 @@ moments.init((contextChanged) => {
 });
 importList.initImportList();
 discovery.initDiscovery();
+if(ANDROID) initFeedbackSettings();
+if(ANDROID) prefs.on('discovery',()=>{
+  // Filtrar la vista, sin perder los datos que Deshacer debe volver a mostrar.
+  if(activeTab==='discover'||activeTab==='queue')renderPanel();
+});
 
 lyrics.initLyrics({ seek: (time) => player.seek(time) });
 
@@ -1855,6 +1932,7 @@ if (!ANDROID) {
 }
 
 sleep.initSleep({
+  native: ANDROID ? (args) => nativeCall("setSleep",args) : null,
   expire: () => {
     player.fadeOutAndPause(SLEEP_FADE_SECONDS);
     setStatus("Temporizador: la música se queda en pausa. Buenas noches.", "ok");
@@ -1960,6 +2038,12 @@ results.onPick((track) => {
     return;
   }
 
+  if (esPagina(activeTab)) {
+    discovery.notePick(track);
+    artistView.playFrom(track);
+    return;
+  }
+
   const fuente = fuenteDe(activeTab);
   const desde = Math.max(fuente.findIndex((t) => t.id === track.id), 0);
 
@@ -1989,14 +2073,28 @@ results.onRemove((track) => {
     return;
   }
 
-  queue.remove(track.id);
+  if(ANDROID){
+    const receipt=queue.removeUpcoming(track.id);
+    if(!receipt){toast('La canción actual se mantiene en la cola.',{tone:'info'});return;}
+    toast(`«${track.title||'La canción'}» quitada de la cola.`,{action:{label:'Deshacer',onClick:()=>{
+      if(queue.undoRemove(receipt))renderPanel();else toast('La cola cambió; no se restauró una lista anterior.',{tone:'info'});
+    }}});
+  }else queue.remove(track.id);
   renderPanel();
 });
 
 results.onMenu(menuDeFila);
 
 // Reordenar una lista: arrastrando o con Alt+flechas.
-results.onMove(moverEnLista);
+results.onMove((from,to,options={})=>{
+  if(ANDROID && activeTab==='queue'){
+    if(options.id && (queue.all()[from]?.id!==options.id || !queue.all().some(t=>t.id===options.targetId)))return;
+    if(queue.move(from,to)){renderPanel();haptic();toast('Orden de la cola actualizado.');}
+    return;
+  }
+  if(options.id && listaAbierta()?.tracks[from]?.id!==options.id)return;
+  moverEnLista(from,to,options);
+});
 
 // El nombre del artista de una fila lleva a su página.
 results.onArtist(irAlArtista);
@@ -2009,9 +2107,9 @@ artistView.initArtistView({
   openAlbum: abrirAlbum,
   openList: abrirListaYoutube,
   playVideo: elegirCancion,
-  playPlaylist: reproducirListaYoutube,
   save: guardarComoLista,
   menu: menuDeFila,
+  error: (error) => toast(friendlyError(error, "No se pudo cargar la colección. Vuelve a intentarlo."), { tone: "error" }),
 });
 
 // El artista de lo que suena, bajo el título. En el mini reproductor de
@@ -2074,7 +2172,7 @@ home.initHome({
   menu: menuDeFila,
   openList: abrirLista,
   artist: irAlArtista,
-  artistRadio: (artist) => iniciarRadioDe(artist.tracks, artist.name),
+  artistPlay: (artist) => artistView.playCollection({ type: "artist", name: artist.name }, { artistTrack: artist.tracks[0] }),
   prefetch: (track) => prefetchTrack(track.watch_url),
   lastPlayed: () => lastHistory[0] ?? null,
   detected: customize.setDetectedGenres,
@@ -2082,6 +2180,7 @@ home.initHome({
 
 // La cola avisa cuando cambia; los botones y "A continuación" se redibujan solos.
 queue.onChange(() => {
+  if (ANDROID && !playing.loading) syncNativeQueue();
   setQueueControls({ hasPrev: queue.hasPrev(), hasNext: queue.hasNext() });
   els.queueCount.textContent = queue.all().length > 0 ? String(queue.all().length) : "";
 
@@ -2133,6 +2232,7 @@ els.dislike.addEventListener("click", async () => {
 player.on("play", () => {
   setEngine("playing");
   media.setPlaying(true);
+  if (ANDROID) refrescarHistorial().catch(console.warn);
 });
 
 player.on("pause", () => {
@@ -2143,6 +2243,7 @@ player.on("pause", () => {
 
 player.on("time", (currentTime) => {
   listening.tick(currentTime);
+  if (ANDROID && document.hidden) return;
   lyrics.tick(currentTime);
   media.setPosition(currentTime, player.duration());
   comprobarTransicion(currentTime);
@@ -2154,11 +2255,19 @@ player.on("time", (currentTime) => {
 player.on("waiting", () => { setEngine("busy"); recovery.buffering(); });
 player.on("playing", () => { setEngine("playing"); recovery.playing(); });
 player.on("time", (time) => { if (!playing.loading) recovery.progress(time); });
-player.on("pause", () => { if (!playing.loading && !recovery.inFlight && !player.hasError()) { recovery.pause(); recoveryNotice.hidden = true; } });
+player.on("pause", () => {
+  if (ANDROID && !player.hasError()) {
+    // La pausa desde la notificación también cancela una carga pendiente.
+    recovery.pause(); ++requestId; playing.loading = false; recoveryNotice.hidden = true;
+  } else if (!playing.loading && !recovery.inFlight && !player.hasError()) {
+    recovery.pause(); recoveryNotice.hidden = true;
+  }
+});
 player.on("play", () => { if (!playing.loading && !recovery.intent) { recovery.intent = true; recovery.buffering(); } });
 
 // Registrar la escucha completa y reproducir la siguiente pista.
 player.on("ended", async () => {
+  if (playing.loading) return;
   cerrarEscucha(true);
 
   // El temporizador pedía parar al acabar esta: se queda aquí.
@@ -2214,6 +2323,7 @@ async function alternarMeGusta() {
   const nuevo = rating === "like" ? "none" : "like";
   if (await valorar(nuevo)) {
     setStatus(nuevo === "like" ? "Añadida a Me gusta." : "Quitada de Me gusta.", "ok");
+    if(nuevo==='like')haptic();
   }
 }
 
@@ -2299,13 +2409,29 @@ setQueueControls({ hasPrev: false, hasNext: false });
 // Donde te quedaste. Antes que los modos: la cola guardada ya viene barajada si
 // lo estaba, y cargar el aleatorio después no la vuelve a barajar.
 restaurarSesion();
+if (ANDROID) {
+  nativeCall("snapshot").then(state => {
+    if (!state.items?.length) return;
+    ponerIncognito(Boolean(state.incognito));
+    const saved = queue.snapshot();
+    const known = new Map(saved.items.map(track => [track.id,track]));
+    const items = state.items.map(track => ({...track,...known.get(track.id)}));
+    queue.restore({items,index:state.index,original:saved.original,shuffled:saved.shuffled,artistOnly:saved.artistOnly});
+    if (state.repeat) queue.setRepeat(state.repeat);
+    const track = items[state.index];
+    adoptNativeItem(track);
+    nativeDeck._onTime({id:track.id,position:state.position,duration:track.duration,buffered:state.position});
+    nativeDeck._onState({id:track.id,playing:state.playing,playWhenReady:state.playWhenReady,buffering:state.buffering,sequence:state.sequence,ended:false});
+    sleep.restoreNative(state.sleep);
+  }).catch(console.warn);
+}
 cargarModos();
 prefs.on("playback", cargarModos);
 
 mostrarPestanaLateral(prefs.get("interface.sideTab"));
 prefs.on("interface.sideTab", mostrarPestanaLateral);
 
-els.input.focus();
+if (!ANDROID) els.input.focus();
 
 // Cargar historial y listas antes del primer renderizado.
 activeTab = pestanaInicial();
