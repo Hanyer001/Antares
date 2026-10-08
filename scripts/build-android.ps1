@@ -5,8 +5,9 @@ Compila Rust y Gradle sin necesitar enlaces simbólicos ni Modo de desarrollador
 Herramientas: JAVA_HOME / ANDROID_HOME / NDK_HOME, -ToolsDirectory, o
 android-tools.local.json (solo de esta máquina; nunca se publica).
 #>
-param([switch]$Debug,[switch]$OptimizedPreview,[string]$ToolsDirectory,[string]$OutputDirectory,[string[]]$Architectures=@("arm64","arm"))
+param([switch]$Debug,[switch]$OptimizedPreview,[ValidateRange(0,98)][int]$Beta=0,[string]$ToolsDirectory,[string]$OutputDirectory,[string[]]$Architectures=@("arm64","arm"))
 $ErrorActionPreference="Stop"
+if ($Debug -and $Beta) { throw "-Beta usa la compilación pública firmada; no lo combines con -Debug." }
 $root=Split-Path $PSScriptRoot -Parent
 $tauri=Join-Path $root "src-tauri"
 $android=Join-Path $tauri "gen\android"
@@ -58,6 +59,7 @@ foreach($target in $targets) {
 "sdk.dir=$($env:ANDROID_HOME.Replace('\','/'))" | Set-Content -LiteralPath (Join-Path $android "local.properties") -Encoding ascii
 $version=(Get-Content (Join-Path $tauri "tauri.conf.json") -Raw | ConvertFrom-Json).version
 $gradleArgs=@("assembleUniversal$modeTitle","-PantaresVersion=$version","-PabiList=$(($targets | ForEach-Object {$_.abi}) -join ',')","-ParchList=$($Architectures -join ',')","-PtargetList=$(($targets | ForEach-Object {$_.tauri}) -join ',')","--no-daemon","--max-workers=2","-x","rustBuildUniversal$modeTitle")
+if($Beta){$gradleArgs+="-PantaresBeta=$Beta"}
 foreach($arch in $Architectures) { $gradleArgs+=@("-x","rustBuild$((Get-Culture).TextInfo.ToTitleCase($arch))$modeTitle") }
 # Mantener los artefactos de plugins dentro del proyecto.
 $dependencyBuild=Join-Path $android ".gradle\antares-dependencies"
@@ -78,7 +80,7 @@ $apk=Join-Path $android "app\build\outputs\apk\universal\$apkMode\app-universal-
 if(-not (Test-Path -LiteralPath $apk)){throw "No se generó el APK esperado."}
 if(-not $OutputDirectory){$OutputDirectory=Join-Path $root "dist-android"}
 New-Item -ItemType Directory -Force $OutputDirectory | Out-Null
-$suffix=if($Debug){"-preview"}else{""}
+$suffix=if($Debug){"-preview"}elseif($Beta){"-beta.$Beta"}else{""}
 $dest=Join-Path $OutputDirectory "Antares-$version-android$suffix.apk"
 Copy-Item -LiteralPath $apk -Destination $dest -Force
 Write-Host ("APK: {0} ({1:N1} MB)" -f $dest,((Get-Item -LiteralPath $dest).Length/1MB)) -ForegroundColor Green

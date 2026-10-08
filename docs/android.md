@@ -1,4 +1,24 @@
-# Antares para Android — versión de pruebas
+# Antares para Android — canal Beta
+
+## Publicación: 0.3.3 Beta 1
+
+[Descarga oficial](https://github.com/Hanyer001/antares-actualizaciones/releases/download/android-v0.3.3-beta.1/Antares-Android.apk) · [Notas de la versión](https://github.com/Hanyer001/antares-actualizaciones/releases/tag/android-v0.3.3-beta.1). Android 7.0+, ARM de 32/64 bits. La edición pública usa `com.hanyer.antares`, nombre **Antares**, certificado privado de distribución y `versionCode 300301`. No está marcada como estable.
+
+Preview puede coexistir con la edición pública. Para migrar los datos, exporta una copia completa desde **Ajustes → Tus datos** en Preview y restáurala en Antares. Las futuras versiones públicas se instalan encima de Antares sin desinstalar.
+
+La página ofrece el APK y el repositorio de distribución publica `android-latest.json` para preparar un futuro aviso de actualización. La app Android todavía no consulta ese manifiesto ni instala actualizaciones por sí sola.
+
+## Preview 10: interfaz móvil y ajustes
+
+`0.3.3-preview.10` (`versionCode 300310`) mantiene el paquete `com.hanyer.antares.preview` y la firma de Preview 9. Se instala encima para conservar los datos. No incluye cambios en la extracción, reproducción, búsqueda ni gestión de listas.
+
+- Menos espacio fijo en cabecera, tarjetas, listas y mini reproductor; controles táctiles conservados.
+- Ajustes como una lista sencilla. Los diseños ocupan menos espacio y Restablecer queda al final de cada sección.
+- Densidad Compacta, Normal y Amplia con diferencias reales en filas, estanterías y ajustes.
+- Ayudas que distinguen tipografía general y letras de canciones, y explican dónde aparecen los controles opcionales y los límites del ahorro de batería.
+- En horizontal, portada a la izquierda y controles a la derecha.
+
+Verificación: 172 pruebas JavaScript; 50 comprobaciones de interfaz y preferencias con datos de prueba; nueve categorías sin desbordamiento a 320, 360, 393 y 412 px. Reproductor horizontal revisado a 740 × 360 px. Tipografías, esquinas, diseños, densidad, letras, restablecimiento y restricciones visuales del ahorro verificados mediante estilos y medidas renderizadas. No probado en teléfono físico; no se midió batería ni se validaron efectos de hardware en esta revisión visual.
 
 La adaptación Android mantiene la biblioteca y la personalización de Antares. Esta edición todavía necesita pruebas en un teléfono real antes de publicarse como estable. No se ha medido su consumo de batería.
 
@@ -39,7 +59,7 @@ cd /d C:\Users\Hanyer\Desktop\Cliente_music\Antares
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build-android.ps1 -Debug -OptimizedPreview
 ```
 
-La salida queda en dist-android\Antares-0.3.2-android-preview.apk. El script compila ARM64 y ARM de 32 bits. Para compilar solamente teléfonos ARM64 añade `-Architectures arm64`. La optimización utiliza el perfil release de Rust y la firma de pruebas de Android.
+La salida queda en dist-android\Antares-0.3.3-android-preview.apk. El script compila ARM64 y ARM de 32 bits. Para compilar solamente teléfonos ARM64 añade `-Architectures arm64`. La optimización utiliza el perfil release de Rust y la firma de pruebas de Android.
 
 La aplicación de pruebas usa `com.hanyer.antares.preview` y el nombre **Antares Preview**: puede coexistir con Antares normal y tiene sus propios datos. No comparte ni borra la biblioteca de la otra aplicación. Exporta una copia desde la aplicación original e impórtala en Preview si deseas trasladar tus listas.
 
@@ -250,3 +270,75 @@ Se comprobó también el arrastre mediante entrada real del navegador y cuatro
 tamaños de interfaz (320×640, 393×852, 412×915 y 852×393).
 No se hicieron pruebas en un teléfono, de vibración física ni de batería.
 El lector de audio mantiene las correcciones anteriores.
+
+
+## Preview 9: música, playlists y ajustes
+
+
+
+- **Recomendaciones de música:** Android busca canciones en YouTube Music y
+  obtiene la radio musical. La radio acepta pistas de audio y videoclips
+  musicales identificados por el servicio; excluye podcasts y tipos desconocidos.
+  Los resultados llevan esa clasificación hasta la biblioteca y el servicio de
+  reproducción. La caché antigua de mixes generales se separa. Las entradas
+  antiguas sin clasificación solo se recomiendan si vienen de canales Topic o
+  VEVO. Los vídeos elegidos manualmente y las playlists no se borran.
+  Inicio filtra también sus artistas. La restauración de la sesión retira las
+  sugerencias automáticas no musicales, conservando la pista seleccionada y
+  las canciones añadidas a mano.
+- **Playlists:** acceso directo «Playlists» en la cabecera, crear una lista,
+  importar enlaces y editar sus detalles, canciones y orden. Conserva favoritos,
+  carpetas y listas inteligentes. Las listas vacías explican cómo añadir música.
+  Incorpora el importador de Desktop 0.3.3: Spotify con paginación, YouTube Music,
+  YouTube, Deezer y Apple Music. Las listas privadas o restringidas pueden fallar.
+  El importador sigue teniendo su límite explícito de 500 entradas.
+- **Audio:** alta calidad selecciona el audio AAC/Opus con mayor bitrate
+  disponible. Dos lecturas de hasta 1 KB comprueban el inicio y un punto posterior
+  del WebM; ante 403/410 se elige AAC del mismo vídeo. Las comprobaciones tienen
+  un límite de dos segundos por petición y no descargan la canción entera.
+  Se conserva Ahorro de datos. El ecualizador reserva margen para los refuerzos
+  y añade el preajuste opcional Claridad; no cambia tus ajustes actuales.
+  La calidad depende del archivo que entregue YouTube; no se convierte en lossless.
+- **Búsqueda:** una petición musical en Android en lugar de esperar a dos
+  servicios. Caché de sesión de 30 consultas durante cinco minutos, solicitudes
+  repetidas compartidas y sin precarga automática cuando está desactivada.
+- **Ajustes:** categorías compactas, una abierta a la vez, descripciones para
+  Android y búsqueda que excluye controles de Windows. Las 12 tipografías son
+  visualmente distintas: Inter, sistema y diez fuentes locales con licencia OFL.
+  No se descargan fuentes durante el uso. Los ajustes de animación y desenfoque
+  explican o respetan su dependencia de Ahorrar batería. El botón de volumen
+  que no se muestra en Android deja de ofrecerse como ajuste.
+- Incluye los cambios compartidos de Desktop 0.3.3: álbum completo en orden,
+  reproducción inicial de cinco canciones principales y «Solo este artista».
+
+## Revisión de ajustes
+
+Se revisaron los 31 caminos de preferencias expuestos con `data-pref` en Android:
+colores personalizados, acento, fondo, oscuridad y desenfoque, densidad, esquinas,
+animaciones y fuente; pestaña inicial, botones y cola; acción al tocar, arranque,
+calidad y letras; variedad, frescura y duración; batería, precarga y respuesta
+táctil. Se conservaron los controles específicos de diseños, ecualizador,
+recomendaciones, orden, perfiles y copias.
+
+Las opciones exclusivas de Windows permanecen ocultas. El ecualizador y nivelador
+se habilitan según las capacidades nativas; los fundidos requieren desactivar
+Ahorrar batería. La calidad se aplica al resolver la próxima canción. La respuesta
+táctil sigue siendo opcional y respeta los ajustes de Android.
+
+## Validación
+
+- 172 pruebas JavaScript y 218 Rust aprobadas; 11 Rust opcionales omitidas en la
+  suite normal. La prueba real adicional de catálogo musical también pasó:
+  20 canciones en 636 ms en este equipo y 25 resultados de radio identificados
+  como música. Ese tiempo no garantiza el rendimiento de cada teléfono o red.
+- 15 pruebas Android aprobadas mediante Robolectric, incluida descarga completa
+  y búsqueda por posición de Esclava (Remix), Creep y Never Gonna Give You Up.
+  Se compararon todos los bytes y sus checksums con una lectura independiente.
+- 33 comprobaciones de integración de interfaz: creación de playlist, importador,
+  búsqueda sin doble llamada, caché, fuentes realmente distintas, controles y
+  persistencia. Revisión visual a 320×640, 393×852, 412×915 y 852×393.
+- No se usó un teléfono. Quedan pendientes la escucha subjetiva, auriculares,
+  pantalla apagada y medición real de batería.
+
+Fuentes técnicas: [formatos de Media3](https://developer.android.com/media/media3/exoplayer/supported-formats),
+[Google Fonts](https://github.com/google/fonts). Licencias junto a las fuentes en `src/fonts`.

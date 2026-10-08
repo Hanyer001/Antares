@@ -22,7 +22,11 @@ export function initMobile({ openTab, next, previous, canSwipe }) {
   profile.textContent = (currentUser()?.name?.trim()[0] ?? "A").toUpperCase();
   profile.setAttribute("aria-label", "Tu usuario y perfiles");
   profile.addEventListener("click", () => { openTab("settings"); openGroup("people"); });
-  header.append(wordmark,profile); document.querySelector(".main").prepend(header);
+  const library = document.createElement("button");
+  library.type = "button"; library.className = "mobile-library";
+  library.append(icon("list"), document.createTextNode("Playlists"));
+  library.addEventListener("click", () => openTab("lists"));
+  header.append(wordmark,library,profile); document.querySelector(".main").prepend(header);
   const tabs = [...nav.querySelectorAll("[data-tab]")];
   const more = document.createElement("button");
   more.type = "button"; more.className = "tab mobile-more";

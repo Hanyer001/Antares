@@ -41,11 +41,12 @@ fn mix_url(id: &str) -> String {
 
 impl Related {
     pub fn load(dir: PathBuf) -> Self {
-        let entries = read_json(&dir.join(RELATED_FILE)).unwrap_or_default();
+        let file_name = if crate::source::native() { "related-music-v2.json" } else { RELATED_FILE };
+        let entries = read_json(&dir.join(file_name)).unwrap_or_default();
 
         Self {
             entries: Mutex::new(entries),
-            file: Persister::new(dir.join(RELATED_FILE)),
+            file: Persister::new(dir.join(file_name)),
         }
     }
 
@@ -95,7 +96,9 @@ impl Related {
 
             let id = id.clone();
             tasks.spawn(async move {
-                let result = crate::source::playlist(mix_url(&id), MIX_LIMIT).await;
+                let result = if crate::source::native() {
+                    crate::ytmusic::music_mix(&id, 25).await.map(|songs| (None, songs))
+                } else { crate::source::playlist(mix_url(&id), MIX_LIMIT).await };
                 (id, result)
             });
         }
@@ -133,7 +136,7 @@ mod tests {
     }
 
     fn pista(id: &str) -> SearchResult {
-        SearchResult {
+        SearchResult { is_music: None,
             id: id.to_string(),
             title: None,
             uploader: None,

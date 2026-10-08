@@ -228,7 +228,7 @@ fn thumbnail_for(id: &str) -> String {
 }
 
 pub(crate) fn track(id: &str, title: Option<String>, uploader: Option<String>, duration: Option<f64>) -> SearchResult {
-    SearchResult {
+    SearchResult { is_music: None,
         id: id.to_string(),
         title,
         uploader,
@@ -286,7 +286,7 @@ fn pick_audio(player: &Value, saver: bool) -> Option<(String, u64)> {
         .iter()
         .filter_map(|f| {
             let mime = f.get("mimeType")?.as_str()?;
-            if !mime.starts_with("audio/") {
+            if !(mime.starts_with("audio/mp4") || mime.starts_with("audio/webm")) {
                 return None;
             }
             // Sin `url` directa (con `signatureCipher`) habria que descifrar.
@@ -308,12 +308,82 @@ fn pick_audio(player: &Value, saver: bool) -> Option<(String, u64)> {
             .find(|(_, b, _)| *b <= SAVER_MAX_BPS)
             .or_else(|| audio.first())
     } else {
-        // El mejor AAC: lo reproduce cualquier Android. Si no lo hay, el mejor.
-        audio.sort_by_key(|(_, b, _)| std::cmp::Reverse(*b));
-        audio.iter().find(|(_, _, mp4)| *mp4).or_else(|| audio.first())
+        // AAC y Opus compatibles con Media3: mayor bitrate; AAC solo desempata.
+        audio.sort_by_key(|(_, b, mp4)| std::cmp::Reverse((*b, *mp4)));
+        audio.first()
     }?;
 
     Some((chosen.0.to_string(), chosen.1))
+}
+
+/// Some CDN URLs accept the beginning and reject later byte ranges. Check
+/// the preferred WebM with two tiny reads before selecting it. No full-song
+/// preloading; transient network failures remain the player's retry concern.
+async fn pick_playable_audio(player: &Value, saver: bool) -> Result<String, String> {
+    let (url, _) = pick_audio(player, saver)
+        .ok_or_else(|| "ERROR: el video no trae audio directo".to_string())?;
+    let parsed = reqwest::Url::parse(&url).map_err(|_| "ERROR: URL de audio inválida")?;
+    let webm = parsed.query_pairs().any(|(key, value)| key == "mime" && value == "audio/webm");
+    if !webm { return Ok(url); }
+    let length = parsed.query_pairs().find(|(key, _)| key == "clen")
+        .and_then(|(_, value)| value.parse::<u64>().ok());
+    for start in [0, 1 << 20] {
+        if length.is_some_and(|n| start >= n) { break; }
+        let end = length.map_or(start + 1023, |n| (start + 1023).min(n - 1));
+        let result = http().get(&url).header("User-Agent", AUDIO_USER_AGENT)
+            .header("Range", format!("bytes={start}-{end}"))
+            .timeout(Duration::from_secs(2)).send().await;
+        if let Ok(response) = result {
+            if matches!(response.status().as_u16(), 403 | 410) {
+                let mut compatible = player.clone();
+                if let Some(formats) = compatible.pointer_mut("/streamingData/adaptiveFormats").and_then(Value::as_array_mut) {
+                    formats.retain(|f| f.get("mimeType").and_then(Value::as_str).is_some_and(|mime| mime.starts_with("audio/mp4")));
+                }
+                return pick_audio(&compatible, saver).map(|(url,_)| url)
+                    .ok_or_else(|| "ERROR: el servidor rechazó el stream de audio; vuelve a intentarlo".to_string());
+            }
+            // Only consume the explicitly requested tiny partial response.
+            if response.status() == reqwest::StatusCode::PARTIAL_CONTENT && response.content_length().is_some_and(|n| n <= 1024) {
+                let _ = response.bytes().await;
+            }
+        }
+    }
+    Ok(url)
+}
+
+#[cfg(test)]
+mod delivery_tests {
+    use super::*;
+    #[tokio::test]
+    async fn later_range_rejection_selects_aac_without_switching_video() {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            for (index, stream) in listener.incoming().take(2).enumerate() {
+                let mut stream = stream.unwrap();
+                stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+                let mut request = [0; 4096];
+                let count = stream.read(&mut request).unwrap();
+                let request = String::from_utf8_lossy(&request[..count]).to_lowercase();
+                if index == 0 {
+                    assert!(request.contains("bytes=0-1023"));
+                    stream.write_all(b"HTTP/1.1 206 Partial Content\r\nContent-Length: 1024\r\nConnection: close\r\n\r\n").unwrap();
+                    stream.write_all(&[0;1024]).unwrap();
+                } else {
+                    assert!(request.contains("bytes=1048576-1049599"));
+                    stream.write_all(b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").unwrap();
+                }
+            }
+        });
+        let player = json!({"streamingData":{"adaptiveFormats":[
+            {"mimeType":"audio/webm","bitrate":160000,"url":format!("http://{address}/audio?mime=audio/webm&clen=2000000")},
+            {"mimeType":"audio/mp4","bitrate":128000,"url":"same-video-aac"},
+            {"mimeType":"video/mp4","bitrate":999999,"url":"video"}
+        ]}});
+        assert_eq!(pick_playable_audio(&player,false).await.unwrap(),"same-video-aac");
+        server.join().unwrap();
+    }
 }
 
 fn player_error(player: &Value) -> Option<String> {
@@ -386,8 +456,7 @@ pub async fn resolve_track(query: &str, saver: bool) -> Result<TrackInfo, String
         return Err(format!("ERROR: {error}"));
     }
 
-    let (url, _bitrate) = pick_audio(&response, saver)
-        .ok_or_else(|| "ERROR: el video no trae audio directo".to_string())?;
+    let url = pick_playable_audio(&response, saver).await?;
 
     let details = response.get("videoDetails");
     let field = |k: &str| details.and_then(|d| d.get(k)).and_then(Value::as_str).map(str::to_string);
@@ -606,7 +675,7 @@ mod tests {
             { "mimeType": "audio/webm", "bitrate": 999999, "signatureCipher": "s=..." }
         ]}});
 
-        assert_eq!(pick_audio(&player, false).unwrap().0, "aac128", "el mejor AAC, aunque haya un Opus mejor");
+        assert_eq!(pick_audio(&player, false).unwrap().0, "opus160", "alta: mejor audio disponible, sin limitarlo a AAC");
         assert_eq!(pick_audio(&player, true).unwrap().0, "opus70", "ahorro: lo mejor que no pase de 72 kbps");
         assert!(pick_audio(&json!({}), false).is_none());
     }

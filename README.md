@@ -145,3 +145,8 @@ Abre un [issue](https://github.com/Hanyer001/Antares/issues) indicando la versi�
 ## Tecnologías
 
 [Tauri](https://v2.tauri.app/), [Rust](https://www.rust-lang.org/), HTML, CSS y JavaScript con módulos ES. En Windows, Antares extrae el audio con [rusty_ytdl](https://github.com/Mithronn/rusty_ytdl) y conserva [yt-dlp](https://github.com/yt-dlp/yt-dlp) para búsquedas y listas. Android usa InnerTube y ExoPlayer y [LRCLIB](https://lrclib.net/) para las letras. La fuente Inter se incluye localmente; sus créditos están en [src/fonts/LEEME.txt](src/fonts/LEEME.txt).
+
+
+### Antares Android 0.3.3 Beta 1
+
+La primera edición pública **0.3.3 Beta 1** incorpora la interfaz móvil compacta, playlists, búsqueda musical, audio nativo y doce tipografías locales. [Descargar para Android](https://github.com/Hanyer001/antares-actualizaciones/releases/download/android-v0.3.3-beta.1/Antares-Android.apk) · [Instalación, migración y validación](docs/android.md). Las actualizaciones públicas conservan el identificador y la firma; el aviso automático en Android aún no está implementado.

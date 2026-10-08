@@ -12,6 +12,7 @@ export const LIKES_ID = "likes";
 function payload(track) {
   return {
     id: track.id,
+    is_music: track.is_music ?? null,
     title: track.title ?? null,
     uploader: track.uploader ?? null,
     duration: track.duration ?? null,

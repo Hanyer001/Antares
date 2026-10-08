@@ -1,5 +1,32 @@
 # Cambios
 
+## Android 0.3.3 Beta 1
+
+- Primera distribución pública con el nombre Antares y firma de distribución.
+- Incluye las funciones e interfaz de Preview 10.
+- Descarga desde la página y GitHub Releases; migración desde Preview con copia completa.
+- Canal y manifiesto de Android separados del actualizador estable de Windows.
+
+## Android Preview 10 (0.3.3-preview.10)
+
+- Interfaz móvil más ligera: cabecera, estanterías, listas y mini reproductor compactos.
+- Ajustes en filas sencillas; Restablecer al final de cada sección y diseños más pequeños.
+- La densidad se aplica al espaciado de canciones, estanterías y ajustes.
+- Ayudas sobre tipografías, letras de canciones, controles del reproductor y ahorro de batería.
+- Reproductor horizontal con portada y controles lado a lado.
+- Conserva las funciones, preferencias y reproducción de Preview 9; cambios limitados a presentación.
+
+## Android Preview 9 (0.3.3-preview.9)
+
+- Fuentes musicales para búsqueda y radio; clasificación conservada en biblioteca.
+- Playlists accesibles desde la cabecera, creación/importación y estado vacío útil.
+- Audio AAC/Opus por calidad disponible, comprobación de rangos y respaldo AAC.
+- Margen del ecualizador para reducir saturación y preajuste opcional Claridad.
+- Búsqueda musical sin espera de un segundo servicio; caché acotada y deduplicación.
+- Ajustes compactos; doce tipografías distintas con fuentes locales licenciadas.
+- Integra las mejoras compartidas de Desktop 0.3.3. Véase docs/android.md.
+
+
 ## 0.3.3 — 2026-10-07
 
 - Importación paginada de playlists públicas de Spotify: ya no se limita a

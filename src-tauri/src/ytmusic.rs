@@ -267,6 +267,9 @@ fn parse_row(row: &Value, artist: Option<&str>, fallback_cover: Option<&str>) ->
         .and_then(|t| clock_to_secs(&t));
 
     let mut track = innertube::track(id, title, by, duration);
+    track.is_music = find_all(row, "watchEndpointMusicConfig").into_iter()
+        .find_map(|config| config.get("musicVideoType")?.as_str())
+        .map(|kind| matches!(kind, "MUSIC_VIDEO_TYPE_ATV" | "MUSIC_VIDEO_TYPE_OMV"));
     if let Some(art) = cover(best_thumb(row.get("thumbnail"))).or_else(|| fallback_cover.map(str::to_string)) {
         track.thumbnail = Some(art);
     }
@@ -455,6 +458,8 @@ fn parse_song_hits(response: &Value) -> Vec<SongHit> {
                 });
 
             let mut track = parse_row(row, None, None)?;
+            // This parser is only used with YouTube Music's Songs filter.
+            if track.is_music != Some(false) { track.is_music = Some(true); }
             track.uploader = (!artists.is_empty()).then(|| join_names(&artists));
             // La duracion va al final de la segunda linea ("… • 2:40").
             if track.duration.is_none() {
@@ -1199,5 +1204,78 @@ mod tests {
             println!("canción: {:?} · {:?} · {:?}", s.track.title, s.track.uploader, s.track.duration);
         }
         assert_eq!(songs[0].artists[0].name, "Anuel AA");
+    }
+}
+
+
+/// Music-only radio. Unknown video types (including podcasts) are not recommendations.
+fn parse_music_mix(response: &Value) -> Vec<SearchResult> {
+    dedupe(find_all(response, "playlistPanelVideoRenderer").into_iter().filter_map(|row| {
+        let kind = row.pointer("/navigationEndpoint/watchEndpoint/watchEndpointMusicSupportedConfigs/watchEndpointMusicConfig/musicVideoType").and_then(Value::as_str)?;
+        if !matches!(kind, "MUSIC_VIDEO_TYPE_ATV" | "MUSIC_VIDEO_TYPE_OMV") { return None; }
+        let id = row.get("videoId")?.as_str()?;
+        let mut track = innertube::track(id, row.get("title").and_then(text),
+            row.get("longBylineText").or_else(|| row.get("shortBylineText")).and_then(text),
+            row.get("lengthText").and_then(text).and_then(|s| clock_to_secs(&s)));
+        track.is_music = Some(true);
+        Some(track)
+    }).collect())
+}
+
+pub async fn music_mix(id: &str, limit: usize) -> Result<Vec<SearchResult>, String> {
+    let response = call("next", json!({"videoId":id,"playlistId":format!("RDAMVM{id}"),"isAudioOnly":true})).await?;
+    let mut tracks = parse_music_mix(&response);
+    tracks.truncate(limit);
+    Ok(tracks)
+}
+
+
+#[cfg(test)]
+mod preview9_tests {
+    use super::*;
+    #[test]
+    fn generic_collection_rows_do_not_mark_podcasts_or_unknown_items_as_music() {
+        let row = |kind: &str| json!({"playlistItemData":{"videoId":"sample"},
+            "watchEndpointMusicConfig":{"musicVideoType":kind}});
+        assert_eq!(parse_row(&row("MUSIC_VIDEO_TYPE_ATV"),None,None).unwrap().is_music,Some(true));
+        assert_eq!(parse_row(&row("MUSIC_VIDEO_TYPE_PODCAST_EPISODE"),None,None).unwrap().is_music,Some(false));
+        assert_eq!(parse_row(&json!({"playlistItemData":{"videoId":"unknown"}}),None,None).unwrap().is_music,None);
+    }
+    #[test]
+    fn music_radio_rejects_podcasts_unknown_and_duplicate_items() {
+        let row = |id: &str, kind: &str| json!({"playlistPanelVideoRenderer": {
+            "videoId": id, "title":{"simpleText":"Sample"},
+            "navigationEndpoint":{"watchEndpoint":{"watchEndpointMusicSupportedConfigs":{
+                "watchEndpointMusicConfig":{"musicVideoType":kind}}}}
+        }});
+        let parsed = parse_music_mix(&json!({"rows":[
+            row("song", "MUSIC_VIDEO_TYPE_ATV"), row("video", "MUSIC_VIDEO_TYPE_OMV"),
+            row("podcast", "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"),row("other", ""),
+            row("song", "MUSIC_VIDEO_TYPE_ATV")]}));
+        assert_eq!(parsed.iter().map(|t| t.id.as_str()).collect::<Vec<_>>(), vec!["song","video"]);
+        assert!(parsed.iter().all(|t| t.is_music == Some(true)));
+    }
+    #[test]
+    fn old_library_metadata_is_optional_and_false_overrides_channel_hint() {
+        let mut track = innertube::track("a",None,Some("Artist - Topic".into()),None);
+        assert!(crate::recommend::is_music(&track));
+        track.is_music = Some(false);
+        assert!(!crate::recommend::is_music(&track));
+        let old = json!({"id":"old","watch_url":"https://www.youtube.com/watch?v=old"});
+        let loaded: SearchResult = serde_json::from_value(old).unwrap();
+        assert_eq!(loaded.is_music,None);
+        assert!(!crate::recommend::is_music(&loaded));
+    }
+    #[tokio::test]
+    #[ignore = "requires network"]
+    async fn preview9_live_music_catalog() {
+        let start=std::time::Instant::now();
+        let songs=search_songs("Radiohead Creep",20).await.unwrap();
+        assert!(!songs.is_empty()); assert!(songs.iter().all(|s|s.track.is_music==Some(true)));
+        println!("music search: {} songs in {} ms",songs.len(),start.elapsed().as_millis());
+        let mix=music_mix("XFkzRNyygfk",25).await.unwrap();
+        assert!(!mix.is_empty(), "music radio empty");
+        assert!(mix.iter().all(|s|s.is_music==Some(true)));
+        println!("music radio: {} verified music tracks",mix.len());
     }
 }

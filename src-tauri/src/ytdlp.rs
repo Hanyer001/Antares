@@ -320,7 +320,7 @@ fn parse_search(stdout: &[u8]) -> Vec<SearchResult> {
             let duration = field(parts.next()).and_then(|d| d.parse::<f64>().ok());
             let thumbnail = field(parts.next()).or_else(|| Some(thumbnail_for(&id)));
 
-            Some(SearchResult {
+            Some(SearchResult { is_music: None,
                 watch_url: SearchResult::watch_url_for(&id),
                 id,
                 title,

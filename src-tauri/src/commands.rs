@@ -193,10 +193,11 @@ pub async fn search_tracks(
     }
 
     let limit = limit.unwrap_or(SEARCH_LIMIT).clamp(1, MAX_SEARCH_LIMIT);
+    let trimmed_key = if source::native() { format!("music-v2:{trimmed}") } else { trimmed.to_string() };
     let key = if limit == SEARCH_LIMIT {
-        cache_key(trimmed, false)
+        cache_key(&trimmed_key, false)
     } else {
-        cache_key(&format!("{trimmed} #{limit}"), false)
+        cache_key(&format!("{trimmed_key} #{limit}"), false)
     };
 
     // Acierto en disco: la lista aparece al instante y sin lanzar un proceso,
@@ -234,7 +235,7 @@ pub fn record_play(
         return;
     };
 
-    store.record(SearchResult {
+    store.record(SearchResult { is_music: None,
         watch_url: SearchResult::watch_url_for(&id),
         id,
         title,
@@ -819,7 +820,9 @@ pub fn set_wallpaper(image: Option<String>, settings: State<'_, Settings>) -> Re
 /// Las estanterias de Inicio que salen de tus estadisticas (ver `home`).
 #[tauri::command]
 pub fn get_home(stats: State<'_, Stats>) -> crate::home::Home {
-    crate::home::build(&stats.recommendation_snapshot(), crate::store::now_secs())
+    let mut library = stats.recommendation_snapshot();
+    if source::native() { library.retain(|entry| recommend::is_music(&entry.track)); }
+    crate::home::build(&library, crate::store::now_secs())
 }
 
 // ---------------------------------------------------------------------------

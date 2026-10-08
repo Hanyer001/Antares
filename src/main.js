@@ -26,6 +26,7 @@ import * as appUpdate from "./js/appupdate.js";
 import * as importList from "./js/importlist.js";
 import * as media from "./js/mediasession.js";
 import { initMobile } from "./js/mobile.js";
+import { isMusic } from "./js/filters.js";
 import { queuePayload } from "./js/mobile-policy.js";
 import { playbackQuery, assertSelectedTrack } from "./js/playback-policy.js";
 import { connectNative, nativeCall, NativeDeck, sendToBackground } from "./js/native-deck.js";
@@ -323,7 +324,7 @@ async function reproducir(query, { safeMode = false, hint = null, startAt = 0, c
       if (ANDROID) await nativeCall("setPrivacy",{incognito,learn:moments.shouldLearn()});
       if (currentRequest !== requestId) return false;
       player.load(result.url, knownDuration, startAt, {
-        id: videoId, duration: knownDuration,
+        id: videoId, duration: knownDuration, is_music: hint?.is_music ?? null,
         title: result.title || hint?.title || null,
         artist: result.uploader || hint?.uploader || null,
         artwork: videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null,
@@ -345,6 +346,7 @@ async function reproducir(query, { safeMode = false, hint = null, startAt = 0, c
     const id = result.id ?? hint?.id;
     const track = {
       id,
+      is_music: hint?.is_music ?? null,
       title: result.title || hint?.title,
       uploader: result.uploader || hint?.uploader,
       duration: result.duration ?? hint?.duration,
@@ -511,6 +513,13 @@ function restaurarSesion() {
   if (!saved) return;
 
   queue.restore(saved.queue);
+  // Discard legacy automatic suggestions without touching the selected track
+  // or anything the listener added manually.
+  if (ANDROID) {
+    for (const track of [...queue.all()]) {
+      if (track.auto && track.id !== saved.track?.id && !isMusic(track)) queue.remove(track.id);
+    }
+  }
   discovery.setPicks(saved.picks);
 
   const track = saved.track;
@@ -1750,6 +1759,10 @@ async function buscarResultados(query) {
         : [{ ...track, id: query, watch_url: query }];
       lastSearchArtist = null;
       lastSearchSplit = -1;
+    } else if (ANDROID) {
+      found = await searchTracks(query, 20);
+      lastSearchArtist = null;
+      lastSearchSplit = -1;
     } else {
       // YouTube y YouTube Music a la vez: el segundo dice de quién es la
       // canción, y sus resultados van primero (ver searchrank.js).
@@ -1775,7 +1788,7 @@ async function buscarResultados(query) {
 
   // La primera es la que más probablemente se elija: se resuelve ya, para que
   // el clic sea instantáneo.
-  if (lastResults[0]) prefetchTrack(lastResults[0].watch_url);
+  if (lastResults[0] && (!ANDROID || (prefs.get("mobile.prefetch") && !document.hidden))) prefetchTrack(lastResults[0].watch_url);
 }
 
 async function cargarHistorial() {

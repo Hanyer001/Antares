@@ -173,7 +173,7 @@ class PlayerPlugin(private val activity: Activity) : Plugin(activity) {
         val args = invoke.getArgs()
         val url = args.getString("url", null) ?: return invoke.reject("falta la url")
         val metadata = MediaMetadata.Builder()
-            .setExtras(Bundle().apply { putDouble("duration", args.optDouble("duration", 0.0)) })
+            .setExtras(Bundle().apply { putDouble("duration", args.optDouble("duration", 0.0)); if (args.has("is_music") && !args.isNull("is_music")) putBoolean("is_music", args.optBoolean("is_music")) })
             .setTitle(args.getString("title", null))
             .setArtist(args.getString("artist", null))
             .setArtworkUri(args.getString("artwork", null)?.let(Uri::parse))
@@ -257,7 +257,7 @@ class PlayerPlugin(private val activity: Activity) : Plugin(activity) {
                 .setMediaMetadata(MediaMetadata.Builder().setTitle(if(row.isNull("title")) null else row.optString("title"))
                     .setArtist(if(row.isNull("uploader")) null else row.optString("uploader"))
                     .setArtworkUri(Uri.parse("https://i.ytimg.com/vi/$id/hqdefault.jpg"))
-                    .setExtras(Bundle().apply { putDouble("duration", row.optDouble("duration",0.0)) }).build()).build()
+                    .setExtras(Bundle().apply { putDouble("duration", row.optDouble("duration",0.0)); if (row.has("is_music") && !row.isNull("is_music")) putBoolean("is_music", row.optBoolean("is_music")) }).build()).build()
         } }.getOrElse { return invoke.reject("cola inválida") }
         withController(invoke) { c ->
             if (c.currentMediaItem?.mediaId != currentId) return@withController
@@ -295,6 +295,7 @@ class PlayerPlugin(private val activity: Activity) : Plugin(activity) {
                 items.put(JSObject().put("id", item.mediaId).put("title", meta.title?.toString())
                     .put("uploader",meta.artist?.toString()).put("thumbnail",meta.artworkUri?.toString())
                     .put("duration",meta.extras?.getDouble("duration"))
+                    .put("is_music",meta.extras?.takeIf { it.containsKey("is_music") }?.getBoolean("is_music"))
                     .put("watch_url","https://www.youtube.com/watch?v=${item.mediaId}"))
             }
             invoke.resolve(JSObject().put("items",items).put("index",c.currentMediaItemIndex)
