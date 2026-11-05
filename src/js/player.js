@@ -3,6 +3,7 @@
 // del activo se propagan al resto de la app.
 
 import { els } from "./dom.js";
+import { visualTask } from "./visual-activity.js";
 import { formatTime } from "./format.js";
 import * as prefs from "./prefs.js";
 import * as sound from "./sound.js";
@@ -135,8 +136,8 @@ function renderPlayState() {
   document.body.classList.toggle("is-playing", playing);
 }
 
-function renderProgress() {
-  if (nativeDecks && document.hidden) return;
+const renderProgress = visualTask(() => {
+  if (document.hidden) return;
   const { currentTime } = active;
   const duration = displayDuration();
 
@@ -152,11 +153,11 @@ function renderProgress() {
 
   if (!isScrubbing) els.scrub.value = String(Math.round(ratio * SCRUB_STEPS));
   els.scrub.style.setProperty("--played", `${(ratio * 100).toFixed(2)}%`);
-}
+});
 
 /** Pinta por detrás cuánto lleva descargado el navegador. */
-function renderBuffered() {
-  if (nativeDecks && document.hidden) return;
+const renderBuffered = visualTask(() => {
+  if (document.hidden) return;
   const { buffered, duration, currentTime } = active;
   if (!Number.isFinite(duration) || duration <= 0 || buffered.length === 0) return;
 
@@ -167,7 +168,7 @@ function renderBuffered() {
       return;
     }
   }
-}
+});
 
 function renderVolume() {
   const silent = muted || volume === 0;
@@ -355,6 +356,9 @@ export function restart() {
 
 /** Cablea los controles con los <audio>. Se llama una sola vez, desde main.js. */
 export function initPlayer() {
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) { renderProgress(); renderBuffered(); }
+  });
   for (const deck of decks) sound.attach(deck);
 
   loadVolume();

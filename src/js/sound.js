@@ -8,9 +8,11 @@
 // necesarias. Si Web Audio no está disponible, usa audio directo sin efectos.
 
 import * as dialog from "./dialog.js";
+import { playbackSource } from "./audio-source.js";
 import { els } from "./dom.js";
 import { EQ_BANDS } from "./prefs-schema.js";
 import * as store from "./prefs.js";
+import { spectrumTap } from './spectrum.js';
 
 /**
  * Ganancia extra tras el nivelador, en dB. Cero: el compresor de Chromium ya
@@ -44,6 +46,7 @@ const USER_PREFIX = "user:";
 let prefs = store.get("sound");
 
 let ctx = null;
+let proxyBase = null;
 let native = null;
 let capabilities = {equalizer:false,leveler:false};
 let effectsTimer;
@@ -124,6 +127,11 @@ export function active() {
   return ctx !== null;
 }
 
+/** Observación opcional de la salida existente; no añade otra ruta audible. */
+export function openSpectrum() {
+  return ctx && master ? spectrumTap(ctx,master) : null;
+}
+
 /**
  * Conecta un plato a la cadena. Solo una vez por elemento: la Web Audio API no
  * deja crear dos fuentes del mismo <audio>.
@@ -146,7 +154,7 @@ export function attach(deck) {
  */
 export function sourceFor(url) {
   if (!ctx) return url;
-  return window.__TAURI__.core.convertFileSrc(url, "stream");
+  return playbackSource(url, proxyBase, (value, scheme) => window.__TAURI__.core.convertFileSrc(value, scheme));
 }
 
 /**
@@ -352,7 +360,8 @@ async function deletePreset() {
  * @param {boolean} [opts.enabled] false en Android: el audio lo reproduce el
  *   sistema, no un <audio> de la página, y no hay cadena que montar.
  */
-export function initSound({ enabled: on = true, native: adapter = null } = {}) {
+export function initSound({ enabled: on = true, native: adapter = null, proxyBase: base = null } = {}) {
+  proxyBase = base;
   native = adapter;
   const applyNative = () => {
     if (!native) return;

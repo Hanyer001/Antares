@@ -1,0 +1,184 @@
+/* Etapa 1: filas y jerarquía de escritorio. Los tamaños móviles conservan
+   sus reglas en mobile.css. Los tokens respetan densidad, tema y esquinas. */
+:root:not([data-platform="android"]) {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --row-secondary: var(--text-dim);
+  --row-hover: color-mix(in srgb, var(--surface-2) 82%, var(--text) 3%);
+  --row-selected: color-mix(in srgb, var(--surface-2) 86%, var(--accent) 14%);
+  --row-current: color-mix(in srgb, var(--surface) 88%, var(--accent) 12%);
+}
+
+:root:not([data-platform="android"]) .view-head { gap: var(--space-4); }
+:root:not([data-platform="android"]) .view-title { font-size: 25px; line-height: 1.25; }
+:root:not([data-platform="android"]) .view-meta { margin-top: var(--space-2); color: var(--row-secondary); }
+:root:not([data-platform="android"]) .sidebar__heading { color: var(--text-dim); letter-spacing: .08em; }
+:root:not([data-platform="android"]) .panel-head { flex-wrap: wrap; gap: var(--space-2); }
+
+:root:not([data-platform="android"]) .results__list {
+  gap: var(--space-1);
+  /* Espacio para que el foco exterior no se corte al llegar al scroll. */
+  padding: var(--space-1);
+  scroll-padding-block: var(--space-2);
+}
+
+:root:not([data-platform="android"]) .result {
+  --art: calc(36px + 8px * var(--density));
+  grid-template-columns: var(--art) minmax(0, 1fr) auto auto;
+  gap: var(--space-3);
+  min-height: calc(44px + 16px * var(--density));
+  padding: calc(6px * var(--density)) var(--space-2) calc(6px * var(--density)) var(--space-3);
+  border-radius: var(--radius);
+  transition: background var(--fast) var(--ease), border-color var(--fast) var(--ease);
+}
+
+:root:not([data-platform="android"]) .result:hover { background: var(--row-hover); border-color: transparent; }
+/* No encoger toda la fila: el texto y la zona pulsable permanecen estables. */
+:root:not([data-platform="android"]) .result:active { transform: none; }
+:root:not([data-platform="android"]) .result:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+:root:not([data-platform="android"]) .result.is-current { background: var(--row-current); }
+:root:not([data-platform="android"]) .result.is-current:hover {
+  background: color-mix(in srgb, var(--row-current) 90%, var(--text) 4%);
+}
+:root:not([data-platform="android"]) .result.is-current::before {
+  top: var(--space-3);
+  bottom: var(--space-3);
+  width: 3px;
+}
+:root:not([data-platform="android"]) .result.is-current .result__title { font-weight: 600; }
+
+:root:not([data-platform="android"]) .result.is-selected {
+  background: var(--row-selected);
+  border-color: var(--accent-deep);
+}
+:root:not([data-platform="android"]) .result.is-selected:hover {
+  background: color-mix(in srgb, var(--row-selected) 94%, var(--text) 3%);
+}
+/* Selección múltiple y reproducción pueden coexistir: fondo y checkbox para
+   la selección; raíl, título e insignia para la pista actual. */
+:root:not([data-platform="android"]) .result.result--selectable {
+  grid-template-columns: 22px var(--art) minmax(0, 1fr) auto auto;
+}
+:root:not([data-platform="android"]) .result--selectable > input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+:root:not([data-platform="android"]) .result__art,
+:root:not([data-platform="android"]) .result__fallback { border-radius: calc(8px * var(--round)); }
+:root:not([data-platform="android"]) .result__text { gap: 2px; }
+:root:not([data-platform="android"]) .result__title { font-size: 14px; line-height: 1.4; }
+:root:not([data-platform="android"]) .result__by { font-size: 12.5px; line-height: 1.4; color: var(--row-secondary); }
+:root:not([data-platform="android"]) .result__by:empty { display: none; }
+:root:not([data-platform="android"]) .result__reason { color: var(--row-secondary); }
+:root:not([data-platform="android"]) .result__time {
+  min-width: 7ch;
+  text-align: right;
+  font-size: 12px;
+  color: var(--row-secondary);
+  font-variant-numeric: tabular-nums;
+}
+:root:not([data-platform="android"]) .result__actions { gap: var(--space-1); }
+:root:not([data-platform="android"]) .result__action {
+  width: 30px;
+  height: 32px;
+  border-radius: calc(8px * var(--round));
+  color: var(--row-secondary);
+}
+:root:not([data-platform="android"]) .result__action:active { transform: scale(.96); }
+:root:not([data-platform="android"]) .result__action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  box-shadow: none;
+}
+
+:root:not([data-platform="android"]) .result__state:not([hidden]) {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: grid;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  border: 2px solid var(--row-current);
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  pointer-events: none;
+}
+:root:not([data-platform="android"]) .result__state svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+:root:not([data-platform="android"]) .result__state .icon-fill { fill: currentColor; stroke: none; }
+:root:not([data-platform="android"]) .result[data-playback="loading"] .result__state svg { animation: spin .9s linear infinite; }
+:root:not([data-platform="android"]) .result[data-playback="error"] .result__state { background: var(--danger); color: var(--on-danger); }
+:root[data-motion="reduced"] .result__state svg,
+:root[data-motion="none"] .result__state svg { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .result__state svg { animation: none !important; }
+}
+
+:root:not([data-platform="android"]) .result--reorderable {
+  grid-template-columns: 14px var(--art) minmax(0, 1fr) auto auto;
+  padding-left: var(--space-1);
+}
+:root:not([data-platform="android"]) .result:focus-within .result__grip { opacity: 1; }
+:root:not([data-platform="android"]) .result.is-dragging { opacity: .4; }
+
+:root:not([data-platform="android"]) .result--list {
+  grid-template-columns: var(--art) minmax(0, 1fr) 20px;
+}
+:root:not([data-platform="android"]) .results__divider {
+  padding: var(--space-4) var(--space-3) var(--space-1);
+  color: var(--row-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+:root:not([data-platform="android"]) .results__divider:first-child { padding-top: var(--space-2); }
+:root:not([data-platform="android"]) .results__divider::after { display: none; }
+:root:not([data-platform="android"]) .results__divider-action { margin-left: auto; }
+:root:not([data-platform="android"]) .results__empty {
+  padding: var(--space-8) var(--space-6);
+  color: var(--row-secondary);
+  font-size: 13px;
+}
+
+/* En columnas estrechas, priorizar título y artista. Las acciones siguen
+   accesibles en el menú y el ancho no cambia al entrar/salir del hover. */
+:root:not([data-platform="android"]) .results { container-type: inline-size; }
+@container (max-width: 540px) {
+  :root:not([data-platform="android"]) .result { column-gap: var(--space-2); }
+  :root:not([data-platform="android"]) .result__actions { gap: 0; }
+  :root:not([data-platform="android"]) .result__action { width: 28px; }
+}
+@container (max-width: 400px) {
+  :root:not([data-platform="android"]) .result { grid-template-columns: var(--art) minmax(0, 1fr) auto; }
+  :root:not([data-platform="android"]) .result--reorderable { grid-template-columns: 14px var(--art) minmax(0, 1fr) auto; }
+  :root:not([data-platform="android"]) .result.result--selectable { grid-template-columns: 22px var(--art) minmax(0, 1fr) auto; }
+  :root:not([data-platform="android"]) .result__time { display: none; }
+  :root:not([data-platform="android"]) .result__action:not([aria-haspopup]) { display: none; }
+  :root:not([data-platform="android"]) .result__action[aria-haspopup] { opacity: 1; width: 32px; }
+}
+@media (hover: none) {
+  :root:not([data-platform="android"]) .result__action { opacity: 1; }
+}

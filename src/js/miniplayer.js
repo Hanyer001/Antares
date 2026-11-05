@@ -62,6 +62,7 @@ function render(s) {
 }
 
 function renderTime({ current, duration }) {
+  if (document.hidden || !document.documentElement.hasAttribute("data-mini")) return;
   $("mini-current").textContent = formatTime(current);
   // Como Apple: lo que falta, no lo que dura.
   $("mini-remaining").textContent = duration ? `-${formatTime(Math.max(duration - current, 0))}` : "-0:00";
@@ -168,6 +169,7 @@ export function initMiniPlayer({ restore, queue, onLyricLine }) {
   bindDrag();
   now.onChange(render);
   now.onTime(renderTime);
+  new MutationObserver(() => renderTime(now.position())).observe(document.documentElement, { attributes: true, attributeFilter: ["data-mini"] });
   renderTime(now.position());
   onLyricLine(renderLine);
 }

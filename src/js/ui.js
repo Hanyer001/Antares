@@ -3,6 +3,8 @@
 
 import { els } from "./dom.js";
 import { toast } from "./toast.js";
+import { setPlaybackState } from "./results.js";
+import { setSearchBusy, setPlaybackPhase } from "./loading.js";
 
 /** Título de la vista central y el dato pequeño que lo acompaña. */
 export function setView(title, meta = "") {
@@ -25,9 +27,11 @@ export function setStatus(message, tone = "info") {
  * El punto de la cabecera, y el aro del botón de play mientras carga.
  * @param {"idle"|"busy"|"playing"|"error"} state
  */
-export function setEngine(state) {
+export function setEngine(state, phase) {
   els.engine.dataset.state = state;
   els.play.classList.toggle("is-loading", state === "busy");
+  setPlaybackState(state);
+  setPlaybackPhase(state, phase);
 }
 
 /**
@@ -36,9 +40,10 @@ export function setEngine(state) {
  * El input NO se deshabilita a propósito: poder seguir escribiendo la siguiente
  * búsqueda mientras la actual resuelve es parte de que la espera se note menos.
  */
-export function setBusy(isBusy) {
+export function setBusy(isBusy, { error = '' } = {}) {
   els.button.disabled = isBusy;
   els.button.classList.toggle("is-busy", isBusy);
+  setSearchBusy(isBusy, error);
 }
 
 /** Habilita play y la barra solo cuando hay algo que reproducir. */
@@ -108,6 +113,8 @@ export function setModes({ shuffle, repeat }) {
  * colapsa el elemento, así que no queda un hueco flotando bajo el título.
  */
 export function setTrack({ title, uploader } = {}) {
+  // Distingue también dos pistas con el mismo título y artista.
+  els.title.dataset.trackRevision = String((Number(els.title.dataset.trackRevision) || 0) + 1);
   els.title.textContent = title || "Sin reproducción";
   els.title.classList.toggle("is-empty", !title);
   els.by.textContent = uploader || "";

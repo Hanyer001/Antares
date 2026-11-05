@@ -1,0 +1,96 @@
+/* Etapas 5–6: movimiento con roles, carga y escucha expandida. */
+:root:not([data-platform="android"]) {
+  --motion-feedback: 140ms; --motion-navigation: 200ms; --motion-panel: 260ms;
+  --ease-feedback: cubic-bezier(.2,0,0,1); --ease-enter: cubic-bezier(.2,.8,.2,1);
+}
+:root:not([data-platform="android"]) :is(.btn,.tab,.side-tab) {
+  transition: color var(--motion-feedback) var(--ease-feedback), background-color var(--motion-feedback) var(--ease-feedback), transform var(--motion-feedback) var(--ease-feedback);
+}
+:root:not([data-platform="android"]) .result {
+  transition: background-color 120ms var(--ease-feedback), color 120ms var(--ease-feedback);
+}
+:root:not([data-platform="android"]) .result__action { transition-duration: var(--motion-feedback); }
+/* Ambos iconos ocupan el mismo centro; el área pulsable permanece estable. */
+:root:not([data-platform="android"]) :is(.btn--play,.pb-play) > :is(.icon-play,.icon-pause,.pb-icon-play,.pb-icon-pause) {
+  display:block; position:absolute; left:50%; top:50%; pointer-events:none;
+  transform:translate(-50%,-50%); transition:opacity var(--motion-feedback) var(--ease-feedback);
+}
+:root:not([data-platform="android"]) :is(.icon-play,.pb-icon-play) { opacity:1; }
+:root:not([data-platform="android"]) :is(.icon-pause,.pb-icon-pause) { opacity:0; }
+:root:not([data-platform="android"]) .is-playing :is(.icon-play,.pb-icon-play) { opacity:0; }
+:root:not([data-platform="android"]) .is-playing :is(.icon-pause,.pb-icon-pause) { opacity:1; }
+.search-feedback { display:flex; align-items:center; gap:12px; flex-wrap:wrap; color:var(--text-dim); font-size:13px; }
+.search-feedback p { margin:0; }
+.search-feedback { padding:12px 4px; }
+.search-skeleton { display:grid; gap:4px; padding:0; }
+.skeleton-row { height:calc(60px * var(--density)); display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:10px; }
+.skeleton-row i { width:44px; height:44px; flex-shrink:0; border-radius:6px; background:var(--surface-3); }
+.skeleton-row span { width:65%; max-width:440px; height:30px; border-radius:4px; background:linear-gradient(var(--surface-3),var(--surface-3)) left top / 100% 12px no-repeat,linear-gradient(var(--surface-3),var(--surface-3)) left bottom / 52% 9px no-repeat; }
+.search-skeleton { animation:loading-breathe 1400ms ease-in-out infinite; }
+@keyframes loading-breathe { 0%,100% {opacity:.85;} 50% {opacity:.5;} }
+.search-feedback[hidden],.search-skeleton[hidden],#search-retry[hidden],#results-list[hidden] { display:none; }
+:root:not([data-platform="android"]) .results[data-search-state="loading"] .results__empty { display:none; }
+.playback-status,.pbar__status { margin:4px 0 0; color:var(--text-dim); font-size:12px; line-height:1.35; }
+.pbar__status { margin-top:1px; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.playback-status[data-tone="error"],.pbar__status[data-tone="error"] { color:var(--danger); }
+.playback-status[hidden],.pbar__status[hidden] { display:none; }
+.lyrics-follow { display:flex; flex-shrink:0; align-items:center; justify-content:space-between; gap:8px; font-size:11px; color:var(--text-dim); padding:6px 4px; }
+.lyrics-follow[hidden],.lyrics[hidden] ~ .lyrics-follow { display:none; }
+:root:not([data-platform="android"]) .lyrics { scroll-behavior:auto; overscroll-behavior:contain; }
+:root:not([data-platform="android"]) .lyric { color:var(--text-dim); border-inline-start:2px solid transparent; padding:8px 10px; transition:color 200ms var(--ease-feedback),background-color 140ms var(--ease-feedback),border-color 200ms var(--ease-feedback); }
+:root:not([data-platform="android"]) .lyric.is-active { color:var(--text); font-weight:650; border-inline-start-color:var(--accent); background:var(--accent-wash); }
+:root:not([data-platform="android"]) .lyric--pause { color:var(--text-faint); }
+:root:not([data-platform="android"]) .lyrics:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:8px; }
+.focus-tools,.focus-spectrum { display:none; }
+:root:not([data-platform="android"])[data-focus] .nowplaying {
+  grid-template-columns:minmax(280px,380px) minmax(0,1fr); gap:clamp(20px,4vw,64px);
+  padding:48px clamp(24px,5vw,88px) 24px; min-height:0; overflow:hidden;
+}
+:root:not([data-platform="android"])[data-focus] .console {
+  gap:10px; padding:16px; max-height:100%; min-height:0; overflow-y:auto;
+  border-radius:calc(20px * var(--round)); background:color-mix(in srgb,var(--bg) 88%,transparent);
+}
+:root:not([data-platform="android"])[data-focus] .track { gap:10px; }
+:root:not([data-platform="android"])[data-focus] .artwork { width:min(100%,300px,max(144px,calc(100vh - 460px))); }
+:root:not([data-platform="android"])[data-focus][data-focus-visualizer] .artwork { width:min(100%,260px,max(96px,calc(100vh - 520px))); }
+:root:not([data-platform="android"])[data-focus] .track__title { font-size:22px; }
+:root:not([data-platform="android"])[data-focus] .upnext { padding:16px; min-height:0; border-radius:calc(20px * var(--round)); background:color-mix(in srgb,var(--bg) 88%,transparent); }
+:root:not([data-platform="android"])[data-focus] .lyrics { --lyric-scale:1.5; }
+:root:not([data-platform="android"])[data-focus] .focus-tools { display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap; min-height:30px; font-size:11px; color:var(--text-dim); }
+:root:not([data-platform="android"])[data-focus] .focus-spectrum:not([hidden]) { display:block; flex-shrink:0; width:100%; height:44px; color:var(--accent); }
+:root:not([data-platform="android"])[data-focus-visualizer] .meter { display:none; }
+:root:not([data-platform="android"])[data-focus][data-no-upnext] .nowplaying { grid-template-columns:minmax(280px,420px); }
+@media (max-width:760px) {
+  :root:not([data-platform="android"])[data-focus] .nowplaying { grid-template-columns:minmax(0,1fr); overflow-y:auto; }
+}
+/* CSS y WAAPI usan las mismas dos fuentes de preferencia. */
+:root:not([data-platform="android"]):is([data-motion="none"],[data-motion="reduced"]) { --motion-feedback:0ms; --motion-navigation:0ms; --motion-panel:0ms; }
+:root:is([data-motion="none"],[data-motion="reduced"]) .search-skeleton { animation:none; }
+:root:not([data-platform="android"]):is([data-motion="none"],[data-motion="reduced"]) :is(.lyric,.result,.result__action) { transition:none; }
+:root:not([data-platform="android"])[data-motion="reduced"] :is(.is-loading,.is-busy)::after,
+:root:not([data-platform="android"])[data-motion="reduced"] .is-loading .pb-play::after { animation:none; }
+@media (prefers-reduced-motion:reduce) {
+  :root:not([data-platform="android"]) { --motion-feedback:0ms; --motion-navigation:0ms; --motion-panel:0ms; }
+  .search-skeleton { animation:none; }
+  :root:not([data-platform="android"]) :is(.lyric,.result,.result__action) { transition:none; }
+}
+
+/* Minimizada, la música continúa y la presentación deja de animarse. */
+:root[data-app-idle], :root[data-app-idle] *,
+:root[data-app-idle] *::before, :root[data-app-idle] *::after {
+  animation-play-state: paused !important;
+  transition: none !important;
+}
+
+/* En WebKitGTK, interpolar variables heredadas en <html> recalcula toda la
+   interfaz cada cuadro. Mantener fundidos de imagen y microinteracciones,
+   pero aplicar la paleta de la portada en un solo cambio. */
+:root[data-platform="linux"] { transition:none; }
+
+/* Limitar la pintura al visor evita que WebKit cree una capa por portada
+   al solapar las filas con el fondo. Conserva las medidas y el scroll nativo. */
+:root:not([data-platform="android"]) .home { contain:paint; }
+/* Pasar tarjetas bajo el puntero no debe hacerlas crecer durante el scroll. */
+:root:not([data-platform="android"]) .home.is-scrolling :is(.card__art,.card__play,.card__more) { transition:none; }
+:root:not([data-platform="android"]) .home.is-scrolling .card__art { transform:none; }
+:root:not([data-platform="android"]) .home.is-scrolling .card:not(:focus-within) :is(.card__play,.card__more) { opacity:0; }

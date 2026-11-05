@@ -4,6 +4,9 @@
 import { els } from "./dom.js";
 import * as prefs from "./prefs.js";
 import { SCHEMA } from "./prefs-schema.js";
+import { enterSurface } from "./motion.js";
+import { initDesktopShell, refreshDesktopShell } from "./desktop-shell.js";
+export { openContextPanel } from "./desktop-shell.js";
 
 const { invoke } = window.__TAURI__.core;
 
@@ -20,6 +23,7 @@ const CONSOLE_PARTS = {
 
 let mini = false;
 let focus = false;
+let focusReturn = null;
 const handlers = { change: () => {} };
 
 // --- Aplicar -------------------------------------------------------------
@@ -41,6 +45,7 @@ function apply() {
   root.style.setProperty("--nowplaying-pref", `${layout.nowplayingWidth}px`);
 
   applyTabs(layout);
+  refreshDesktopShell();
 }
 
 /** Orden y visibilidad de las pestañas: se mueven los botones de verdad. */
@@ -80,6 +85,14 @@ function bindResizer(handle) {
 
   let dragging = false;
   let width = 0;
+  handle.setAttribute("aria-valuemin", String(min));
+  handle.setAttribute("aria-valuemax", String(max));
+  const describeWidth = value => {
+    handle.setAttribute("aria-valuenow", String(value));
+    handle.setAttribute("aria-valuetext", `${value} píxeles`);
+  };
+  describeWidth(prefs.get(pref));
+  prefs.on(pref, describeWidth);
 
   // ¿La columna está pegada al borde izquierdo de la ventana? Entonces su
   // ancho es la x del puntero; si está a la derecha, lo que queda hasta el
@@ -89,6 +102,7 @@ function bindResizer(handle) {
   handle.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
     dragging = true;
+    width = prefs.get(pref);
     handle.setPointerCapture(event.pointerId);
     root.classList.add("is-resizing");
     event.preventDefault();
@@ -99,6 +113,8 @@ function bindResizer(handle) {
     const x = fromLeft() ? event.clientX : window.innerWidth - event.clientX;
     width = Math.round(Math.min(Math.max(x, min), max));
     root.style.setProperty(cssVar, `${width}px`);
+    describeWidth(width);
+    refreshDesktopShell();
   });
 
   const stop = () => {
@@ -168,6 +184,7 @@ export async function setMini(enabled) {
     mini = !enabled;
     root.toggleAttribute("data-mini", mini);
   }
+  refreshDesktopShell();
   handlers.change();
 }
 
@@ -179,10 +196,16 @@ export function setFocus(enabled) {
   if (enabled === focus) return;
   if (enabled && mini) return;
 
+  if (enabled) focusReturn = document.activeElement;
   focus = enabled;
   root.toggleAttribute("data-focus", focus);
   els.focusButton.setAttribute("aria-pressed", String(focus));
+  refreshDesktopShell();
   handlers.change();
+  if (root.dataset.platform !== 'android') {
+    if (focus) { enterSurface(document.querySelector('.nowplaying')); els.modeExit.focus({preventScroll:true}); }
+    else if (focusReturn?.isConnected && focusReturn.getClientRects().length) focusReturn.focus({preventScroll:true});
+  }
 }
 
 /** Aviso al entrar o salir de un modo (main.js ajusta la letra, etc.). */
@@ -224,4 +247,5 @@ export function initLayout() {
     lastSize = size;
     if (mini) applyMiniWindow().catch(() => {});
   });
+  initDesktopShell({ getLayout: () => prefs.get("layout"), selectTab: tab => prefs.set("interface.sideTab", tab) });
 }

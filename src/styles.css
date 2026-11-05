@@ -788,11 +788,13 @@ body::before {
   border-right-color: currentColor;
   border-radius: 50%;
   opacity: 0;
-  animation: spin 620ms linear infinite;
 }
 
 .is-busy .btn__label { opacity: 0; }
-.is-busy .btn__spinner { opacity: 0.8; }
+.is-busy .btn__spinner {
+  opacity: 0.8;
+  animation: spin 620ms linear infinite;
+}
 
 .btn__label { transition: opacity var(--fast) var(--ease); }
 
@@ -1354,6 +1356,30 @@ body.is-playing .meter i:nth-child(4) { animation-delay: 0.27s; }
   background: var(--surface-3);
   display: block;
 }
+
+/* El respaldo reserva el mismo espacio en escritorio y Android. */
+.result__cover {
+  position: relative;
+  display: block;
+  width: var(--art);
+  height: var(--art);
+  flex-shrink: 0;
+}
+
+.result__fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: calc(5px * var(--round));
+  color: var(--text-dim);
+  background: var(--surface-3);
+}
+
+.result__fallback svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+.result__cover > .result__art { position: absolute; inset: 0; }
+.result__art--pending { opacity: 0; }
+.result__fallback[hidden], .result__art[hidden], .result__state { display: none; }
 
 .result__text {
   min-width: 0;
@@ -2632,6 +2658,11 @@ svg .icon-fill {
   justify-content: space-between;
   padding: 0 4px;
 }
+
+.context-head, .context-toggle, .context-scrim { display: none; }
+.upnext-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.upnext-panel[hidden] { display: none; }
+.upnext-panel > .upnext__list { flex: 1; }
 
 .upnext__title {
   font-size: 10.5px;

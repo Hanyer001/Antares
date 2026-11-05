@@ -4,7 +4,7 @@
 import { groupLists } from "./library-model.js";
 import { els } from "./dom.js";
 import { icon, iconButton } from "./icons.js";
-import { iconArt } from "./results.js";
+import { iconArt, coverArt } from "./results.js";
 
 const handlers = {
   onOpen: () => {},
@@ -45,11 +45,7 @@ function buildListRow(playlist) {
   let art;
 
   if (cover && !playlist.system) {
-    art = document.createElement("img");
-    art.className = "result__art";
-    art.alt = "";
-    art.loading = "lazy";
-    art.src = cover;
+    art = coverArt(cover);
   } else {
     art = iconArt(playlist.system ? "heart" : "list");
     if (playlist.system) art.classList.add("result__art--likes");

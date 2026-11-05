@@ -116,6 +116,7 @@ export const els = {
   upnextTab: $("#upnext-tab"),
   lyricsTab: $("#lyrics-tab"),
   upnextList: $("#upnext-list"),
+  upnextPanel: $("#upnext-panel"),
   upnextMore: $("#upnext-more"),
   lyrics: $("#lyrics"),
   lyricsSync: $("#lyrics-sync"),

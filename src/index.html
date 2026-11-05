@@ -9,6 +9,10 @@
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="android-fonts.css" />
     <link rel="stylesheet" href="mobile.css" />
+    <link rel="stylesheet" href="desktop-rows.css" />
+    <link rel="stylesheet" href="desktop-shell.css" />
+    <link rel="stylesheet" href="desktop-player.css" />
+    <link rel="stylesheet" href="desktop-experience.css" />
     <!-- El tema guardado, antes de pintar nada: sin esto la app abriría un
          instante en Grafito antes de pasar al tema del usuario. -->
     <script src="boot-theme.js"></script>
@@ -123,6 +127,11 @@
           </div>
           <!-- Acciones de la vista (guardar la cola, crear una lista...). -->
           <div class="panel-head" id="panel-head" hidden></div>
+          <button class="btn btn--mini context-toggle" id="context-toggle" type="button"
+                  aria-controls="context-panel" aria-expanded="true" aria-label="Ocultar reproducción, cola y letras">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M15 4v16M7 9h4M7 13h4" /></svg>
+            <span>Cola y letras</span>
+          </button>
 
           <!-- Buscador de ajustes: solo en la vista de Ajustes. -->
           <div class="field settings-search" id="settings-search-box" hidden>
@@ -1006,12 +1015,12 @@
 
               <div class="setting" data-keywords="iniciar windows arranque encender automático">
                 <div class="setting__text">
-                  <span class="setting__label">Abrir al iniciar Windows</span>
+                  <span class="setting__label">Abrir al iniciar sesión</span>
                 </div>
                 <label class="switch switch--bare">
                   <input type="checkbox" data-pref="system.autostart" />
                   <span class="switch__track" aria-hidden="true"></span>
-                  <span class="sr-only">Abrir al iniciar Windows</span>
+                  <span class="sr-only">Abrir al iniciar sesión</span>
                 </label>
               </div>
 
@@ -1024,7 +1033,7 @@
                 <label class="switch switch--bare">
                   <input type="checkbox" data-pref="system.startHidden" />
                   <span class="switch__track" aria-hidden="true"></span>
-                  <span class="sr-only">Quedarse en la bandeja al iniciar Windows</span>
+                  <span class="sr-only">Quedarse en la bandeja al iniciar sesión</span>
                 </label>
               </div>
 
@@ -1164,6 +1173,18 @@
         </section>
 
         <section class="results" id="results">
+          <div class="search-feedback desktop-only" id="search-feedback" hidden>
+            <p id="search-status" role="status" aria-live="polite"></p>
+            <button class="btn btn--mini" id="search-retry" type="button" hidden>Reintentar búsqueda</button>
+          </div>
+          <div class="search-skeleton desktop-only" id="search-skeleton" aria-hidden="true" hidden>
+            <div class="skeleton-row"><i></i><span></span></div>
+            <div class="skeleton-row"><i></i><span></span></div>
+            <div class="skeleton-row"><i></i><span></span></div>
+            <div class="skeleton-row"><i></i><span></span></div>
+            <div class="skeleton-row"><i></i><span></span></div>
+            <div class="skeleton-row"><i></i><span></span></div>
+          </div>
           <ul class="results__list" id="results-list"></ul>
         </section>
 
@@ -1177,7 +1198,14 @@
       </main>
 
       <!-- ── Lo que suena ─────────────────────────────────────────── -->
-      <aside class="nowplaying">
+      <div class="context-scrim" id="context-scrim" hidden aria-hidden="true"></div>
+      <aside class="nowplaying" id="context-panel" aria-label="Reproducción, cola y letras">
+        <header class="context-head">
+          <span>Tu sesión</span>
+          <button class="btn btn--icon" id="context-close" type="button" aria-label="Cerrar panel" title="Cerrar panel">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+          </button>
+        </header>
         <section class="console">
           <div class="console__glow" aria-hidden="true"></div>
 
@@ -1220,6 +1248,7 @@
                 <p class="track__title" id="track-title">Sin reproducción</p>
                 <!-- El artista: lleva a su página. -->
                 <p class="track__by" id="track-by" role="button" tabindex="0" title="Ir al artista"></p>
+                <p class="playback-status desktop-only" id="playback-status" role="status" aria-live="polite" hidden></p>
               </div>
 
               <button class="btn btn--icon rate rate--like" id="like-button" type="button"
@@ -1376,6 +1405,11 @@
             />
             <span class="volume__value" id="volume-value" aria-hidden="true">80</span>
           </div>
+          <div class="focus-tools desktop-only">
+            <button class="btn btn--chip" id="focus-visualizer-toggle" type="button" aria-pressed="false" aria-controls="focus-spectrum">Visualizador</button>
+            <span id="focus-spectrum-status" role="status"></span>
+          </div>
+          <canvas class="focus-spectrum" id="focus-spectrum" width="640" height="104" aria-hidden="true" hidden></canvas>
         </section>
 
         <!-- Lo que viene, o la letra de lo que suena: dos pestañas sobre el
@@ -1383,17 +1417,23 @@
         <section class="upnext">
           <div class="upnext__head">
             <div class="side-tabs" role="tablist">
-              <button class="side-tab" id="upnext-tab" type="button" role="tab" aria-selected="true">
+              <button class="side-tab" id="upnext-tab" type="button" role="tab" aria-selected="true" aria-controls="upnext-panel">
                 A continuación
               </button>
-              <button class="side-tab" id="lyrics-tab" type="button" role="tab" aria-selected="false">
+              <button class="side-tab" id="lyrics-tab" type="button" role="tab" aria-selected="false" aria-controls="lyrics" tabindex="-1">
                 Letra
               </button>
             </div>
             <button class="btn btn--link" id="upnext-more" type="button">Ver cola</button>
           </div>
-          <ul class="upnext__list" id="upnext-list"></ul>
-          <div class="lyrics" id="lyrics" hidden></div>
+          <div class="upnext-panel" id="upnext-panel" role="tabpanel" aria-labelledby="upnext-tab">
+            <ul class="upnext__list" id="upnext-list"></ul>
+          </div>
+          <div class="lyrics" id="lyrics" role="tabpanel" aria-labelledby="lyrics-tab" tabindex="0" hidden></div>
+          <div class="lyrics-follow" id="lyrics-follow" hidden>
+            <span>Lectura manual</span>
+            <button class="btn btn--mini" id="lyrics-resume" type="button">Volver a la letra actual</button>
+          </div>
 
           <!-- Sincronía de la letra: para cuando va adelantada o atrasada. -->
           <div class="lyrics-sync" id="lyrics-sync" hidden>
@@ -1463,6 +1503,7 @@
             <button class="pbar__artist" id="pbar-artist" data-act="artist" type="button" title="Ir al artista"></button>
             <span class="pbar__album" id="pbar-album"></span>
           </p>
+          <p class="pbar__status" id="pbar-status" hidden></p>
         </div>
         <div class="pbar__rate">
           <button class="pb-btn pb-like" data-act="like" type="button" aria-label="Me gusta" title="Me gusta">

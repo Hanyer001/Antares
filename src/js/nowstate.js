@@ -2,12 +2,14 @@
 // de reproducción y el mini reproductor.
 
 import { els } from "./dom.js";
+import { visualTask } from "./visual-activity.js";
 import * as player from "./player.js";
 
 /** El estado de un vistazo. */
 export function snapshot() {
   const hasTitle = !els.title.classList.contains("is-empty");
   return {
+    revision: els.title.dataset.trackRevision || '0',
     title: hasTitle ? els.title.textContent.trim() : "",
     // Sin el " - Topic" de los canales automáticos de YouTube.
     artist: els.by.textContent.trim().replace(/ - Topic$/, ""),
@@ -113,11 +115,13 @@ export function initNowState() {
   els.volume.addEventListener("input", schedule);
   observer.observe(els.volume, { attributes: true, attributeFilter: ["class", "style"] });
 
-  const tick = () => {
+  const tick = visualTask(() => {
+    if (document.hidden) return;
     const pos = position();
     for (const listener of timeListeners) listener(pos);
-  };
+  });
   player.on("time", tick);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
   // Una canción nueva o un salto se ven aunque esté en pausa.
   for (const deck of [els.audio, els.audioB]) {
     deck.addEventListener("loadedmetadata", tick);

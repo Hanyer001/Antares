@@ -13,7 +13,10 @@
 mod android_playback;
 mod app_update;
 mod audio_proxy;
+#[cfg(target_os = "linux")]
+mod audio_http;
 mod backup;
+mod voice_bridge;
 mod cache;
 mod commands;
 mod home;
@@ -138,6 +141,26 @@ pub fn restart_clean(app: &AppHandle) -> ! {
     app.restart()
 }
 
+/// Los atajos globales del plugin actual requieren X11 en Linux.
+#[cfg(desktop)]
+pub fn global_shortcuts_supported() -> bool {
+    !(cfg!(target_os = "linux")
+        && (std::env::var_os("WAYLAND_DISPLAY").is_some()
+            || std::env::var("XDG_SESSION_TYPE").is_ok_and(|v| v == "wayland")))
+}
+
+/// Da tiempo al frontend para guardar la sesión antes de salir.
+#[cfg(desktop)]
+fn request_quit(app: &AppHandle) {
+    let _ = app.emit("tray", "quit");
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(QUIT_GRACE);
+        remove_tray(&handle);
+        handle.exit(0);
+    });
+}
+
 /// El icono de la bandeja: controles basicos, y la ventana a un clic.
 ///
 /// Las acciones de reproduccion no se hacen aqui: se avisan al frontend con el
@@ -166,17 +189,7 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "show" => show_window(app),
-            "quit" => {
-                // El frontend guarda la escucha en curso y la cola, y llama a
-                // `quit_app`. Si no contesta (ventana colgada), se sale igual.
-                let _ = app.emit("tray", "quit");
-                let handle = app.clone();
-                std::thread::spawn(move || {
-                    std::thread::sleep(QUIT_GRACE);
-                    remove_tray(&handle);
-                    handle.exit(0);
-                });
-            }
+            "quit" => request_quit(app),
             action => {
                 let _ = app.emit("tray", action);
             }
@@ -220,7 +233,7 @@ fn setup_desktop(app: &tauri::App, base: std::path::PathBuf, settings: &Settings
         // abierta por Windows al iniciar sesion y con "abrir en la bandeja",
         // se queda escondida; si no, se enseña ya.
         let by_windows = std::env::args().any(|arg| arg == AUTOSTART_ARG);
-        if !(by_windows && settings.start_hidden()) {
+        if !(by_windows && settings.start_hidden() && !cfg!(target_os = "linux")) {
             let _ = window.show();
         }
     }
@@ -293,12 +306,15 @@ pub fn run() {
     }));
 
     #[cfg(desktop)]
+    let builder = if global_shortcuts_supported() {
+        builder.plugin(tauri_plugin_global_shortcut::Builder::new()
+            .with_handler(on_global_shortcut).build())
+    } else {
+        builder
+    };
+
+    #[cfg(desktop)]
     let builder = builder
-        .plugin(
-            tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(on_global_shortcut)
-                .build(),
-        )
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![AUTOSTART_ARG]),
@@ -309,10 +325,16 @@ pub fn run() {
         // la musica sigue, y se vuelve con un clic en el icono.
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
+                // GNOME puede no mostrar la bandeja: nunca dejar la app inaccesible.
+                if cfg!(target_os = "linux") {
+                    api.prevent_close();
+                    request_quit(window.app_handle());
+                    return;
+                }
                 let to_tray = window
                     .try_state::<Settings>()
                     .is_none_or(|settings| settings.close_to_tray());
-                if to_tray {
+                if to_tray && window.app_handle().tray_by_id(TRAY_ID).is_some() {
                     api.prevent_close();
                     let _ = window.hide();
                 }
@@ -326,6 +348,7 @@ pub fn run() {
 
     builder
         .plugin(tauri_plugin_notification::init())
+        .manage(voice_bridge::Bridge::default())
         .manage(AppCache::default())
         .manage(LyricsCache::default())
         .manage(commands::MiniState::default())
@@ -342,6 +365,13 @@ pub fn run() {
             // en Windows, el privado de la app en Android). Si el sistema no lo
             // diera, caemos al directorio actual antes que dejar la app sin
             // historial.
+            #[cfg(target_os = "linux")]
+            app.manage(audio_http::LocalAudio::start()?);
+            #[cfg(target_os = "linux")]
+            if let Err(error) = voice_bridge::start(app.handle().clone()) {
+                eprintln!("Voice bridge: {error}");
+            }
+
             let base = app
                 .path()
                 .app_data_dir()
@@ -376,6 +406,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            voice_bridge::take_voice_request,
+            voice_bridge::finish_voice_request,
             backup::create_backup,
             backup::inspect_backup,
             backup::restore_backup,
@@ -387,6 +419,7 @@ pub fn run() {
             commands::update_playlist_details,
             commands::create_smart_playlist,
             commands::bulk_playlist,
+            commands::get_audio_proxy_base,
             commands::get_audio_url,
             commands::prefetch_audio_url,
             commands::search_tracks,
@@ -424,6 +457,7 @@ pub fn run() {
             commands::export_file,
             commands::get_home,
             commands::get_platform,
+            commands::global_shortcuts_available,
             commands::set_mini_mode,
             commands::set_global_shortcuts,
             commands::notify_track,

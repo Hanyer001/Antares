@@ -110,22 +110,9 @@ fn find_ytdlp() -> PathBuf {
 
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
-    // El sidecar en desarrollo lleva el target-triple pegado al nombre
-    // (yt-dlp-x86_64-pc-windows-msvc.exe), asi que buscamos por prefijo en vez
-    // de intentar adivinar el triple exacto.
-    if let Ok(entries) = std::fs::read_dir(manifest_dir.join("binaries")) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let is_ytdlp = path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .map(|n| n.starts_with("yt-dlp"))
-                .unwrap_or(false);
-
-            if is_ytdlp && path.is_file() {
-                return path;
-            }
-        }
+    // Elegir el target exacto: el HDD puede contener también el .exe de Windows.
+    if let Some(sidecar) = development_sidecar(&manifest_dir) {
+        return sidecar;
     }
 
     let loose = manifest_dir.join(YTDLP_BIN);
@@ -134,6 +121,13 @@ fn find_ytdlp() -> PathBuf {
     }
 
     PathBuf::from("yt-dlp")
+}
+
+fn development_sidecar(manifest_dir: &std::path::Path) -> Option<PathBuf> {
+    let path = manifest_dir.join("binaries").join(format!(
+        "yt-dlp-{}{}", env!("ANTARES_TARGET"), std::env::consts::EXE_SUFFIX
+    ));
+    path.is_file().then_some(path)
 }
 
 /// `Command` ya configurado para el sistema operativo actual.
@@ -451,6 +445,24 @@ pub fn warm_up() {
 #[cfg(all(test, desktop))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn el_hdd_compartido_no_ejecuta_el_auxiliar_de_otro_sistema() {
+        let unique = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let dir = std::env::temp_dir().join(format!("antares-sidecar-{}-{unique}", std::process::id()));
+        let binaries = dir.join("binaries");
+        std::fs::create_dir_all(&binaries).unwrap();
+        let foreign = if cfg!(windows) { "yt-dlp-x86_64-unknown-linux-gnu" } else { "yt-dlp-x86_64-pc-windows-msvc.exe" };
+        std::fs::write(binaries.join(foreign), b"foreign").unwrap();
+        std::fs::write(binaries.join("yt-dlp-malformed.part"), b"partial").unwrap();
+        assert_eq!(development_sidecar(&dir), None);
+        let native = binaries.join(format!("yt-dlp-{}{}", env!("ANTARES_TARGET"), std::env::consts::EXE_SUFFIX));
+        std::fs::write(&native, b"native").unwrap();
+        assert_eq!(development_sidecar(&dir), Some(native));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+
 
     #[test]
     fn un_texto_normal_se_convierte_en_busqueda() {

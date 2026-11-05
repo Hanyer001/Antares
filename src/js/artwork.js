@@ -2,6 +2,7 @@
 // Si CORS impide leer el canvas, mantiene el acento predeterminado.
 
 import { els } from "./dom.js";
+import { setAmbientArtwork } from "./ambient.js";
 
 const DEFAULT_HUE = 213;
 const DEFAULT_SAT = 49;
@@ -186,6 +187,7 @@ function setBackdrop(url) {
   const root = document.documentElement;
   if (url) root.style.setProperty("--art-url", `url("${url}")`);
   else root.style.removeProperty("--art-url");
+  setAmbientArtwork(url);
 }
 
 // --- API -----------------------------------------------------------------
@@ -244,7 +246,13 @@ export function setArtwork(url) {
       els.artwork.classList.add("has-art");
       if (document.documentElement.dataset.platform !== "android") setBackdrop(url);
     })
-    .catch(() => {});
+    .catch(() => {
+      if (mine !== token) return;
+      // Sin portada nueva, el ambiente anterior permanece hasta la siguiente
+      // imagen válida. El primer plano usa su marcador y no muestra otra canción.
+      els.artwork.classList.remove("has-art");
+      els.artImg.removeAttribute("src");
+    });
 
   // Android conserva la portada, pero ya no usa su color para personalizar.
   // Evita la segunda descarga de muestreo y el trabajo del canvas.

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock, Weak};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{de::DeserializeOwned, Serialize};
@@ -231,7 +231,25 @@ pub(crate) fn now_secs() -> u64 {
         .unwrap_or(0)
 }
 
+/// Coordina lecturas, recuperaciones y escrituras del mismo archivo dentro
+/// del proceso. Las referencias débiles no retienen cada ruta para siempre.
+fn json_file_lock(path: &Path) -> Arc<Mutex<()>> {
+    static LOCKS: OnceLock<Mutex<HashMap<PathBuf, Weak<Mutex<()>>>>> = OnceLock::new();
+    let key = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+    let mut locks = LOCKS.get_or_init(Mutex::default)
+        .lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some(lock) = locks.get(&key).and_then(Weak::upgrade) {
+        return lock;
+    }
+    locks.retain(|_, lock| lock.strong_count() > 0);
+    let lock = Arc::new(Mutex::new(()));
+    locks.insert(key, Arc::downgrade(&lock));
+    lock
+}
+
 pub(crate) fn read_json<T: DeserializeOwned>(path: &Path) -> Option<T> {
+    let lock = json_file_lock(path);
+    let _guard = lock.lock().ok()?;
     if let Ok(bytes) = fs::read(path) {
         if let Ok(value) = serde_json::from_slice(&bytes) { return Some(value); }
     }
@@ -251,6 +269,9 @@ pub(crate) fn read_json<T: DeserializeOwned>(path: &Path) -> Option<T> {
 /// abriera la app. El renombrado es atomico: o esta el fichero viejo, o el nuevo
 /// completo, nunca uno a medias.
 pub(crate) fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> std::io::Result<()> {
+    let lock = json_file_lock(path);
+    let _guard = lock.lock()
+        .map_err(|_| std::io::Error::other("archivo JSON bloqueado"))?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -468,8 +489,27 @@ mod tests {
         store.clear_history();
         assert!(store.history().is_empty());
 
+        // Esperar la escritura asincrona, no una demora fija: el HDD puede
+        // tardar mas cuando las pruebas escriben en paralelo. Leer el JSON
+        // directamente evita activar la recuperacion mientras se guarda.
+        let path = dir.join(HISTORY_FILE);
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        loop {
+            let saved = fs::read(&path).ok().and_then(|bytes| {
+                serde_json::from_slice::<Vec<HistoryEntry>>(&bytes).ok()
+            });
+            if saved.is_some_and(|history| history.is_empty()) {
+                break;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "el historial borrado no se guardo en {}",
+                path.display()
+            );
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+
         // Y tambien tras releer: no se quedo solo en memoria.
-        std::thread::sleep(std::time::Duration::from_millis(120));
         assert!(Store::load(dir).history().is_empty());
     }
 
@@ -509,6 +549,68 @@ mod tests {
 #[cfg(test)]
 mod recovery_tests {
     use super::*;
+    #[test]
+    fn a_reader_cannot_restore_backup_over_an_in_flight_save() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        struct PausedValue {
+            started: mpsc::Sender<()>,
+            resume: mpsc::Receiver<()>,
+        }
+        impl Serialize for PausedValue {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                self.started.send(()).unwrap();
+                self.resume.recv_timeout(Duration::from_secs(10)).unwrap();
+                2u32.serialize(serializer)
+            }
+        }
+
+        let dir = std::env::temp_dir().join(format!(
+            "antares-read-during-save-{}-{:?}",
+            std::process::id(), std::thread::current().id()
+        ));
+        let path = dir.join("state.json");
+        write_json_atomic(&path, &0u32).unwrap();
+        write_json_atomic(&path, &1u32).unwrap();
+        fs::write(&path, b"{ broken").unwrap();
+
+        let (started_tx, started_rx) = mpsc::channel();
+        let (resume_tx, resume_rx) = mpsc::channel();
+        let writer_path = path.clone();
+        let writer = std::thread::spawn(move || {
+            write_json_atomic(&writer_path, &PausedValue {
+                started: started_tx, resume: resume_rx,
+            })
+        });
+        started_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+
+        // Otro archivo no debe bloquearse por esta escritura detenida.
+        write_json_atomic(&dir.join("other.json"), &42u32).unwrap();
+        let (reader_started_tx, reader_started_rx) = mpsc::channel();
+        let (read_tx, read_rx) = mpsc::channel();
+        let reader_path = path.clone();
+        let reader = std::thread::spawn(move || {
+            reader_started_tx.send(()).unwrap();
+            let value = read_json::<u32>(&reader_path);
+            read_tx.send(value).unwrap();
+            value
+        });
+        reader_started_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        let early_result = read_rx.recv_timeout(Duration::from_millis(150));
+
+        // Soltar y unir los hilos antes de comprobar para no dejarlos colgados.
+        resume_tx.send(()).unwrap();
+        writer.join().unwrap().unwrap();
+        let loaded = reader.join().unwrap();
+        assert!(
+            matches!(early_result, Err(mpsc::RecvTimeoutError::Timeout)),
+            "la recuperacion no debe adelantarse a una escritura en curso"
+        );
+        assert_eq!(loaded, Some(2));
+        assert_eq!(read_json::<u32>(&path), Some(2));
+    }
+
     #[test] fn corrupt_json_recovers_last_good_backup() {
         let dir=std::env::temp_dir().join(format!("antares-recover-{}-{:?}",std::process::id(),std::thread::current().id()));let path=dir.join("lists.json");
         write_json_atomic(&path,&vec!["first"]).unwrap();write_json_atomic(&path,&vec!["second"]).unwrap();

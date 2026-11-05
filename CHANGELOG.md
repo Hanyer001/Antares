@@ -1,5 +1,12 @@
 # Cambios
 
+## En desarrollo
+
+- Escritorio: distribución adaptable, pestañas de Cola y Letras, reproductor ampliado, fondo ambiental y visualizador opcional.
+- Búsqueda progresiva en escritorio y menor trabajo de la interfaz durante el desplazamiento. Inicio actualiza las recomendaciones después de cambios en la actividad y las preferencias.
+- Fedora experimental: reproducción con un puente HTTP local que transmite rangos completos a WebKitGTK y soporte de atajos globales en sesiones compatibles.
+- Las lecturas, escrituras y recuperaciones del mismo archivo JSON se coordinan para impedir que una copia antigua sustituya un guardado en curso.
+
 ## Android 0.3.3 Beta 1
 
 - Primera distribución pública con el nombre Antares y firma de distribución.

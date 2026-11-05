@@ -33,6 +33,12 @@ Antares brings music search, playback, library organization and listening-based 
 
 Public playlist imports, including Spotify lists with more than 100 tracks, match tracks to playable sources. Text and CSV imports are also supported. See the [feature guide (Spanish)](docs/features.md) for formats and platform differences.
 
+## Recent source changes
+
+- The desktop layout adapts to available space, with queue and lyrics tabs, an expanded player and an optional audio visualizer.
+- Desktop search shows results as providers respond. Artwork and hover previews do less work while scrolling.
+- Experimental Fedora support includes a local HTTP audio bridge for WebKitGTK. Build and run from source with the [Fedora guide (Spanish)](docs/LINUX.md).
+
 ## Engineering overview
 
 ```mermaid

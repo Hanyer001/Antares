@@ -34,7 +34,11 @@ const STATE_FILE: &str = "updater.json";
 const ASSET_NAME: &str = "yt-dlp.exe";
 #[cfg(target_os = "macos")]
 const ASSET_NAME: &str = "yt-dlp_macos";
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+const ASSET_NAME: &str = "yt-dlp_linux";
+#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+const ASSET_NAME: &str = "yt-dlp_linux_aarch64";
+#[cfg(all(unix, not(any(target_os = "macos", all(target_os = "linux", any(target_arch = "x86_64", target_arch = "aarch64"))))))]
 const ASSET_NAME: &str = "yt-dlp";
 
 #[derive(Default, Serialize, Deserialize)]
@@ -326,8 +330,8 @@ mod tests {
             tag_name: "2025.08.11".to_string(),
             assets: vec![
                 Asset {
-                    name: "yt-dlp_linux".to_string(),
-                    browser_download_url: "https://example/linux".to_string(),
+                    name: "yt-dlp_otra_plataforma".to_string(),
+                    browser_download_url: "https://example/otra".to_string(),
                 },
                 Asset {
                     name: ASSET_NAME.to_string(),

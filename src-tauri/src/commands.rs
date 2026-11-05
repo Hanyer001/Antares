@@ -136,6 +136,22 @@ pub async fn get_audio_url(
     Ok(AudioResult { track, cached, safe })
 }
 
+/// Linux necesita HTTP para el elemento de audio de WebKitGTK. Las otras
+/// plataformas conservan el protocolo personalizado o su reproductor nativo.
+#[tauri::command]
+pub fn get_audio_proxy_base(app: tauri::AppHandle) -> Option<String> {
+    #[cfg(target_os = "linux")]
+    {
+        use tauri::Manager;
+        Some(app.state::<crate::audio_http::LocalAudio>().base.clone())
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = app;
+        None
+    }
+}
+
 /// Resolucion especulativa: el frontend la dispara mientras el usuario aun
 /// escribe, para que al pulsar Enter la pista ya este en cache.
 ///
@@ -1049,6 +1065,13 @@ pub fn set_global_shortcuts(
 ) -> Vec<String> {
     use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
+    if !crate::global_shortcuts_supported() {
+        let mut failed: Vec<_> = bindings.into_iter()
+            .filter(|(_, key)| !key.trim().is_empty()).map(|(action, _)| action).collect();
+        failed.sort();
+        return failed;
+    }
+
     let shortcuts = app.global_shortcut();
     let _ = shortcuts.unregister_all();
 
@@ -1212,6 +1235,15 @@ pub async fn ytdlp_version() -> Option<String> {
 #[tauri::command]
 pub fn get_platform() -> &'static str {
     std::env::consts::OS
+}
+
+/// La sesión actual puede registrar atajos fuera de Antares.
+#[tauri::command]
+pub fn global_shortcuts_available() -> bool {
+    #[cfg(desktop)]
+    { crate::global_shortcuts_supported() }
+    #[cfg(mobile)]
+    { false }
 }
 
 #[tauri::command]

@@ -1,6 +1,7 @@
 use tauri_build::{Attributes, DefaultPermissionRule, InlinedPlugin};
 
 fn main() {
+    println!("cargo:rustc-env=ANTARES_TARGET={}", std::env::var("TARGET").expect("Cargo target"));
     // El reproductor nativo de Android (PlayerPlugin.kt) es un plugin definido
     // dentro de la app. Tauri solo deja a la interfaz llamar a las órdenes de
     // un plugin que tenga permisos declarados, así que se declaran aquí y

@@ -188,7 +188,7 @@ function startRecording(button, path, requireModifier) {
     if (!combo) return; // solo un modificador: aún no ha terminado
 
     if (requireModifier && !hasModifier(combo)) {
-      note.textContent = "En todo Windows hace falta Ctrl, Alt o Win.";
+      note.textContent = "En todo el sistema hace falta Ctrl, Alt o Win.";
       note.hidden = false;
       return;
     }
@@ -242,7 +242,7 @@ function renderKeyList(container, group, requireModifier, failed = []) {
       if (clashes[action]) {
         note.textContent = `Repetido con «${ACTION_LABELS[clashes[action]]}»`;
       } else if (failed.includes(action)) {
-        note.textContent = "Windows no lo deja usar: lo tiene otro programa";
+        note.textContent = "El sistema no lo deja usar: lo tiene otro programa";
       }
       note.hidden = !note.textContent;
 

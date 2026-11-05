@@ -21,7 +21,8 @@ fn client() -> &'static reqwest::Client {
 
     CLIENT.get_or_init(|| {
         reqwest::Client::builder()
-            .timeout(Duration::from_secs(20))
+            .connect_timeout(Duration::from_secs(10))
+            .read_timeout(Duration::from_secs(20))
             .build()
             .unwrap_or_default()
     })
@@ -56,12 +57,24 @@ pub fn clamp_range(start: u64, end: Option<u64>) -> (u64, u64) {
     (start, end.map_or(max_end, |e| e.min(max_end)))
 }
 
-fn error(status: StatusCode, message: &str) -> Response<Vec<u8>> {
+pub(super) fn error(status: StatusCode, message: &str) -> Response<Vec<u8>> {
     Response::builder()
         .status(status)
         .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         .body(message.as_bytes().to_vec())
         .unwrap_or_default()
+}
+
+/// Petición compartida por el protocolo de Windows y el flujo HTTP de Linux.
+/// El consumidor decide el rango: HTTP debe poder completar el que pidió WebKit.
+pub(super) async fn fetch(
+    target: &str,
+    method: tauri::http::Method,
+    range: Option<tauri::http::HeaderValue>,
+) -> Result<reqwest::Response, reqwest::Error> {
+    let mut request = client().request(method, target);
+    if let Some(range) = range { request = request.header(header::RANGE, range); }
+    request.send().await
 }
 
 /// Atiende una peticion del `<audio>`.

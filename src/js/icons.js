@@ -15,6 +15,10 @@ const PATHS = {
     "fill:M18 10.4a1.6 1.6 0 1 1 0 3.2 1.6 1.6 0 0 1 0-3.2z",
   ],
   play: ["fill:M8 5.5v13l11-6.5z"],
+  pause: ["fill:M7 5h4v14H7z", "fill:M14 5h4v14h-4z"],
+  music: ["M9 18V5l11-2v13", "M9 9l11-2", "M6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6z", "M17 13a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"],
+  loading: ["M20 12a8 8 0 1 1-8-8"],
+  warning: ["M12 8v5", "M12 17h.01", "M12 3 2 21h20L12 3z"],
   // Una lista con un play delante del primer renglón: "la siguiente".
   playNext: ["M3 6h11", "M3 12h7", "M3 18h7", "fill:M14 10v8l6.5-4z"],
   heart: [

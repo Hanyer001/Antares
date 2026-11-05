@@ -209,6 +209,7 @@ export const SCHEMA = {
   // abajo, como en YouTube Music o Spotify, y el mini reproductor, como el de
   // Apple Music. Solo escritorio.
   player: {
+    focusVisualizer: bool(false),
     bar: bool(true),
     barPosition: oneOf("bottom", ["bottom", "top"]),
     // "edge" (Línea arriba): controles a la izquierda y el progreso como una

@@ -1,0 +1,83 @@
+/* Etapa 2: navegación adaptable y contexto compartido, sin mover el DOM. */
+:root:not([data-platform="android"])[data-shell]:not([data-focus]):not([data-mini]) .app {
+  --sidebar-w: var(--shell-navigation);
+  --nowplaying-w: var(--shell-context);
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr) var(--nowplaying-w);
+}
+:root:not([data-platform="android"])[data-shell][data-mirrored]:not([data-focus]):not([data-mini]) .app {
+  grid-template-columns: var(--nowplaying-w) minmax(0, 1fr) var(--sidebar-w);
+}
+:root:not([data-platform="android"])[data-shell]:not([data-focus]):not([data-mini]) .sidebar { grid-column: 1; grid-row: 1; }
+:root:not([data-platform="android"])[data-shell]:not([data-focus]):not([data-mini]) .main { grid-column: 2; grid-row: 1; }
+:root:not([data-platform="android"])[data-shell]:not([data-focus]):not([data-mini]) .nowplaying { grid-column: 3; grid-row: 1; }
+:root:not([data-platform="android"])[data-shell][data-mirrored]:not([data-focus]):not([data-mini]) .sidebar { grid-column: 3; }
+:root:not([data-platform="android"])[data-shell][data-mirrored]:not([data-focus]):not([data-mini]) .nowplaying { grid-column: 1; }
+:root:not([data-platform="android"])[data-shell]:not([data-context-open]):not([data-focus]):not([data-mini]) .app,
+:root:not([data-platform="android"])[data-shell="overlay"]:not([data-focus]):not([data-mini]) .app { --nowplaying-w: 0px; }
+
+:root:not([data-platform="android"])[data-shell] .nowplaying[hidden] { display: none; }
+:root:not([data-platform="android"])[data-shell]:not([data-mini]):not([data-focus]) .context-head {
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  color: var(--text-dim); font-size: 12px; font-weight: 600;
+}
+:root:not([data-platform="android"])[data-shell] .context-toggle { display: inline-flex; gap: 8px; flex-shrink: 0; }
+:root:not([data-platform="android"])[data-shell] .context-toggle svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+:root:not([data-platform="android"])[data-shell] .context-toggle.is-active { color: var(--accent); background: var(--accent-wash); }
+:root:not([data-platform="android"])[data-shell] .context-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:root:not([data-platform="android"])[data-shell] .view-head { flex-wrap: wrap; align-items: center; }
+:root:not([data-platform="android"])[data-shell] .view-head__text { flex: 1; }
+
+:root:not([data-platform="android"])[data-shell]:not([data-focus]):not([data-mini]) .nowplaying {
+  padding: 12px 16px 16px; gap: 12px; min-width: 0; overflow-y: auto;
+}
+:root:not([data-platform="android"])[data-shell] .side-tab { font-size: 12px; letter-spacing: 0; text-transform: none; padding: 7px 10px; }
+:root:not([data-platform="android"])[data-shell] .upnext { min-height: 160px; }
+:root:not([data-platform="android"])[data-context-requested] .upnext { display: flex; }
+:root:not([data-platform="android"])[data-shell] .upnext__by { font-size: 12px; color: var(--text-dim); }
+:root:not([data-platform="android"])[data-shell] .console { flex-shrink: 0; }
+:root:not([data-platform="android"])[data-shell]:not([data-focus]):not([data-mini]) .console { padding: 16px; gap: 16px; }
+:root:not([data-platform="android"])[data-shell="docked"][data-artwork="medium"]:not([data-focus]):not([data-mini]) .artwork { width: min(100%, 184px, 24vh); }
+
+/* Plegado automático: no altera la preferencia de navegación del usuario. */
+:root:not([data-platform="android"])[data-shell-nav="icons"]:not([data-focus]):not([data-mini]) .sidebar { align-items: center; padding-inline: 10px; }
+:root:not([data-platform="android"])[data-shell-nav="icons"] .wordmark,
+:root:not([data-platform="android"])[data-shell-nav="icons"] .tab span:not(.avatar),
+:root:not([data-platform="android"])[data-shell-nav="icons"] .sidebar__section { display: none; }
+:root:not([data-platform="android"])[data-shell-nav="icons"] .brand { padding: 6px 0 4px; }
+:root:not([data-platform="android"])[data-shell-nav="icons"] .tab { justify-content: center; width: 44px; padding: 10px 0; }
+:root:not([data-platform="android"])[data-shell-nav="icons"] .resizer--sidebar { display: none; }
+:root:not([data-platform="android"])[data-shell]:not([data-context-open]) .resizer--nowplaying,
+:root:not([data-platform="android"])[data-shell="overlay"] .resizer--nowplaying { display: none; }
+
+/* El panel se superpone solo a la app: la altura ya descuenta la barra
+   persistente, incluso si esta se coloca arriba o es flotante. */
+:root:not([data-platform="android"])[data-shell="overlay"]:not([data-focus]):not([data-mini]) .nowplaying {
+  position: absolute; z-index: 31; inset: 8px 8px 8px auto;
+  grid-column: 1 / -1;
+  width: min(var(--shell-context), calc(100% - 16px));
+  border: 1px solid var(--line-strong); border-radius: var(--radius-lg);
+  background: var(--bg); box-shadow: var(--shadow-md);
+}
+:root:not([data-platform="android"])[data-shell="overlay"][data-mirrored]:not([data-focus]):not([data-mini]) .nowplaying { inset: 8px auto 8px 8px; grid-column: 1 / -1; }
+:root:not([data-platform="android"])[data-shell="overlay"] .context-scrim:not([hidden]) {
+  display: block; position: absolute; inset: 0; z-index: 30; background: rgb(0 0 0 / .38);
+}
+:root:not([data-platform="android"])[data-shell="overlay"]:not([data-focus]):not([data-mini]) .console { padding: 14px; gap: 12px; }
+:root:not([data-platform="android"])[data-shell="overlay"]:not([data-focus]):not([data-mini]) .track {
+  display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 10px; min-height: 0; text-align: left;
+}
+:root:not([data-platform="android"])[data-shell="overlay"]:not([data-focus]):not([data-mini]) .artwork { width: 56px; margin: 0; border-radius: var(--radius); }
+:root:not([data-platform="android"])[data-shell="overlay"]:not([data-focus]):not([data-mini]) .track__head { grid-template-columns: minmax(0, 1fr); gap: 0; }
+:root:not([data-platform="android"])[data-shell="overlay"]:not([data-focus]):not([data-mini]) .track__head > .rate { display: none; }
+:root:not([data-platform="android"])[data-shell="overlay"]:not([data-focus]):not([data-mini]) .track__title { font-size: 14px; line-height: 1.4; }
+:root:not([data-platform="android"])[data-shell="overlay"]:not([data-focus]):not([data-mini]) .track__by { font-size: 12px; }
+:root:not([data-platform="android"])[data-shell="overlay"]:not([data-focus]):not([data-mini]) .chips { grid-column: 1 / -1; justify-content: flex-start; }
+:root:not([data-platform="android"])[data-shell="overlay"]:not([data-focus]):not([data-mini]) .timeline,
+:root:not([data-platform="android"])[data-shell="overlay"]:not([data-focus]):not([data-mini]) .transport { display: flex; }
+:root:not([data-platform="android"])[data-shell="overlay"]:not([data-console-hide~="volume"]):not([data-focus]):not([data-mini]) .volume { display: flex; }
+/* Mantener el diseño de escucha independiente del ancho anterior. */
+:root:not([data-platform="android"])[data-focus] .context-toggle,
+:root:not([data-platform="android"])[data-mini] .context-toggle { display: none; }
+@media (max-width: 760px) {
+  :root:not([data-platform="android"])[data-focus] .nowplaying { grid-template-columns: minmax(0, 1fr); overflow-y: auto; }
+}

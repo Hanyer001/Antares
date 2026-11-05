@@ -99,6 +99,14 @@ export async function check(manual = false) {
 export async function initAppUpdate(opts = {}) {
   if (opts.beforeInstall) beforeInstall = opts.beforeInstall;
 
+  if (await invoke("get_platform") === "linux") {
+    $("app-update-button").disabled = true;
+    $("app-update-button").textContent = "Canal Linux pendiente";
+    const version = await invoke("app_version");
+    $("app-version").textContent = `Tienes la ${version} · Linux en adaptación`;
+    return;
+  }
+
   $("app-update-button").addEventListener("click", () => check(true));
   invoke("app_version")
     .then((version) => ($("app-version").textContent = `Tienes la ${version}`))

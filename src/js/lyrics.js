@@ -3,6 +3,8 @@
 
 import { els } from "./dom.js";
 import * as prefs from "./prefs.js";
+import { prepareLyrics, lyricIndex } from './lyrics-policy.js';
+import { lyricsScroll } from './motion.js';
 
 const { invoke } = window.__TAURI__.core;
 
@@ -17,13 +19,22 @@ let offset = 0;
 let lastTime = 0;
 
 /** Id de la pista cuya letra está puesta, para descartar respuestas tardías. */
-let currentId = null;
+let request = 0;
 let lines = [];
 let activeIndex = -1;
 
-/** Tras un scroll a mano, la lista deja de seguir al verso un rato. */
-const MANUAL_SCROLL_PAUSE_MS = 4000;
-let manualScrollUntil = 0;
+/** La lectura manual termina cuando el usuario pide volver al verso actual. */
+let manual = false;
+const follow = () => document.getElementById('lyrics-follow');
+function renderFollow() { follow().hidden = !manual || !lines.length; }
+function centerActive(instant = false) {
+  if (manual || els.lyrics.hidden || !els.lyrics.clientHeight || activeIndex < 0) return;
+  const node = els.lyrics.querySelector(`.lyric[data-index="${activeIndex}"]`);
+  if (!node) return;
+  const target = Math.max(0, node.offsetTop - els.lyrics.clientHeight / 2 + node.clientHeight / 2);
+  const behavior = instant ? 'auto' : lyricsScroll(target - els.lyrics.scrollTop, els.lyrics.clientHeight);
+  els.lyrics.scrollTo({ top: target, behavior });
+}
 
 let onSeek = () => {};
 
@@ -49,6 +60,7 @@ function message(text) {
   p.textContent = text;
   els.lyrics.replaceChildren(p);
   els.lyricsSync.hidden = true;
+  renderFollow();
 }
 
 /** "+0,5 s", "−1 s", "0 s". */
@@ -71,7 +83,7 @@ function renderSynced(synced, matched) {
     button.className = "lyric" + (line.text ? "" : " lyric--pause");
     button.textContent = line.text || "♪";
     button.dataset.index = String(i);
-    button.addEventListener("click", () => onSeek(line.time));
+    button.addEventListener("click", () => { manual = false; renderFollow(); onSeek(line.time); });
     return button;
   });
 
@@ -97,9 +109,13 @@ function credit(matched) {
 
 /** Busca y pinta la letra de una pista. */
 export async function load(track) {
-  currentId = track?.id ?? null;
+  const mine = ++request;
   lines = [];
   activeIndex = -1;
+  lastTime = 0;
+  manual = false;
+  els.lyrics.scrollTo({top:0,behavior:'instant'});
+  els.lyrics.removeAttribute('aria-busy');
   announceLine(-1);
 
   if (!track?.id || !track.title) {
@@ -108,7 +124,7 @@ export async function load(track) {
   }
 
   message("Buscando la letra...");
-  const mine = track.id;
+  els.lyrics.setAttribute('aria-busy', 'true');
 
   try {
     const lyrics = await invoke("get_lyrics", {
@@ -118,68 +134,51 @@ export async function load(track) {
       duration: track.duration ?? null,
     });
 
-    if (currentId !== mine) return;
+    if (request !== mine) return;
+    els.lyrics.removeAttribute('aria-busy');
 
     if (!lyrics) {
       message("No encontré la letra de esta canción.");
     } else if (lyrics.instrumental) {
       message("Instrumental.");
-    } else if (lyrics.synced.length > 0) {
-      lines = lyrics.synced;
+    } else if (prepareLyrics(lyrics.synced).length > 0) {
+      lines = prepareLyrics(lyrics.synced);
       renderSynced(lines, lyrics.matched);
+      tick(lastTime);
     } else if (lyrics.plain) {
       renderPlain(lyrics.plain, lyrics.matched);
     } else {
       message("No encontré la letra de esta canción.");
     }
   } catch (error) {
-    if (currentId !== mine) return;
+    if (request !== mine) return;
+    els.lyrics.removeAttribute('aria-busy');
     console.warn("Letra:", error);
     message("No se pudo buscar la letra ahora mismo.");
   }
 }
 
 /** El último verso que ya ha empezado, por búsqueda binaria. */
-function lineAt(time) {
-  let lo = 0;
-  let hi = lines.length - 1;
-  let found = -1;
-
-  while (lo <= hi) {
-    const mid = (lo + hi) >> 1;
-    if (lines[mid].time <= time + 0.15) {
-      found = mid;
-      lo = mid + 1;
-    } else {
-      hi = mid - 1;
-    }
-  }
-
-  return found;
-}
-
 /** Se llama con cada `timeupdate`: resalta el verso que suena. */
 export function tick(time) {
+  if (!Number.isFinite(time)) return;
   lastTime = time;
-  if (lines.length === 0) return;
+  if (document.hidden || lines.length === 0) return;
 
-  const index = lineAt(time + offset);
+  const index = lyricIndex(lines, time, offset);
   if (index === activeIndex) return;
 
-  els.lyrics.querySelector(".lyric.is-active")?.classList.remove("is-active");
+  const previous = els.lyrics.querySelector('.lyric.is-active');
+  previous?.classList.remove('is-active');
+  previous?.removeAttribute('aria-current');
   activeIndex = index;
   announceLine(index);
   if (index < 0) return;
 
   const node = els.lyrics.querySelector(`.lyric[data-index="${index}"]`);
   node?.classList.add("is-active");
-
-  // Solo si la letra está a la vista y el usuario no está leyendo por su cuenta.
-  if (node && !els.lyrics.hidden && performance.now() > manualScrollUntil) {
-    const box = els.lyrics;
-    const target = node.offsetTop - box.clientHeight / 2 + node.clientHeight / 2;
-    box.scrollTo({ top: target, behavior: "smooth" });
-  }
+  node?.setAttribute('aria-current', 'true');
+  centerActive();
 }
 
 export function initLyrics({ seek }) {
@@ -201,14 +200,29 @@ export function initLyrics({ seek }) {
   els.lyricsEarlier.addEventListener("click", () => nudge(OFFSET_STEP));
   els.lyricsLater.addEventListener("click", () => nudge(-OFFSET_STEP));
 
-  // La rueda o el arrastre del usuario pausan el seguimiento automático.
+  const pause = () => { if (lines.length) { manual = true; renderFollow(); els.lyrics.scrollTo({top:els.lyrics.scrollTop,behavior:'instant'}); } };
+  document.getElementById('lyrics-resume').addEventListener('click', () => {
+    manual = false; renderFollow();
+    (els.lyrics.querySelector('.lyric.is-active') || els.lyrics).focus({preventScroll:true});
+    centerActive();
+  });
+  // Rueda, arrastre y teclado dan prioridad a la lectura manual.
   for (const event of ["wheel", "touchmove", "pointerdown"]) {
     els.lyrics.addEventListener(
       event,
-      () => {
-        manualScrollUntil = performance.now() + MANUAL_SCROLL_PAUSE_MS;
-      },
+      pause,
       { passive: true },
     );
   }
+  els.lyrics.addEventListener('keydown', event => {
+    if (['ArrowUp','ArrowDown','PageUp','PageDown','Home','End'].includes(event.key) || (event.key === ' ' && event.target === els.lyrics)) {
+      // Leer con el teclado no debe disparar también volumen o reproducción.
+      event.stopPropagation(); pause();
+    }
+  });
+  // Al mostrar la pestaña o expandir la ventana, recolocar sin animar el layout.
+  new ResizeObserver(() => centerActive(true)).observe(els.lyrics);
+  const stopSmooth = () => els.lyrics.scrollTo({top:els.lyrics.scrollTop,behavior:'instant'});
+  new MutationObserver(stopSmooth).observe(document.documentElement,{attributes:true,attributeFilter:['data-motion']});
+  matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', stopSmooth);
 }

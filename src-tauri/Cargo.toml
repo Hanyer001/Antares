@@ -74,6 +74,15 @@ windows = { version = "0.62", features = [
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"
 
+# WebKitGTK no reproduce medios por esquemas personalizados. El puente HTTP
+# solo existe en Linux y reutiliza los clientes y tipos de HTTP ya presentes.
+[target.'cfg(target_os = "linux")'.dependencies]
+hyper = { version = "1", features = ["http1", "server"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+http-body-util = "0.1"
+futures-util = "0.3"
+uuid = { version = "1", features = ["v4"] }
+
 [dev-dependencies]
 minisign-verify = "0.2"
 base64 = "0.22"

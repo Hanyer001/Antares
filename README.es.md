@@ -25,6 +25,12 @@ La copia de `rusty_ytdl` y su parche de cliente YouTube se documentan en [ANTARE
 
 [Descargar Antares 0.3.3 para Windows](https://github.com/Hanyer001/antares-actualizaciones/releases/download/v0.3.3/Antares-Setup.exe) · [Página de Antares](https://hanyer001.github.io/Pagina-Antares/)
 
+## Cambios recientes en el código
+
+- La interfaz de escritorio se adapta al espacio disponible e incluye pestañas de Cola y Letras, un reproductor ampliado y un visualizador opcional.
+- La búsqueda de escritorio muestra resultados a medida que responden los proveedores. Durante el desplazamiento se reduce el trabajo de las portadas y de la preparación de audio al pasar el puntero.
+- El soporte experimental para Fedora incluye un puente HTTP local de audio para WebKitGTK. Consulta la [guía de Fedora](docs/LINUX.md) para compilar y ejecutar desde el código fuente.
+
 ## Funciones principales
 
 | | Qué puedes hacer |

@@ -244,7 +244,7 @@ export const THEMES = [
 /** Los pseudotemas: no traen paleta fija. */
 export const EXTRA_THEMES = [
   { id: "artwork", name: "Carátula" },
-  { id: "system", name: "Según Windows" },
+  { id: "system", name: "Según el sistema" },
   { id: "custom", name: "Personalizado" },
 ];
 

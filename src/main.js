@@ -1,3 +1,4 @@
+import { createVoiceHandler, initVoiceBridge } from "./js/voice-bridge.js";
 // Inicialización y coordinación de reproducción, navegación y biblioteca.
 // Los módulos de js/ gestionan los controles y servicios de cada función.
 
@@ -45,9 +46,12 @@ import * as thumbbar from "./js/thumbbar.js";
 import * as miniPlayer from "./js/miniplayer.js";
 import * as nowState from "./js/nowstate.js";
 import * as playerBar from "./js/playerbar.js";
+import { setSearchView } from "./js/loading.js";
+import { initVisualizer } from "./js/visualizer.js";
 import { prefetchTrack, resolveTrack, searchSongs, searchTracks } from "./js/search.js";
-import { rankSearch } from "./js/searchrank.js";
+import { progressiveSearch } from "./js/progressive-search.js";
 import * as settings from "./js/settings.js";
+import { initPlatformUi } from "./js/platform-ui.js";
 import { toast } from "./js/toast.js";
 import { haptic } from "./js/haptics.js";
 import { feedback, initFeedbackSettings } from "./js/feedback.js";
@@ -143,7 +147,7 @@ const recovery = new Recovery({
     }
     return reproducir(playing.query, { safeMode: true, fresh: true, recovering: true, hint: playing.hint, startAt });
   },
-  waiting: () => { setEngine("busy"); showRecovery(true); },
+  waiting: () => { setEngine("busy", "reconnecting"); showRecovery(true); },
   failed: () => { playing.loading = false; ++requestId; player.pause(); setEngine("error"); showRecovery(); },
   recovered: () => { recoveryNotice.hidden = true; },
 });
@@ -183,6 +187,7 @@ function cargarCola(tracks, start, opts, nombre = null) {
 let lastQuery = "";
 let lastResults = [];
 let searching = false;
+let searchError = '';
 let lastHistory = [];
 
 /** El artista que se está buscando (su tarjeta encima de los resultados), o null. */
@@ -337,6 +342,10 @@ async function reproducir(query, { safeMode = false, hint = null, startAt = 0, c
     }
 
     if (currentRequest !== requestId) return false;
+    if (!crossfade) {
+      const totalMs = Math.round(performance.now() - startedAt);
+      console.log(`Audio iniciado en ${totalMs} ms (resolución ${resolvedMs} ms; carga ${totalMs - resolvedMs} ms)`);
+    }
     recovery.playing();
     setTransportEnabled(true);
 
@@ -638,6 +647,7 @@ function cerrarEscucha(ended) {
     if (!outcome) return;
 
     discovery.noteListen(escucha.track, outcome);
+    home.invalidate();
     refrescarListas().catch(console.warn);
 
     const segundos = Math.round(escucha.listened);
@@ -666,6 +676,7 @@ async function valorar(nuevo) {
 
   try {
     await library.setRating(track, nuevo);
+    home.invalidate();
   } catch (error) {
     rating = antes;
     setRating(rating, true);
@@ -757,6 +768,7 @@ async function iniciarRadioDe(seeds, nombre) {
 /** La pone a sonar ya, dejando el resto de la cola detrás. */
 function reproducirAhora(track) {
   discovery.notePick(track);
+  home.invalidate();
   queue.playNow(track);
   reproducirPista(track);
   recomendarDetras();
@@ -765,6 +777,7 @@ function reproducirAhora(track) {
 /** Será la siguiente, sin cortar lo que suena. */
 function reproducirSiguiente(track) {
   discovery.notePick(track);
+  home.invalidate();
 
   if (!queue.playNext(track)) {
     toast("Ya está sonando.", { tone: "warn" });
@@ -780,6 +793,7 @@ function reproducirSiguiente(track) {
  */
 function anadirACola(track) {
   discovery.notePick(track);
+  home.invalidate();
 
   if (!queue.add(track)) {
     toast("Ya está sonando.", { tone: "warn" });
@@ -1543,6 +1557,7 @@ function cuenta(n) {
  * ella, que es más útil que desaparecer.
  */
 function renderPanel() {
+  setSearchView(activeTab === 'results');
   libraryTools.hide();
   const listOpen = activeTab === "lists" && openListId !== null;
 
@@ -1595,6 +1610,8 @@ function renderPanel() {
         },
         searching
           ? "Buscando..."
+          : searchError
+            ? 'Puedes reintentar la búsqueda o cambiar las palabras.'
           : lastQuery
             ? "No encontré nada con eso. Prueba con otras palabras."
             : "Escribe arriba el nombre de una canción o pega un enlace de YouTube.",
@@ -1640,6 +1657,7 @@ function renderPanel() {
   }
 
   renderUpNext();
+
 }
 
 /** El título de Inicio, según la hora. */
@@ -1738,12 +1756,15 @@ function resumenBusqueda() {
  */
 async function buscarResultados(query) {
   const mine = ++searchId;
+  let streamed = false;
 
   // Si lo buscado empieza por el nombre de un artista, su tarjeta sale encima.
   // Va aparte y en paralelo: las canciones no esperan por ella.
   if (!query.startsWith("http")) {
     artistView.artistForQuery(query).then((hit) => {
       if (mine !== searchId || !hit) return;
+      // No insertar una cabecera tardía sobre las filas que ya se leen.
+      if (!searching) return;
       lastArtistHit = hit;
       if (activeTab === "results") renderPanel();
     });
@@ -1764,13 +1785,23 @@ async function buscarResultados(query) {
       lastSearchArtist = null;
       lastSearchSplit = -1;
     } else {
-      // YouTube y YouTube Music a la vez: el segundo dice de quién es la
-      // canción, y sus resultados van primero (ver searchrank.js).
-      const [videos, songs] = await Promise.all([searchTracks(query), searchSongs(query)]);
-      const ranked = rankSearch(videos, songs, query);
-      found = ranked.tracks;
-      lastSearchArtist = ranked.artist;
-      lastSearchSplit = ranked.split;
+      // YouTube Music suele responder antes. No hacerle esperar al extractor
+      // de vídeos; la fuente tardía se añade abajo sin mover lo ya visible.
+      found = await progressiveSearch([searchSongs(query), searchTracks(query)], tracks => {
+        if (mine !== searchId) return;
+        const first = !streamed;
+        streamed = true;
+        lastResults = tracks;
+        lastSearchArtist = null;
+        lastSearchSplit = -1;
+        searching = false;
+        setBusy(false);
+        if (activeTab === "results") {
+          if (first || !results.appendSearchResults(tracks)) renderPanel();
+          else setView("Buscar", resumenBusqueda());
+        }
+        if (first && tracks[0]) prefetchTrack(tracks[0].watch_url);
+      });
     }
 
     if (mine !== searchId) return;
@@ -1779,12 +1810,13 @@ async function buscarResultados(query) {
     if (mine !== searchId) return;
     lastResults = [];
     lastSearchSplit = -1;
-    setStatus(friendlyError(error, "No se pudo buscar ahora mismo. Inténtalo de nuevo."), "error");
+    searchError = friendlyError(error, "No se pudo buscar ahora mismo. Inténtalo de nuevo.");
+    setStatus(searchError, "error");
   }
 
   searching = false;
-  setBusy(false);
-  if (activeTab === "results") renderPanel();
+  setBusy(false, { error: searchError });
+  if (activeTab === "results" && !streamed) renderPanel();
 
   // La primera es la que más probablemente se elija: se resuelve ya, para que
   // el clic sea instantáneo.
@@ -1793,6 +1825,7 @@ async function buscarResultados(query) {
 
 async function cargarHistorial() {
   lastHistory = await loadHistory();
+  home.invalidate();
   settings.setHistoryCount(lastHistory.length);
   renderPanel();
 }
@@ -1804,6 +1837,7 @@ async function cargarHistorial() {
  */
 async function refrescarHistorial() {
   lastHistory = await loadHistory();
+  home.invalidate();
   settings.setHistoryCount(lastHistory.length);
   if (activeTab === "history") renderPanel();
 }
@@ -1827,6 +1861,7 @@ function buscar() {
   lastArtistHit = null;
   lastSearchSplit = -1;
   searching = true;
+  searchError = '';
   setBusy(true);
   activeTab = "results";
   renderPanel();
@@ -1835,6 +1870,10 @@ function buscar() {
 }
 
 // --- Cableado ------------------------------------------------------------
+document.getElementById('search-retry').addEventListener('click', () => {
+  els.input.value = lastQuery;
+  buscar();
+});
 
 // Quién usa la app y sus preferencias antes que nada: casi todo lo que arranca
 // abajo las lee.
@@ -1861,7 +1900,12 @@ if (ANDROID) {
 
 // El sonido antes que el reproductor: este conecta sus platos a la cadena que
 // crea aquel.
-sound.initSound({ enabled: !ANDROID, native: ANDROID ? nativeCall : null });
+sound.initSound({
+  enabled: !ANDROID,
+  native: ANDROID ? nativeCall : null,
+  proxyBase: ANDROID ? null : await invoke("get_audio_proxy_base"),
+});
+if (!ANDROID) initVisualizer();
 if (ANDROID) initMobile({openTab:abrirPestana,next:saltarASiguiente,previous:anterior,canSwipe:()=>!layout.isFocus() && Boolean(playing.track) && !document.hidden});
 player.initPlayer();
 dialog.initDialog();
@@ -1911,14 +1955,13 @@ if (!ANDROID) {
   });
 
   const alternarLetra = () => {
-    if (!prefs.get("layout.upnext")) layout.setFocus(!layout.isFocus());
-    else prefs.set("interface.sideTab", prefs.get("interface.sideTab") === "lyrics" ? "upnext" : "lyrics");
+    layout.openContextPanel("lyrics");
   };
 
   playerBar.initPlayerBar({
     handlers: {
       lyrics: alternarLetra,
-      queue: () => abrirPestana("queue"),
+      queue: () => layout.openContextPanel("upnext"),
       mini: () => layout.setMini(true),
       expand: () => layout.setFocus(!layout.isFocus()),
     },
@@ -2003,6 +2046,9 @@ function mostrarPestanaLateral(tab) {
 
   els.upnextTab.setAttribute("aria-selected", String(!letra));
   els.lyricsTab.setAttribute("aria-selected", String(letra));
+  els.upnextTab.tabIndex = letra ? -1 : 0;
+  els.lyricsTab.tabIndex = letra ? 0 : -1;
+  els.upnextPanel.hidden = letra;
   els.upnextList.hidden = letra;
   els.upnextMore.hidden = letra;
   els.lyrics.hidden = !letra;
@@ -2053,6 +2099,7 @@ results.onPick((track) => {
 
   if (esPagina(activeTab)) {
     discovery.notePick(track);
+    home.invalidate();
     artistView.playFrom(track);
     return;
   }
@@ -2064,6 +2111,7 @@ results.onPick((track) => {
     cargarCola(fuente, desde, { ordered: true, auto: true }, "Tu mezcla");
   } else {
     discovery.notePick(track);
+    home.invalidate();
     const nombre = esPagina(activeTab) ? artistView.currentName() : listaAbierta()?.name;
     cargarCola(fuente, desde, {}, nombre ?? null);
   }
@@ -2265,7 +2313,7 @@ player.on("time", (currentTime) => {
 });
 
 // Se queda sin datos a mitad de canción: el aro del play, como al cargar.
-player.on("waiting", () => { setEngine("busy"); recovery.buffering(); });
+player.on("waiting", () => { setEngine("busy", playing.loading ? "preparing" : "buffering"); recovery.buffering(); });
 player.on("playing", () => { setEngine("playing"); recovery.playing(); });
 player.on("time", (time) => { if (!playing.loading) recovery.progress(time); });
 player.on("pause", () => {
@@ -2462,6 +2510,7 @@ Promise.all([loadHistory(), library.getPlaylists()]).then(([history, lists]) => 
 // --- Ajustes -------------------------------------------------------------
 
 settings.initSettings();
+initPlatformUi().catch(error => console.warn("Ajustes de plataforma:", error));
 backups.init({ beforeBackup: async () => { guardarSesion(); await prefs.flush(); }, beforeRestore: async () => { recovery.pause(); player.pause(); await cerrarEscucha(false); guardarSesion(); await prefs.flush(); } });
 settings.onMessage((texto, tono) => setStatus(texto, tono));
 customize.initCustomize();
@@ -2543,3 +2592,46 @@ onUpdated((version) => {
   console.log(`yt-dlp actualizado a ${version}`);
   settings.setVersion(version);
 });
+
+// The assistant controls this player's queue, never another media application.
+if (!ANDROID && await invoke("get_platform") === "linux") {
+  const voiceStatus = () => ({ playing: player.isPlaying(), id: playing.track?.id || "", title: playing.track?.title || "" });
+  const voiceCancels = new Map();
+  async function voicePlay(track, request, startAt = 0) {
+    artistView.cancelPendingPlay();
+    const previousAudio = playing.audioQuery;
+    const pending = reproducir(track.watch_url, { hint: track, startAt });
+    const owned = requestId;
+    const cancel = () => {
+      if (requestId !== owned) return; // A later manual action belongs to the user.
+      ++requestId;
+      if (playing.audioQuery !== previousAudio) player.pause();
+      playing.loading = false;recovery.pause();recoveryNotice.hidden = true;
+      setEngine(player.isPlaying() ? "playing" : "idle");
+    };
+    voiceCancels.set(request.id, cancel);
+    try {
+      const started = await pending;
+      if (started && requestId === owned) queue.playNow(track);
+      return started;
+    } finally {
+      if (voiceCancels.get(request.id) === cancel) voiceCancels.delete(request.id);
+    }
+  }
+  initVoiceBridge({ invoke, listen, onCancel: id => voiceCancels.get(id)?.(), handle: createVoiceHandler({
+    search: async query => { const songs = await searchSongs(query); return songs.length ? songs : searchTracks(query, 5); },
+    play: voicePlay,
+    status: voiceStatus,
+    control: async (command, request) => {
+      if (command === "pause") { player.pause(); return !player.isPlaying(); }
+      if (command === "resume") {
+        if (player.hasSource()) { await player.play(); return player.isPlaying(); }
+        if (!pendingResume) return false;
+        const { track, time } = pendingResume;
+        return await voicePlay(track, request, time);
+      }
+      const track = command === "next" ? queue.next() : queue.prev();
+      return track ? await voicePlay(track, request) : false;
+    },
+  }) }).catch(error => console.warn("Voice bridge:", error));
+}

@@ -1,0 +1,105 @@
+/* Etapas 3–4. Solo escritorio; Android conserva su reproductor propio. */
+:root:not([data-platform="android"]) .playerbar {
+  column-gap: clamp(8px, 1.2vw, 18px);
+}
+:root:not([data-platform="android"])[data-bar-layout="edge"] .playerbar {
+  grid-template-columns: minmax(150px, 1fr) auto auto auto;
+  grid-template-areas: "meta controls seek side";
+}
+:root:not([data-platform="android"]) .pbar__meta { justify-self: start; justify-content: start; max-width: 100%; }
+:root:not([data-platform="android"]) .pbar__title { font-weight: 600; }
+:root:not([data-platform="android"]) .pbar__time { font-variant-numeric: tabular-nums; white-space: nowrap; }
+:root:not([data-platform="android"]) .pbar__scrub { height: 28px; cursor: pointer; touch-action: none; }
+:root:not([data-platform="android"]) .pbar__scrub:disabled { cursor: default; }
+:root:not([data-platform="android"])[data-bar-layout="inline"] .playerbar {
+  grid-template-rows: minmax(0, 1fr) 20px; row-gap: 0; padding-top: 4px; padding-bottom: 4px;
+}
+:root:not([data-platform="android"])[data-bar-layout="inline"] .pbar__seek { height: 20px; align-self: center; }
+:root:not([data-platform="android"])[data-bar-layout="inline"] .pbar__scrub { height: 20px; }
+:root:not([data-platform="android"])[data-bar-layout="inline"][data-bar-size="compact"] .pbar__controls .pb-play { width: 32px; height: 32px; }
+:root:not([data-platform="android"])[data-bar-layout="edge"] .pbar__scrub { top: -12px; }
+:root:not([data-platform="android"])[data-bar-layout="edge"][data-bar-position="top"] .pbar__scrub { top: auto; bottom: -12px; }
+:root:not([data-platform="android"])[data-bar-shape="floating"][data-bar-layout="edge"] .pbar__scrub { top: -9px; }
+:root:not([data-platform="android"])[data-bar-shape="floating"][data-bar-layout="edge"][data-bar-position="top"] .pbar__scrub { top: auto; bottom: -9px; }
+:root:not([data-platform="android"]) .pbar__scrub:focus-visible::-webkit-slider-thumb,
+:root:not([data-platform="android"]) .pbar__vol:focus-visible::-webkit-slider-thumb { opacity: 1; }
+:root:not([data-platform="android"]) .playerbar :is(button,input):focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 3px;
+}
+:root:not([data-platform="android"]) .playerbar .pb-btn {
+  transition: background-color 140ms ease, color 140ms ease, transform 140ms cubic-bezier(.2,0,0,1);
+}
+:root:not([data-platform="android"]) .playerbar .pb-btn:active:not(:disabled) { transform: scale(.94); }
+:root:not([data-platform="android"]) .pbar__art { position: relative; background: var(--surface-3); }
+:root:not([data-platform="android"]) .pbar__art::before {
+  content: "♫"; position: absolute; inset: 0; display: grid; place-items: center;
+  color: var(--text-dim); font-size: 24px;
+}
+:root:not([data-platform="android"]) .pbar__art img { position: absolute; inset: 0; }
+:root:not([data-platform="android"]) .playerbar.has-art .pbar__art::before { visibility: hidden; }
+.pbar-tooltip {
+  position: fixed; z-index: 200; pointer-events: none; padding: 5px 9px;
+  border-radius: 8px; background: var(--surface); color: var(--text);
+  box-shadow: 0 3px 16px #0005; border: 1px solid var(--line);
+  font-size: 12px; font-variant-numeric: tabular-nums;
+}
+.pbar-tooltip[hidden] { display: none; }
+
+/* Se animan opacidades, nunca background-image ni el radio del blur. */
+.ambient-managed::before { content: none !important; }
+.ambient-layer {
+  position: absolute; inset: calc(var(--backdrop-blur, 40px) * -2);
+  background-position: center; background-size: cover; background-repeat: no-repeat;
+  filter: blur(var(--backdrop-blur, 40px)) saturate(1.1); pointer-events: none;
+}
+.pbar__ambient {
+  position: absolute; inset: 0; overflow: hidden; z-index: -1; pointer-events: none;
+  --backdrop-blur: 28px; opacity: .22;
+}
+.pbar__ambient .ambient-layer { filter: blur(28px) saturate(1.15); }
+:root:not([data-platform="android"])[data-bar-style="artwork"] .playerbar {
+  /* La portada aporta ambiente; la base del tema mantiene legible el texto. */
+  background: color-mix(in srgb, var(--surface) 90%, var(--bg));
+}
+:root:not([data-platform="android"]):is([data-background="artwork"],[data-background="image"]) :is(.sidebar,.main,.nowplaying) {
+  background-color: color-mix(in srgb, var(--bg) 88%, transparent);
+}
+/* La navegación deja ver el mismo fondo continuo; el contenido conserva
+   una superficie más sólida para listas y lectura. Liso no se modifica. */
+:root:not([data-platform="android"]):is([data-background="artwork"],[data-background="image"]) .sidebar {
+  background-color: color-mix(in srgb, var(--bg) 68%, transparent);
+}
+@media (max-width: 1180px) {
+  :root:not([data-platform="android"]) .playerbar { padding-left: 12px; padding-right: 12px; }
+  :root:not([data-platform="android"]) .pbar__meta { gap: 8px; }
+  :root:not([data-platform="android"]) .pbar__extras { gap: 0; padding-left: 4px; }
+}
+@media (max-width: 1040px) {
+  /* No ocultar el padre: también contiene el rango de progreso del borde. */
+  :root:not([data-platform="android"])[data-bar-layout="edge"] .pbar__seek { display: flex; }
+  :root:not([data-platform="android"]) .pbar__vol { display: block; width: 60px; }
+  :root:not([data-platform="android"])[data-bar-layout="inline"] .playerbar {
+    grid-template-columns: minmax(130px, 1fr) minmax(220px, 1.2fr) auto;
+  }
+  :root:not([data-platform="android"]) .pbar__rate { display: none; }
+}
+@media (max-width: 820px) {
+  :root:not([data-platform="android"])[data-bar-layout="edge"] .playerbar {
+    grid-template-columns: minmax(130px, 1fr) auto auto;
+    grid-template-areas: "meta controls side";
+  }
+  :root:not([data-platform="android"])[data-bar-layout="edge"] .pbar__seek { grid-area: auto; }
+  :root:not([data-platform="android"])[data-bar-layout="edge"] .pbar__time { display: none; }
+  :root:not([data-platform="android"]) .pbar__mode--side { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-platform="android"]) .playerbar .pb-btn { transition: none; }
+}
+:root:is([data-motion="none"],[data-motion="reduced"]) .playerbar .pb-btn { transition: none; }
+
+/* Portada propia en la navegación: centrada en la columna, no en el borde
+   de la ventana. Su capa estable nunca se desplaza al cambiar de pestaña. */
+:root:not([data-platform="android"]) .sidebar.ambient-sidebar { position:relative; isolation:isolate; }
+.sidebar__ambient { position:absolute; inset:0; overflow:hidden; z-index:-1; pointer-events:none; }
+.sidebar__ambient::after { content:""; position:absolute; inset:0; background:color-mix(in srgb,var(--bg) 68%,transparent); }
+:root:not([data-background="artwork"]):not([data-background="image"]):not([data-focus]) .sidebar__ambient { display:none; }

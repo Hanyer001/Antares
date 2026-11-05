@@ -17,8 +17,8 @@ pub struct AppUpdate {
 /// misma sin volver a preguntar.
 #[derive(Default)]
 pub struct Pending(
-    #[cfg(desktop)] std::sync::Mutex<Option<tauri_plugin_updater::Update>>,
-    #[cfg(mobile)] (),
+    #[cfg(all(desktop, not(target_os = "linux")))] std::sync::Mutex<Option<tauri_plugin_updater::Update>>,
+    #[cfg(any(mobile, target_os = "linux"))] (),
 );
 
 /// La version que esta corriendo.
@@ -28,7 +28,7 @@ pub fn app_version(app: tauri::AppHandle) -> String {
 }
 
 /// ¿Hay una version mas nueva publicada? `None` si ya es la ultima.
-#[cfg(desktop)]
+#[cfg(all(desktop, not(target_os = "linux")))]
 #[tauri::command]
 pub async fn check_app_update(
     app: tauri::AppHandle,
@@ -55,7 +55,7 @@ pub async fn check_app_update(
 /// Descarga, comprueba la firma e instala la version encontrada. Mientras
 /// baja, avisa al frontend ("app-update-progress": bajado y total en bytes).
 /// En Windows no vuelve: el instalador cierra la app y la abre de nuevo.
-#[cfg(desktop)]
+#[cfg(all(desktop, not(target_os = "linux")))]
 #[tauri::command]
 pub async fn install_app_update(
     app: tauri::AppHandle,
@@ -98,7 +98,7 @@ pub async fn install_app_update(
 }
 
 /// Los errores del actualizador, en palabras de persona.
-#[cfg(desktop)]
+#[cfg(all(desktop, not(target_os = "linux")))]
 fn friendly(error: tauri_plugin_updater::Error) -> String {
     let text = error.to_string();
     let lower = text.to_lowercase();
@@ -171,4 +171,17 @@ pub async fn check_app_update() -> Result<Option<AppUpdate>, String> {
 #[tauri::command]
 pub async fn install_app_update() -> Result<(), String> {
     Err("En el móvil, la versión nueva se instala con su APK.".to_string())
+}
+
+// El canal publicado actualmente solo contiene paquetes de Windows.
+#[cfg(target_os = "linux")]
+#[tauri::command]
+pub async fn check_app_update() -> Result<Option<AppUpdate>, String> {
+    Err("Todavía no hay un canal de actualizaciones para Linux.".to_string())
+}
+
+#[cfg(target_os = "linux")]
+#[tauri::command]
+pub async fn install_app_update() -> Result<(), String> {
+    Err("La versión Linux se actualiza desde su código o paquete de Linux.".to_string())
 }

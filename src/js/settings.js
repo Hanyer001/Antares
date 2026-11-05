@@ -26,6 +26,8 @@ const MAX_IMPORT_BYTES = 16 * 1024 * 1024;
 
 let confirmTimer = null;
 let versionLoaded = false;
+let boundDirty = false;
+let boundFrame = null;
 
 const handlers = {
   onOpen: () => {},
@@ -75,6 +77,8 @@ export function show(visible) {
     }
     return;
   }
+
+  if (boundDirty) { boundDirty = false; renderBound(); }
 
   // La versión se pide una sola vez por sesión: preguntársela al binario cuesta
   // ~1 s porque arranca PyInstaller, y no cambia mientras la app está abierta
@@ -170,6 +174,15 @@ function renderBound() {
   filter(els.settingsSearch.value);
 }
 
+function requestBound() {
+  boundDirty = true;
+  if (els.settings.hidden || boundFrame !== null) return;
+  boundFrame = requestAnimationFrame(() => {
+    boundFrame = null;
+    if (!els.settings.hidden && boundDirty) { boundDirty = false; renderBound(); }
+  });
+}
+
 function bindPrefs() {
   for (const input of els.settings.querySelectorAll("[data-pref]")) {
     // Deslizadores, color y texto, en vivo; lo demás, al soltar o elegir.
@@ -179,7 +192,7 @@ function bindPrefs() {
     });
   }
 
-  prefs.on("", renderBound);
+  prefs.on("", requestBound);
   renderBound();
 }
 
@@ -200,9 +213,9 @@ const GROUPS = {
   home: ["Qué secciones salen en Inicio y tus géneros", "M4 11l8-7 8 7M6 9.5V20h12V9.5"],
   behavior: ["Clics, saltos, volumen, al abrir, avisos y letra", "M4 7h10M18 7h2M4 17h4M12 17h8M14 5v4M8 15v4"],
   discovery: ["Cómo se eligen las canciones que no pediste", "M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"],
-  shortcuts: ["Las teclas de la app y las de todo Windows", "M3.5 6.5h17v11h-17zM7 10h.01M11 10h.01M15 10h.01M7.5 14h9"],
+  shortcuts: ["Las teclas de la app y las de todo el sistema", "M3.5 6.5h17v11h-17zM7 10h.01M11 10h.01M15 10h.01M7.5 14h9"],
   sound: ["Nivelar el volumen, ecualizador y transiciones", "M6 20V10M6 6V4M12 20v-4M12 12V4M18 20v-8M18 8V4M4 8h4M10 14h4M16 10h4"],
-  system: ["Bandeja, inicio con Windows y el motor de reproducción", "M3.5 4.5h17v12h-17zM9 20.5h6M12 16.5v4"],
+  system: ["Bandeja, inicio de sesión y el motor de reproducción", "M3.5 4.5h17v12h-17zM9 20.5h6M12 16.5v4"],
   people: ["Perfiles de ajustes y varias personas en el mismo equipo", "M16 20v-1.5a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4V20M9.5 10.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM21 20v-1.5a4 4 0 0 0-3-3.9M15.5 3.6a3.5 3.5 0 0 1 0 6.8"],
   data: ["Copias de seguridad, historial y restablecer", "M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"],
 };
@@ -357,7 +370,7 @@ function filter(query) {
 
     for (const row of group.querySelectorAll(".setting")) {
       const sub = row.closest(".settings__subbox")?.querySelector(".settings__subtoggle")?.textContent ?? "";
-      const haystack = normalize(`${title} ${sub} ${row.textContent} ${row.dataset.keywords ?? ""}`);
+      const haystack = words.length ? normalize(`${title} ${sub} ${row.textContent} ${row.dataset.keywords ?? ""}`) : "";
       const unavailable = ANDROID ? Boolean(row.closest(".desktop-only")) : Boolean(row.closest(".android-only"));
       const match = !unavailable && words.every((word) => haystack.includes(word));
 

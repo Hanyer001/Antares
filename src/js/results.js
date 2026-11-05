@@ -3,6 +3,8 @@
 // recibe los eventos de selección.
 
 import { els } from "./dom.js";
+import { displayThumbnail } from "./thumbnails.js";
+import { createHoverPrefetch } from "./scroll-activity.js";
 import { formatTime } from "./format.js";
 import { icon, iconButton } from "./icons.js";
 import { bindTouchSort, dropPosition } from "./mobile-interactions.js";
@@ -16,7 +18,8 @@ import { bindTouchSort, dropPosition } from "./mobile-interactions.js";
 const HOVER_PREFETCH_MS = 400;
 
 let currentId = null;
-let hoverTimer = null;
+let playbackState = "idle";
+const hoverPrefetch = createHoverPrefetch();
 
 /** Posición de la fila que se está arrastrando, o null. */
 let dragFrom = null;
@@ -265,9 +268,70 @@ function buildBy(track) {
   return by;
 }
 
+/** Una miniatura con tamaño reservado y respaldo local si falta o falla. */
+export function coverArt(thumbnail) {
+  const cover = document.createElement("span");
+  cover.className = "result__cover";
+  cover.setAttribute("aria-hidden", "true");
+
+  const fallback = document.createElement("span");
+  fallback.className = "result__fallback";
+  fallback.append(icon("music"));
+  cover.append(fallback);
+
+  if (thumbnail) {
+    const image = document.createElement("img");
+    image.className = "result__art result__art--pending";
+    image.alt = "";
+    image.loading = "lazy";
+    image.addEventListener("load", () => {
+      image.classList.remove("result__art--pending");
+      fallback.hidden = true;
+    }, { once: true });
+    image.addEventListener("error", () => image.remove(), { once: true });
+    image.decoding = "async";
+    image.src = displayThumbnail(thumbnail, 44);
+    cover.append(image);
+  }
+  return cover;
+}
+
+const PLAYBACK = {
+  busy: { state: "loading", label: "Preparando audio", icon: "loading" },
+  playing: { state: "playing", label: "Reproduciendo", icon: "play" },
+  idle: { state: "paused", label: "En pausa", icon: "pause" },
+  error: { state: "error", label: "Error de reproducción", icon: "warning" },
+};
+
+function updateRowState(row) {
+  const isCurrent = Boolean(currentId) && row.dataset.id === currentId;
+  const state = PLAYBACK[playbackState] ?? PLAYBACK.idle;
+  const badge = row.querySelector(".result__state");
+  row.classList.toggle("is-current", isCurrent);
+  row.setAttribute("aria-current", String(isCurrent));
+  row.setAttribute("aria-busy", String(isCurrent && state.state === "loading"));
+  const label = [row.querySelector(".result__title").textContent,
+    row.querySelector(".result__artist")?.textContent].filter(Boolean).join(" · ");
+  row.setAttribute("aria-label", `${isCurrent ? state.label : "Reproducir"}: ${label}`);
+  if (isCurrent) {
+    if (row.dataset.playback !== state.state) badge.replaceChildren(icon(state.icon));
+    row.dataset.playback = state.state;
+    badge.title = state.label;
+  } else {
+    delete row.dataset.playback;
+  }
+  badge.hidden = !isCurrent;
+}
+
+/** Comparte el estado del motor con las filas sin iniciar ni pausar audio. */
+export function setPlaybackState(state) {
+  playbackState = state;
+  markCurrent(currentId);
+}
+
 function buildRow(track, { removeLabel, reorderable, count, playNext, minReorderIndex = 0 }, position) {
   const li = document.createElement("li");
-  li.className = "result";
+  li.className = "result result--track";
   li.dataset.id = track.id;
   li.dataset.position = String(position);
 
@@ -276,11 +340,12 @@ function buildRow(track, { removeLabel, reorderable, count, playNext, minReorder
   li.tabIndex = 0;
   li.setAttribute("role", "button");
 
-  const art = document.createElement("img");
-  art.className = "result__art";
-  art.alt = "";
-  art.loading = "lazy";
-  if (track.thumbnail) art.src = track.thumbnail;
+  const art = coverArt(track.thumbnail);
+  const state = document.createElement("span");
+  state.className = "result__state";
+  state.setAttribute("aria-hidden", "true");
+  state.hidden = true;
+  art.append(state);
 
   const text = document.createElement("div");
   text.className = "result__text";
@@ -288,12 +353,13 @@ function buildRow(track, { removeLabel, reorderable, count, playNext, minReorder
   const title = document.createElement("span");
   title.className = "result__title";
   title.textContent = track.title || "Sin título";
+  title.title = title.textContent;
 
   text.append(title, buildBy(track));
 
   const time = document.createElement("span");
   time.className = "result__time";
-  time.textContent = track.duration ? formatTime(track.duration) : "";
+  time.textContent = formatTime(track.duration);
 
   const actions = buildActions(track, removeLabel, playNext);
   li.append(art, text, time, actions);
@@ -317,13 +383,7 @@ function buildRow(track, { removeLabel, reorderable, count, playNext, minReorder
     pick();
   });
 
-  li.addEventListener("pointerenter", () => {
-    if (document.documentElement.dataset.platform === "android") return;
-    clearTimeout(hoverTimer);
-    hoverTimer = setTimeout(() => handlers.onHover(track), HOVER_PREFETCH_MS);
-  });
-
-  li.addEventListener("pointerleave", () => clearTimeout(hoverTimer));
+  hoverPrefetch.bind(li, () => handlers.onHover(track), HOVER_PREFETCH_MS);
 
   return li;
 }
@@ -348,6 +408,18 @@ function buildRow(track, { removeLabel, reorderable, count, playNext, minReorder
  */
 export function render(tracks, opts = {}) {
   renderInto(els.resultsList, tracks, opts);
+}
+
+/** Añade la segunda fuente sin desmontar las imágenes ni quitar el foco. */
+export function appendSearchResults(tracks) {
+  const rows = [...els.resultsList.querySelectorAll('.result--track')];
+  if (!rows.length || rows.length > tracks.length || rows.some((row,i) => row.dataset.id !== tracks[i]?.id)) return false;
+  for (let i=rows.length;i<tracks.length;i++) {
+    const row = buildRow(tracks[i], {removeLabel:null,reorderable:false,playNext:true,count:tracks.length}, i);
+    updateRowState(row);
+    els.resultsList.append(row);
+  }
+  return true;
 }
 
 function buildDivider({ text, action }) {
@@ -384,7 +456,7 @@ export function renderInto(
       handlers.onMove(from,dropPosition(from,at,after,count),{id:row.dataset.id,targetId:target.dataset.id});
     }});
   }
-  clearTimeout(hoverTimer);
+  hoverPrefetch.cancel();
   lists.add(list);
   list.replaceChildren();
   if (lead) list.append(lead);
@@ -404,7 +476,7 @@ export function renderInto(
 
 /** Un mensaje en lugar de filas, para una lista vacía. */
 export function renderEmpty(message, { lead = null } = {}) {
-  clearTimeout(hoverTimer);
+  hoverPrefetch.cancel();
 
   const li = document.createElement("li");
   li.className = "results__empty";
@@ -429,7 +501,13 @@ export function rowAt(position) {
  *                                 cola": llevan su título, como en Spotify.
  * @param {string} [opts.context]  Qué se escuchaba, para el título del resto.
  */
+let upNextSignature = null;
 export function renderUpNext(tracks, emptyText, { queued = 0, context = null } = {}) {
+  // Navegar no cambia la cola. Conservar filas, imágenes y foco mientras sus
+  // datos sean los mismos; incluir metadatos para no retener callbacks viejos.
+  const signature = JSON.stringify([tracks, emptyText, queued, context]);
+  if (signature === upNextSignature) return;
+  upNextSignature = signature;
   if (tracks.length === 0) {
     const li = document.createElement("li");
     li.className = "upnext__empty";
@@ -460,7 +538,8 @@ export function renderUpNext(tracks, emptyText, { queued = 0, context = null } =
     art.className = "upnext__art";
     art.alt = "";
     art.loading = "lazy";
-    if (track.thumbnail) art.src = track.thumbnail;
+    art.decoding = "async";
+    if (track.thumbnail) art.src = displayThumbnail(track.thumbnail, 40);
 
     const text = document.createElement("span");
     text.className = "upnext__text";
@@ -498,7 +577,7 @@ export function setVisible(visible) {
   document.body.classList.toggle("has-results", visible);
 
   if (!visible) {
-    clearTimeout(hoverTimer);
+    hoverPrefetch.cancel();
     els.resultsList.replaceChildren();
   }
 }
@@ -515,10 +594,6 @@ export function markCurrent(id) {
   currentId = id ?? null;
 
   for (const list of lists) {
-    for (const row of list.querySelectorAll(":scope > .result")) {
-      const isCurrent = Boolean(currentId) && row.dataset.id === currentId;
-      row.classList.toggle("is-current", isCurrent);
-      row.setAttribute("aria-current", isCurrent ? "true" : "false");
-    }
+    for (const row of list.querySelectorAll(":scope > .result--track")) updateRowState(row);
   }
 }

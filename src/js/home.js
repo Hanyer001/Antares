@@ -2,9 +2,12 @@
 // Cada sección se muestra cuando llegan sus datos; el orden y la visibilidad
 // se toman de las preferencias.
 
+import { createShelfCache } from "./shelf-cache.js";
 import * as moments from "./moments.js";
 import * as discovery from "./discovery.js";
 import { els } from "./dom.js";
+import { displayThumbnail } from "./thumbnails.js";
+import { createHoverPrefetch, bindScrollFeedback } from "./scroll-activity.js";
 import { makeFilter } from "./filters.js";
 import { detectGenres, genreById, GENRES, tracksOfGenre } from "./genres.js";
 import { icon, iconButton } from "./icons.js";
@@ -54,7 +57,9 @@ let data = { again: [], top: [], discoveries: [], artists: [], library: [] };
 let playlists = [];
 
 /** Estanterías que se generan (mezcla, géneros, radios, explorar), por clave. */
-const dynamic = new Map();
+const shelfCache = createShelfCache();
+const dynamic = shelfCache.entries;
+let refreshVersion = 0;
 
 /** Tus géneros ahora mismo: `{ id, name, seeds }`. */
 let genres = [];
@@ -62,7 +67,7 @@ let detected = [];
 
 let visible = false;
 let loadedOnce = false;
-let hoverTimer = null;
+const hoverPrefetch = createHoverPrefetch();
 
 /** El elemento de cada estantería y su firma, para no repintar las que no cambian. */
 const painted = new Map();
@@ -76,6 +81,7 @@ const painted = new Map();
  */
 export function initHome(callbacks) {
   Object.assign(handlers, callbacks);
+  bindScrollFeedback(els.home);
   if(document.documentElement.dataset.platform==='android') initOrganizer();
 
   prefs.on("home", () => {
@@ -84,7 +90,7 @@ export function initHome(callbacks) {
     render();
   });
   // Bloquear un canal o una palabra lo quita de las estanterías ya pintadas.
-  prefs.on("discovery", render);
+  prefs.on("discovery", () => { invalidate(); render(); });
 }
 
 export function setPlaylists(lists) {
@@ -132,18 +138,15 @@ function exploreGenre() {
 
 /** Genera una estantería en segundo plano y la pinta al llegar. */
 async function generate(key, make) {
-  dynamic.set(key, { state: "loading" });
-  render();
-
   try {
-    const shelf = await make();
-    dynamic.set(key, shelf ? { ...shelf, state: "ready" } : { state: "empty" });
+    await shelfCache.generate(key, make, render);
   } catch (error) {
     console.warn(`Inicio: no se pudo preparar «${key}»:`, error);
-    dynamic.set(key, { state: "error" });
   }
-  render();
 }
+
+/** Recalcular al volver a Inicio, sin mover tarjetas durante una elección. */
+export function invalidate() { shelfCache.invalidate(); }
 
 function makers() {
   const list = new Map();
@@ -216,28 +219,36 @@ function generateMissing(force = false) {
 
 /**
  * Carga Inicio: las estanterías de las estadísticas siempre (son instantáneas),
- * las generadas solo la primera vez o con `force` ("Actualizar").
+ * las generadas al cambiar las escuchas y volver, o con "Actualizar".
  */
 export async function refresh({ force = false } = {}) {
+  const version = ++refreshVersion;
+  const regenerate = shelfCache.consumeInvalidation() || force;
+  // Invalidar antes de esperar: otra recarga más nueva puede terminar primero.
+  if (regenerate) dynamic.clear();
   try {
-    data = await invoke("get_home");
+    const fresh = await invoke("get_home");
+    if (version !== refreshVersion) return;
+    data = fresh;
   } catch (error) {
+    if (version !== refreshVersion) return;
+    invalidate();
     console.warn("Inicio: no se pudieron leer las estadísticas:", error);
   }
 
   chooseGenres();
-  if (force) dynamic.clear();
-  generateMissing(force);
+  generateMissing(regenerate);
   loadedOnce = true;
   render();
 }
 
 export function show(isVisible) {
+  const entering = isVisible && !visible;
   visible = isVisible;
   els.home.hidden = !visible;
   if (!visible) return;
 
-  if (!loadedOnce) refresh();
+  if (!loadedOnce || (entering && shelfCache.needsRefresh)) refresh();
   else render();
 }
 
@@ -364,7 +375,8 @@ function art(src, className) {
   img.className = className;
   img.alt = "";
   img.loading = "lazy";
-  if (src) img.src = src;
+  img.decoding = "async";
+  if (src) img.src = displayThumbnail(src);
   return img;
 }
 
@@ -433,12 +445,7 @@ function trackCard(track) {
     event.preventDefault();
     handlers.menu(track, more);
   });
-  card.addEventListener("pointerenter", () => {
-    if(document.documentElement.dataset.platform==='android')return;
-    clearTimeout(hoverTimer);
-    hoverTimer = setTimeout(() => handlers.prefetch(track), HOVER_PREFETCH_MS);
-  });
-  card.addEventListener("pointerleave", () => clearTimeout(hoverTimer));
+  hoverPrefetch.bind(card, () => handlers.prefetch(track), HOVER_PREFETCH_MS);
 
   return card;
 }

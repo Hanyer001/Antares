@@ -3,6 +3,7 @@
 
 import { MOBILE_FONTS } from "./mobile-fonts.js";
 import { currentColor, onColor, setAccentOverride } from "./artwork.js";
+import { setAmbientWallpaper } from "./ambient.js";
 import { els } from "./dom.js";
 import { friendlyError } from "./format.js";
 import * as prefs from "./prefs.js";
@@ -89,6 +90,7 @@ function applyWallpaper() {
   const root = document.documentElement;
   if (wallpaper) root.style.setProperty("--wallpaper-url", `url("${wallpaper}")`);
   else root.style.removeProperty("--wallpaper-url");
+  setAmbientWallpaper(wallpaper);
 
   els.wallpaperState.textContent = wallpaper ? "Imagen elegida" : "Ninguna imagen elegida";
   els.wallpaperClear.disabled = !wallpaper;
