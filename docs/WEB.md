@@ -67,4 +67,4 @@ El archivo `render.yaml` despliega la rama `pwa` como servicio Docker gratuito. 
 
 Abre [crear la prueba en Render](https://dashboard.render.com/select-repo?type=blueprint&repo=https://github.com/Hanyer001/Antares&branch=pwa), inicia sesión y revisa que el servicio use el plan Free y el archivo `render.yaml` de la rama `pwa`. Tras desplegar, usa la URL HTTPS que Render confirme. Esa misma URL funciona en iPhone y Android, con el Mac apagado.
 
-Para publicar también la interfaz en Pages, configura `ANTARES_WEB_API` con la URL real del servicio seguida de `/api/`, usa GitHub Actions como fuente de Pages y ejecuta el flujo desde la rama `pwa`. La dirección de Render ya aloja la app completa y permite probarla antes de configurar Pages.
+Para publicar también la interfaz en Pages, configura `ANTARES_WEB_API` con la URL real del servicio seguida de `/api/`, usa GitHub Actions como fuente de Pages y ejecuta el flujo desde la rama `main`; su checkout publica explícitamente el código de `pwa`. La dirección de Render ya aloja la app completa y permite probarla antes de configurar Pages.
