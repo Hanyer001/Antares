@@ -1,6 +1,26 @@
+import { runtime } from "./platform.js";
 // Ajustes disponibles en la adaptación inicial de Linux. No cambia preferencias guardadas.
 export async function initPlatformUi() {
-  const platform = await window.__TAURI__.core.invoke("get_platform");
+  const platform = await runtime.core.invoke("get_platform");
+  if (platform === "web") {
+    for (const [key, explanation] of [
+      ["system.autostart", "El inicio automático pertenece a la aplicación de escritorio."],
+      ["system.closeToTray", "En la web, usa el ícono de Inicio y los controles multimedia del teléfono."],
+      ["system.startHidden", "El navegador controla cómo se abre la aplicación web."],
+      ["shortcuts.globalEnabled", "Los atajos funcionan dentro de Antares; los controles del sistema usan Media Session."],
+      ["behavior.notify", "La pista y los controles se muestran mediante Media Session."],
+    ]) {
+      const input = document.querySelector(`[data-pref="${key}"]`);
+      if (!input) continue;
+      input.disabled = true;
+      input.title = explanation;
+      const note = input.closest(".setting")?.querySelector(".setting__value");
+      if (note) note.textContent = explanation;
+    }
+    const update = document.getElementById("update-button");
+    if (update) { update.disabled = true; update.textContent = "Motor del servidor"; }
+    return;
+  }
   if (platform !== "linux") return;
   document.documentElement.dataset.platform = "linux";
   const unavailable = [
@@ -8,7 +28,7 @@ export async function initPlatformUi() {
     ["system.startHidden", "En Linux, Antares inicia con su ventana visible."],
     ["system.updateCheck", "El canal de actualizaciones para Linux todavía está pendiente."],
   ];
-  if (!await window.__TAURI__.core.invoke("global_shortcuts_available")) {
+  if (!await runtime.core.invoke("global_shortcuts_available")) {
     unavailable.push(["shortcuts.globalEnabled", "Los atajos globales todavía no están disponibles en Wayland. Los atajos dentro de Antares siguen funcionando."]);
   }
   for (const [key, explanation] of unavailable) {

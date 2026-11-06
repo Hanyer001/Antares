@@ -1,3 +1,4 @@
+import { runtime } from "./platform.js";
 // Muestra las letras obtenidas de lrclib por Rust.
 // En letras sincronizadas, resalta el verso actual y permite saltar a él.
 
@@ -6,7 +7,7 @@ import * as prefs from "./prefs.js";
 import { prepareLyrics, lyricIndex } from './lyrics-policy.js';
 import { lyricsScroll } from './motion.js';
 
-const { invoke } = window.__TAURI__.core;
+const { invoke } = runtime.core;
 
 /** Lo que mueven los botones de sincronía de debajo de la letra. */
 const OFFSET_STEP = 0.5;

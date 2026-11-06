@@ -1,6 +1,7 @@
+import { runtime } from "./platform.js";
 // Acceso al historial persistido por Rust.
 
-const { invoke } = window.__TAURI__.core;
+const { invoke } = runtime.core;
 
 /**
  * Las últimas pistas escuchadas, de la más reciente a la más antigua.

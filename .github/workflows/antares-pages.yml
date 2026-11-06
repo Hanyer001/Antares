@@ -1,0 +1,36 @@
+name: Publicar Antares Web en Pages
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: antares-pages
+  cancel-in-progress: false
+jobs:
+  pages:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/configure-pages@v5
+      - run: npm ci
+      - run: npm test
+      - name: Compilar con la API HTTPS
+        env:
+          ANTARES_WEB_API: ${{ vars.ANTARES_WEB_API }}
+        run: |
+          : "${ANTARES_WEB_API:?Configura la variable ANTARES_WEB_API con la URL HTTPS de la API}"
+          npm run web:build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/web
+      - uses: actions/deploy-pages@v4
+        id: deployment

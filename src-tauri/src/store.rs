@@ -53,12 +53,12 @@ impl Store {
         }
     }
 
-    #[cfg(any(mobile, test))]
+    #[cfg(any(mobile, test, feature = "web"))]
     pub(crate) fn flush_mobile(&self) -> Result<(), String> {
         self.history_file.save_sync(self.history()).map_err(|e| e.to_string())?;
         self.searches_file.save_sync(self.searches.lock().map_err(|_| "busquedas bloqueadas")?.clone()).map_err(|e| e.to_string())
     }
-    #[cfg(any(mobile, test))]
+    #[cfg(any(mobile, test, feature = "web"))]
     pub(crate) fn reload_mobile(&self, dir: PathBuf) -> Result<(), String> {
         let next = Self::load(dir.clone());
         let mut history = self.history.lock().map_err(|_| "historial bloqueado")?;
@@ -180,7 +180,7 @@ impl Persister {
         }
     }
 
-    #[cfg(any(mobile, test))]
+    #[cfg(any(mobile, test, feature = "web"))]
     pub(crate) fn retarget(&self, path: PathBuf) {
         if let Ok(mut current) = self.path.lock() { *current = path; }
     }

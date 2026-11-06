@@ -1,7 +1,8 @@
+import { runtime } from "./platform.js";
 // Acceso a los comandos de búsqueda y resolución de audio de Rust.
 
 import { createSearchCache } from "./search-cache.js";
-const { invoke } = window.__TAURI__.core;
+const { invoke } = runtime.core;
 const cachedSearch = createSearchCache((query, limit) => invoke("search_tracks", { query, limit }));
 
 /**

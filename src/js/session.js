@@ -3,6 +3,8 @@
 // porque los enlaces directos caducan.
 
 import { key } from "./user.js";
+import { WEB } from "./platform.js";
+import { persistSession, readCachedSession } from "./web-storage.js";
 
 /** Cada usuario del PC retoma lo suyo. */
 const storageKey = () => key("antares.session");
@@ -32,16 +34,25 @@ export function save(state) {
   };
 
   try {
-    localStorage.setItem(storageKey(), JSON.stringify({ ...state, queue: trimmed, savedAt: Date.now() }));
+    const saved = { ...state, queue: trimmed, savedAt: Date.now() };
+    if (WEB) return persistSession(storageKey(), saved);
+    localStorage.setItem(storageKey(), JSON.stringify(saved));
   } catch {
     // Sin almacenamiento, o lleno: la próxima vez se empieza de cero.
   }
 }
 
 export function load() {
+  if (WEB) return readCachedSession(storageKey());
   try {
     return JSON.parse(localStorage.getItem(storageKey()) ?? "null");
   } catch {
     return null;
   }
+}
+
+export function replace(state) {
+  if (WEB) persistSession(storageKey(), state);
+  else if (state) localStorage.setItem(storageKey(), JSON.stringify(state));
+  else localStorage.removeItem(storageKey());
 }

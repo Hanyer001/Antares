@@ -5369,3 +5369,12 @@ kbd {
   :root[data-platform="android"][data-focus] .artwork { width:min(22vw,160px); }
   :root[data-platform="android"] .sidebar { height:54px; }
 }
+
+#diagnostics-report {
+  display: block;
+  width: 100%;
+  min-height: 12rem;
+  margin-bottom: 8px;
+  resize: vertical;
+  font-family: ui-monospace, monospace;
+}

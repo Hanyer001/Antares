@@ -1,0 +1,12 @@
+[package]
+name = "tauri-plugin-antares-ios"
+version = "0.1.0"
+edition = "2021"
+links = "tauri-plugin-antares-ios"
+publish = false
+
+[dependencies]
+tauri = "2"
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }

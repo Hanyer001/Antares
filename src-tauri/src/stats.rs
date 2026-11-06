@@ -229,12 +229,12 @@ impl Stats {
         }
     }
 
-    #[cfg(mobile)]
+    #[cfg(any(mobile, feature = "web"))]
     pub(crate) fn flush_mobile(&self) -> Result<(), String> {
         self.file.save_sync(self.tracks.lock().map_err(|_| "estadisticas bloqueadas")?.clone()).map_err(|e| e.to_string())?;
         self.signals_file.save_sync(self.signals.lock().map_err(|_| "gustos bloqueados")?.clone()).map_err(|e| e.to_string())
     }
-    #[cfg(mobile)]
+    #[cfg(any(mobile, feature = "web"))]
     pub(crate) fn reload_mobile(&self, dir: PathBuf) -> Result<(), String> {
         let next = Self::load(dir.clone());
         let mut tracks = self.tracks.lock().map_err(|_| "estadisticas bloqueadas")?;

@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: antares-prueba
+    runtime: docker
+    branch: pwa
+    plan: free
+    dockerfilePath: ./deploy/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeployTrigger: off
+    envVars:
+      - key: ANTARES_WEB_BIND
+        value: 0.0.0.0:10000
+      - key: ANTARES_WEB_DATA
+        value: /tmp/antares-demo
+      - key: ANTARES_WEB_ORIGIN
+        value: https://hanyer001.github.io
+      - key: ANTARES_WEB_DEMO
+        value: "true"

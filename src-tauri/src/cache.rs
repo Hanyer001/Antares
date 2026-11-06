@@ -69,6 +69,16 @@ impl AppCache {
         }
     }
 
+    /// Una petición atrasada solo invalida el enlace que usó.
+    #[allow(dead_code)]
+    pub fn forget_url(&self, key: &str, url: &str) {
+        if let Ok(mut entries) = self.entries.lock() {
+            if entries.get(key).is_some_and(|entry| entry.track.url == url) {
+                entries.remove(key);
+            }
+        }
+    }
+
     /// Olvida todas las URLs: al cambiar la calidad de audio, las guardadas son
     /// de la otra.
     pub fn clear(&self) {
@@ -139,7 +149,7 @@ pub fn cache_key(query: &str, safe: bool) -> String {
     format!("{prefix}{normalized}")
 }
 
-fn now_secs() -> u64 {
+pub(crate) fn now_secs() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -248,6 +258,19 @@ mod tests {
         cache.put("k", &pista(FUTURO));
 
         cache.forget("k");
+        assert!(cache.get("k").is_none());
+    }
+
+    #[test]
+    fn un_rechazo_atrasado_no_invalida_la_url_renovada() {
+        let cache = AppCache::default();
+        let old = pista(FUTURO);
+        let mut renewed = old.clone();
+        renewed.url.push_str("&renewed=1");
+        cache.put("k", &renewed);
+        cache.forget_url("k", &old.url);
+        assert_eq!(cache.get("k").unwrap().url, renewed.url);
+        cache.forget_url("k", &renewed.url);
         assert!(cache.get("k").is_none());
     }
 

@@ -5,9 +5,11 @@ import { icon } from "./icons.js";
 import { currentUser } from "./user.js";
 import { openGroup } from "./settings.js";
 import { bindMiniSwipe } from "./mobile-interactions.js";
+import { initMobileViewport } from './mobile-viewport.js';
 
 /** Conserva el orden personal; las secciones restantes se abren desde «Más». */
 export function initMobile({ openTab, next, previous, canSwipe }) {
+  initMobileViewport();
   bindMiniSwipe(document.querySelector('.console'),{enabled:canSwipe,next,previous});
   const root = document.documentElement;
   const nav = document.querySelector(".nav");

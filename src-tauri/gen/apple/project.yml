@@ -1,0 +1,34 @@
+name: Antares
+options:
+  deploymentTarget:
+    iOS: "16.4"
+targets:
+  Antares_iOS:
+    type: application
+    platform: iOS
+    sources: [Sources]
+    settings:
+      base:
+        PRODUCT_NAME: Antares
+        PRODUCT_BUNDLE_IDENTIFIER: com.hanyer.antares
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.0"
+        ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: YES
+        LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]: "$(inherited) $(PROJECT_DIR)/../../target/aarch64-apple-ios-sim/$(CONFIGURATION:lower)"
+        LIBRARY_SEARCH_PATHS[sdk=iphoneos*]: "$(inherited) $(PROJECT_DIR)/../../target/aarch64-apple-ios/$(CONFIGURATION:lower)"
+        OTHER_LDFLAGS: "$(inherited) -lantares_lib -framework WebKit -framework AVFoundation -framework MediaPlayer -framework Security -framework Metal -framework MetalKit -framework QuartzCore -framework CoreGraphics"
+    info:
+      path: Antares_iOS/Info.plist
+      properties:
+        CFBundleDisplayName: Antares
+        CFBundleShortVersionString: "0.3.3"
+        CFBundleVersion: "1"
+        LSRequiresIPhoneOS: true
+        UIBackgroundModes: [audio]
+        UIUserInterfaceStyle: Dark
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    scheme: {}

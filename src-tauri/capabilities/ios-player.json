@@ -1,0 +1,7 @@
+{
+  "identifier": "ios-player",
+  "description": "Controles del reproductor nativo de iPhone",
+  "platforms": ["iOS"],
+  "windows": ["main"],
+  "permissions": ["antares-ios:default"]
+}

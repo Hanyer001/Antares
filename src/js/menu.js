@@ -26,6 +26,7 @@ export function openMenu(anchor, items) {
   const menu = document.createElement("div");
   menu.className = "menu";
   menu.setAttribute("role", "menu");
+  menu.setAttribute('aria-label', 'Opciones');
 
   for (const item of items) {
     if (item === "sep") {
@@ -78,6 +79,9 @@ export function openMenu(anchor, items) {
   }
 
   const mobile = document.documentElement.dataset.platform === "android";
+  const app = mobile ? document.querySelector('.app') : null;
+  const wasInert = app?.inert;
+  if (app) app.inert = true;
   const backdrop = mobile ? document.createElement("div") : null;
   if (backdrop) {
     backdrop.className = "mobile-menu-backdrop";
@@ -87,7 +91,7 @@ export function openMenu(anchor, items) {
   if (!mobile) place(menu, anchor);
 
   const buttons = [...menu.querySelectorAll(".menu__item")];
-  buttons[0]?.focus();
+  buttons[0]?.focus({ preventScroll: true });
 
   const onPointerDown = (event) => {
     // El propio botón se deja pasar: su clic ya alterna el menú.
@@ -98,6 +102,12 @@ export function openMenu(anchor, items) {
   };
 
   const onKeyDown = (event) => {
+    if (mobile && event.key === 'Tab') {
+      event.preventDefault();
+      const at = buttons.indexOf(document.activeElement);
+      buttons[(at + (event.shiftKey ? -1 : 1) + buttons.length) % buttons.length]?.focus({ preventScroll: true });
+      return;
+    }
     if (event.key === "Escape") {
       event.stopPropagation();
       closeMenu();
@@ -116,13 +126,15 @@ export function openMenu(anchor, items) {
   // Un menú anclado que se queda quieto mientras su fila se desplaza queda
   // señalando a otra cosa: mejor cerrarlo.
   const onScroll = (event) => {
-    if (!menu.contains(event.target)) closeMenu();
+    if (!mobile && !menu.contains(event.target)) closeMenu();
   };
+  const width = window.innerWidth;
+  const onResize = () => { if (!mobile || window.innerWidth !== width) closeMenu(); };
 
   document.addEventListener("pointerdown", onPointerDown, true);
   menu.addEventListener("keydown", onKeyDown);
   document.addEventListener("scroll", onScroll, true);
-  window.addEventListener("resize", closeMenu);
+  window.addEventListener("resize", onResize);
 
   anchor.setAttribute("aria-expanded", "true");
   anchor.classList.add("is-open");
@@ -132,9 +144,10 @@ export function openMenu(anchor, items) {
     anchor,
     cleanup: () => {
       backdrop?.remove();
+      if (app) app.inert = wasInert;
       document.removeEventListener("pointerdown", onPointerDown, true);
       document.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", closeMenu);
+      window.removeEventListener("resize", onResize);
     },
   };
 }
@@ -149,6 +162,7 @@ export function closeMenu() {
   menu.remove();
   anchor.setAttribute("aria-expanded", "false");
   anchor.classList.remove("is-open");
+  if (anchor.isConnected && anchor.getClientRects().length) anchor.focus({ preventScroll: true });
 }
 
 export function isMenuOpen() {

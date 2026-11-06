@@ -721,6 +721,23 @@
             </header>
 
             <div class="settings__card">
+              <div class="setting setting--column" data-keywords="diagnóstico audio red reproducción búfer">
+                <div class="setting__row">
+                  <div class="setting__text">
+                    <label class="setting__label" for="diagnostics-enable">Diagnóstico de reproducción</label>
+                    <span class="setting__value">Muestra tiempos de carga, estado de red y búfer. El informe se queda en este dispositivo.</span>
+                  </div>
+                  <label class="switch switch--bare">
+                    <input type="checkbox" id="diagnostics-enable">
+                    <span class="switch__track" aria-hidden="true"></span>
+                  </label>
+                </div>
+                <div id="diagnostics-panel" hidden>
+                  <textarea class="dialog__input" id="diagnostics-report" rows="9" readonly aria-label="Informe de diagnóstico"></textarea>
+                  <button class="btn btn--mini" type="button" id="diagnostics-copy">Copiar informe</button>
+                  <span class="setting__value" id="diagnostics-status" role="status"></span>
+                </div>
+              </div>
               <div class="setting" data-keywords="clic canción fila poner cola siguiente">
                 <div class="setting__text">
                   <span class="setting__label">Al hacer clic en una canción</span>
@@ -1113,6 +1130,18 @@
             </header>
 
             <div class="settings__card">
+              <div class="setting setting--backup" id="web-account" data-keywords="cuenta sincronizar recuperación dispositivos" hidden>
+                <div class="setting__text">
+                  <span class="setting__label">Biblioteca en tus dispositivos</span>
+                  <span class="setting__value" id="web-account-status" role="status"></span>
+                </div>
+                <div class="setting__actions library-tools__row">
+                  <button class="btn btn--mini" id="web-account-key" type="button">Ver clave de recuperación</button>
+                  <button class="btn btn--mini" id="web-account-link" type="button">Usar una clave</button>
+                  <button class="btn btn--mini" id="web-account-sync" type="button">Sincronizar ahora</button>
+                  <button class="btn btn--mini" id="web-account-discard" type="button" hidden>Descartar cambio detenido</button>
+                </div>
+              </div>
               <div class="setting" data-keywords="historial reciente borrar vaciar">
                 <div class="setting__text">
                   <span class="setting__label">Historial</span>
@@ -1627,10 +1656,10 @@
     <!-- Diálogo propio para pedir un nombre o confirmar algo. Un prompt() nativo
          delataría que debajo hay un navegador. -->
     <dialog class="dialog" id="dialog">
-      <form class="dialog__box" id="dialog-form" method="dialog">
+      <form class="dialog__box" id="dialog-form" method="dialog" autocomplete="off">
         <p class="dialog__title" id="dialog-title"></p>
         <p class="dialog__text" id="dialog-text"></p>
-        <input class="field__input dialog__input" id="dialog-input" type="text"
+        <input class="field__input dialog__input" id="dialog-input" type="text" name="antares-label" autocorrect="off" autocapitalize="off"
                spellcheck="false" autocomplete="off" />
         <div class="dialog__actions">
           <button class="btn btn--mini" id="dialog-cancel" type="button">Cancelar</button>
@@ -1656,7 +1685,7 @@
           ¿De otra app (Tidal, Amazon Music, SoundCloud…)? Pega sus canciones, una por
           línea como «Artista - Canción», o abre el CSV que exporta.
         </p>
-        <input class="field__input dialog__input" id="import-name" type="text" spellcheck="false"
+        <input class="field__input dialog__input" id="import-name" type="text" name="antares-playlist-label" autocorrect="off" autocapitalize="off" spellcheck="false"
                autocomplete="off" placeholder="Nombre de la lista" hidden />
         <div class="dialog__actions">
           <button class="btn btn--mini" id="import-file" type="button">Abrir CSV…</button>
@@ -1672,5 +1701,17 @@
 
     <!-- Avisos abajo a la derecha, como los de Windows: ver toast.js. -->
     <div class="toasts" id="toasts"></div>
+    <dialog class="dialog" id="web-account-dialog" aria-labelledby="web-account-title">
+      <form method="dialog" class="dialog__body">
+        <h3 class="dialog__title" id="web-account-title"></h3>
+        <p class="dialog__text"></p>
+        <input class="dialog__input" type="password" aria-label="Clave de recuperación" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64">
+        <div class="dialog__actions">
+          <button class="btn btn--mini" type="submit" value="cancel">Cerrar</button>
+          <button class="btn btn--mini" type="button" data-copy hidden>Copiar clave</button>
+          <button class="btn btn--mini" type="submit" value="ok">Abrir biblioteca</button>
+        </div>
+      </form>
+    </dialog>
   </body>
 </html>

@@ -80,6 +80,8 @@ export function bindMiniSwipe(console, { enabled, next, previous }) {
   console.addEventListener('pointerdown', event => {
     if (gesture) { finish(); return; }
     if (!enabled() || event.button !== 0 || event.isPrimary === false || event.target.closest('button,input,a,[role="slider"]')) return;
+    // El borde pertenece al gesto de navegación del navegador/sistema.
+    if (event.clientX < 24 || event.clientX > innerWidth - 24) return;
     gesture = {pointer:event.pointerId,x:event.clientX,y:event.clientY,dx:0,dy:0,horizontal:false};
   });
   console.addEventListener('pointermove', event => {

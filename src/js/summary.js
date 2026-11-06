@@ -1,9 +1,10 @@
+import { runtime } from "./platform.js";
 // Renderiza las estadísticas de escucha calculadas por Rust.
 // Las canciones del resumen usan las mismas filas que el resto de la biblioteca.
 
 import { els } from "./dom.js";
 
-const { invoke } = window.__TAURI__.core;
+const { invoke } = runtime.core;
 
 export function loadSummary() {
   return invoke("get_summary");

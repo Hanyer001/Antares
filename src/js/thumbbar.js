@@ -1,10 +1,11 @@
+import { runtime } from "./platform.js";
 // Sincroniza los botones de la barra de tareas de Windows con la consola.
 // Rust los dibuja; sus eventos activan los controles correspondientes.
 
 import { els } from "./dom.js";
 
-const { invoke } = window.__TAURI__.core;
-const { listen } = window.__TAURI__.event;
+const { invoke } = runtime.core;
+const { listen } = runtime.event;
 
 /** Lo último enviado, para no llamar a Rust si nada cambió. */
 let last = "";

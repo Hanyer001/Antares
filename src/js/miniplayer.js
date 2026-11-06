@@ -1,3 +1,4 @@
+import { runtime } from "./platform.js";
 // Reproductor en ventana pequeña, con vista de carátula o compacta.
 // Comparte estado y controles con la consola a través de nowstate.js.
 // La ventana se puede arrastrar desde las zonas sin controles.
@@ -89,7 +90,7 @@ function showVolume(show) {
 
 /** Arrastrar la ventana desde cualquier sitio que no sea un control. */
 function bindDrag() {
-  const { getCurrentWindow } = window.__TAURI__.window;
+  const { getCurrentWindow } = runtime.window;
   mini.addEventListener("mousedown", (event) => {
     if (event.button !== 0) return;
     if (event.target.closest("button, input, a")) return;
@@ -112,7 +113,7 @@ export function initMiniPlayer({ restore, queue, onLyricLine }) {
   applyPrefs();
   prefs.on("player", applyPrefs);
 
-  const { getCurrentWindow } = window.__TAURI__.window;
+  const { getCurrentWindow } = runtime.window;
   const acts = {
     ...now.actions,
     restore,

@@ -1,4 +1,15 @@
 export const clampRatio = value => Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
+export function mediaDuration(measured, expected, web = false) {
+  const known = Number.isFinite(expected) && expected > 0;
+  if (web && known && (!Number.isFinite(measured) || measured <= 0 || Math.abs(measured - expected) > Math.max(5, expected * .25))) return expected;
+  return Number.isFinite(measured) && measured > 0 ? measured : known ? expected : null;
+}
+// Algunos MP4 fragmentados siguen avanzando sin emitir ended en Safari.
+export function passedCatalogEnd(current, measured, expected) {
+  return Number.isFinite(expected) && expected > 0
+    && (!Number.isFinite(measured) || measured <= 0 || measured - expected > Math.max(5, expected * .25))
+    && current >= expected + 1;
+}
 export function timeline(current, duration) {
   const known = Number.isFinite(duration) && duration > 0;
   const ratio = known ? clampRatio(current / duration) : 0;

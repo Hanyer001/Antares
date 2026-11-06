@@ -71,6 +71,9 @@ windows = { version = "0.62", features = [
 
 # Solo para las pruebas: comprobar que el instalador publicado lleva una firma
 # que la app acepta (las mismas versiones que ya usa el actualizador).
+[target.'cfg(target_os = "ios")'.dependencies]
+tauri-plugin-antares-ios = { path = "ios-player" }
+
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"
 
@@ -86,3 +89,6 @@ uuid = { version = "1", features = ["v4"] }
 [dev-dependencies]
 minisign-verify = "0.2"
 base64 = "0.22"
+
+[features]
+web = []

@@ -19,7 +19,7 @@ pub fn native() -> bool {
 /// cliente conservador; el cliente propio simplemente lo vuelve a intentar.
 pub async fn resolve(query: &str, safe: bool) -> Result<TrackInfo, String> {
     if native() {
-        innertube::resolve_track(query, ytdlp::data_saver()).await
+        innertube::resolve_track_with_format(query, ytdlp::data_saver(), cfg!(target_os = "ios")).await
     } else {
         ytdlp::resolve_track(ytdlp::build_target(query), safe).await
     }

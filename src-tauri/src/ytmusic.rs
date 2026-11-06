@@ -1258,13 +1258,13 @@ mod preview9_tests {
     #[test]
     fn old_library_metadata_is_optional_and_false_overrides_channel_hint() {
         let mut track = innertube::track("a",None,Some("Artist - Topic".into()),None);
-        assert!(crate::recommend::is_music(&track));
+        assert!(crate::track::is_music(&track));
         track.is_music = Some(false);
-        assert!(!crate::recommend::is_music(&track));
+        assert!(!crate::track::is_music(&track));
         let old = json!({"id":"old","watch_url":"https://www.youtube.com/watch?v=old"});
         let loaded: SearchResult = serde_json::from_value(old).unwrap();
         assert_eq!(loaded.is_music,None);
-        assert!(!crate::recommend::is_music(&loaded));
+        assert!(!crate::track::is_music(&loaded));
     }
     #[tokio::test]
     #[ignore = "requires network"]

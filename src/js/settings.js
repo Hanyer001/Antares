@@ -1,3 +1,4 @@
+import { runtime } from "./platform.js";
 // Enlaza los controles de Ajustes con las preferencias.
 // data-pref define la ruta, data-when condiciona la visibilidad y data-reset
 // restablece una sección. Los controles específicos viven en sus módulos.
@@ -10,7 +11,7 @@ import { friendlyError } from "./format.js";
 import * as prefs from "./prefs.js";
 import { defaults, nodeAt, VERSION } from "./prefs-schema.js";
 
-const { invoke } = window.__TAURI__.core;
+const { invoke } = runtime.core;
 const ANDROID = document.documentElement.dataset.platform === "android";
 const MOBILE_SUMMARIES = { appearance: "Diseños, colores y tipografías", layout: "Navegación y controles", home: "Secciones, orden y géneros", behavior: "Calidad, cola, privacidad y letras", discovery: "Solo música y tus preferencias", sound: "Ecualizador y volumen", mobile: "Batería, precarga y respuesta táctil", people: "Tus perfiles de personalización", data: "Biblioteca, copias e historial" };
 

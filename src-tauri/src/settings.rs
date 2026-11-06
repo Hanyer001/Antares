@@ -78,14 +78,14 @@ impl Settings {
         Ok(())
     }
 
-    #[cfg(mobile)]
+    #[cfg(any(mobile, feature = "web"))]
     pub(crate) fn flush_mobile(&self) -> Result<(), String> {
         if let Some(value) = self.value.lock().map_err(|_| "ajustes bloqueados")?.clone() {
             self.file.save_sync(value).map_err(|e| e.to_string())?;
         }
         self.wallpaper_file.save_sync(self.wallpaper()).map_err(|e| e.to_string())
     }
-    #[cfg(mobile)]
+    #[cfg(any(mobile, feature = "web"))]
     pub(crate) fn reload_mobile(&self, dir: PathBuf) -> Result<(), String> {
         let next = Self::load(dir.clone());
         let mut value = self.value.lock().map_err(|_| "ajustes bloqueados")?;

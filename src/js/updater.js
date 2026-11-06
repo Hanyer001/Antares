@@ -1,7 +1,8 @@
+import { runtime } from "./platform.js";
 // Escucha las actualizaciones de yt-dlp realizadas por Rust.
 
-const { invoke } = window.__TAURI__.core;
-const { listen } = window.__TAURI__.event;
+const { invoke } = runtime.core;
+const { listen } = runtime.event;
 
 /**
  * Avisa cuando Rust instala una versión nueva.

@@ -1,3 +1,5 @@
+import { runtime, WEB } from "./platform.js";
+import { nativeCall } from "./native-deck.js";
 import { saveDocument } from "./documents.js";
 import { key } from "./user.js";
 import * as session from "./session.js";
@@ -5,12 +7,12 @@ import * as moments from "./moments.js";
 import * as dialog from "./dialog.js";
 import { toast } from "./toast.js";
 import { cleanSession } from "./session-model.js";
-const { invoke } = window.__TAURI__.core;
+const { invoke } = runtime.core;
 async function restart() {
   const android = document.documentElement.dataset.platform === "android";
-  if (android) await invoke("plugin:player|stop");
+  if (android && !WEB) await nativeCall("stop");
   await invoke("restart_after_restore");
-  if (android) location.reload();
+  if (android || WEB) location.reload();
 }
 let callbacks, busy=false, restoring=false, timer;
 function message(error){toast(String(error?.message||error),{tone:"error"});}
@@ -18,8 +20,7 @@ export async function restoreWorkspace(){
   try{
     const local=await invoke("restored_workspace");if(!local)return;
     const restored=cleanSession(local.session);
-    if(restored)localStorage.setItem(key("antares.session"),JSON.stringify(restored));
-    else localStorage.removeItem(key("antares.session"));
+    session.replace(restored);
     moments.importState(local.moments);
     await invoke("acknowledge_restored_workspace");
   }catch(error){message(`No se pudo restaurar la sesión: ${error}`);}
@@ -56,7 +57,7 @@ export function init(options){
     const path=await saveDocument({name:`antares-copia-${new Date().toISOString().slice(0,10)}.json`,contents:JSON.stringify(copy)});
     if(!path)return;toast(`Copia completa guardada: ${path}`);await refresh();
   }));
-  document.getElementById("backup-now").addEventListener("click",()=>run(async()=>{await snapshot();await refresh();toast("Copia completa guardada en este dispositivo.");}));
+  document.getElementById("backup-now").addEventListener("click",()=>run(async()=>{await snapshot();await refresh();toast(WEB ? "Copia completa guardada en el servidor de Antares." : "Copia completa guardada en este dispositivo.");}));
   const input=document.getElementById("backup-input");
   document.getElementById("import-backup").addEventListener("click",()=>input.click());
   input.addEventListener("change",()=>run(async()=>{

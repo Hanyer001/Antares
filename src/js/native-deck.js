@@ -1,11 +1,14 @@
+import { runtime } from "./platform.js";
 // Adaptador de ExoPlayer para la interfaz de <audio> usada por player.js.
 // Envía órdenes al plugin player y traduce sus eventos. PlaybackService.kt
 // mantiene la reproducción de Android con la pantalla apagada.
 
-const { invoke, addPluginListener } = window.__TAURI__.core;
+const { invoke, addPluginListener } = runtime.core;
+let plugin = "player";
+export function useIOSPlayer() { plugin = "antares-ios"; }
 
 export const nativeCall = (command, args = {}) =>
-  invoke(`plugin:player|${command}`, args).catch((error) => {
+  invoke(`plugin:${plugin}|${command}`, args).catch((error) => {
     console.warn(`Reproductor nativo (${command}):`, error);
     throw error;
   });
@@ -275,13 +278,14 @@ export class NativeDeck extends EventTarget {
  * Conecta los eventos del plugin con el plato que suena, y las órdenes de la
  * notificación ("siguiente", "anterior") con `onCommand`.
  */
-export async function connectNative(deck, { onItem, onSleep }) {
+export async function connectNative(deck, { onItem, onSleep, onInterruption }) {
   await Promise.all([
-    addPluginListener("player", "time", (data) => deck._onTime(data)),
-    addPluginListener("player", "state", (data) => deck._onState(data)),
-    addPluginListener("player", "error", (data) => deck._onError(data)),
-    addPluginListener("player", "item", onItem),
-    addPluginListener("player", "sleep", onSleep),
+    addPluginListener(plugin, "time", (data) => deck._onTime(data)),
+    addPluginListener(plugin, "state", (data) => deck._onState(data)),
+    addPluginListener(plugin, "error", (data) => deck._onError(data)),
+    addPluginListener(plugin, "item", onItem),
+    addPluginListener(plugin, "sleep", onSleep),
+    ...(onInterruption ? [addPluginListener(plugin, "interruption", onInterruption)] : []),
   ]);
 }
 

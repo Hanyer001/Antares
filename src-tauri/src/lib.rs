@@ -16,6 +16,7 @@ mod audio_proxy;
 #[cfg(target_os = "linux")]
 mod audio_http;
 mod backup;
+mod backup_model;
 mod voice_bridge;
 mod cache;
 mod commands;
@@ -345,6 +346,8 @@ pub fn run() {
     // notificacion), no la pagina: ver `mobile::player`.
     #[cfg(mobile)]
     let builder = builder.plugin(mobile::player()).plugin(mobile::documents());
+    #[cfg(target_os = "ios")]
+    let builder = builder.plugin(tauri_plugin_antares_ios::init());
 
     builder
         .plugin(tauri_plugin_notification::init())

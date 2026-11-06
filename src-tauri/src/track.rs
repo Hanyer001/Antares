@@ -112,3 +112,10 @@ impl TrackInput {
         })
     }
 }
+
+/// Usa la clasificación del catálogo, o el canal como indicio para pistas antiguas.
+pub fn is_music(track: &SearchResult) -> bool {
+    if let Some(value) = track.is_music { return value; }
+    let channel = track.uploader.as_deref().unwrap_or("").to_lowercase();
+    channel.ends_with(" - topic") || channel.ends_with("vevo")
+}

@@ -1,3 +1,4 @@
+import { runtime } from "./platform.js";
 import { els } from "./dom.js";
 import * as results from "./results.js";
 import * as lists from "./lists.js";
@@ -5,7 +6,7 @@ import * as dialog from "./dialog.js";
 import { toast } from "./toast.js";
 import { filterTracks, groupLists } from "./library-model.js";
 
-const { invoke } = window.__TAURI__.core;
+const { invoke } = runtime.core;
 let handlers, currentId, query = "", folder = "", selecting = false, selected = new Set();
 let currentList, allLists = [], bar, rows, bulkBar;
 const node = (tag, text = "", className = "") => Object.assign(document.createElement(tag), { textContent: text, className });

@@ -1,0 +1,30 @@
+services:
+  antares:
+    image: antares-web:${ANTARES_RELEASE:-local}
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    environment:
+      ANTARES_WEB_ORIGIN: ${ANTARES_WEB_ORIGIN:-}
+    volumes:
+      - antares-data:/data
+    restart: unless-stopped
+  caddy:
+    image: caddy:2
+    depends_on:
+      antares:
+        condition: service_healthy
+    environment:
+      ANTARES_DOMAIN: ${ANTARES_DOMAIN:?Configura el dominio HTTPS}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+volumes:
+  antares-data:
+  caddy-data:
+  caddy-config:

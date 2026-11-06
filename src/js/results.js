@@ -8,6 +8,7 @@ import { createHoverPrefetch } from "./scroll-activity.js";
 import { formatTime } from "./format.js";
 import { icon, iconButton } from "./icons.js";
 import { bindTouchSort, dropPosition } from "./mobile-interactions.js";
+import { createBatchRenderer } from './batch-render.js';
 
 /**
  * Milisegundos de ratón quieto sobre una fila antes de resolverla por
@@ -24,6 +25,7 @@ const hoverPrefetch = createHoverPrefetch();
 /** Posición de la fila que se está arrastrando, o null. */
 let dragFrom = null;
 const touchLists = new WeakSet();
+const batches = new WeakMap();
 
 /**
  * Las listas donde se han pintado filas: la del panel y la de la página de un
@@ -134,7 +136,7 @@ function buildActions(track, removeLabel, playNext) {
     },
   });
 
-  wrap.append(...(mobile ? [listButton] : [mainButton, listButton]));
+  wrap.append(mainButton, listButton);
   return wrap;
 }
 
@@ -457,26 +459,36 @@ export function renderInto(
     }});
   }
   hoverPrefetch.cancel();
+  if (!batches.has(list)) batches.set(list, createBatchRenderer());
+  const batch = batches.get(list);
+  batch.stop();
   lists.add(list);
   list.replaceChildren();
   if (lead) list.append(lead);
 
   const all = tracks ?? [];
   const opts = { removeLabel, reorderable, playNext, count: all.length, minReorderIndex };
-  all.forEach((track, position) => {
-    for (const divider of dividers) {
-      if (divider.at === position) list.append(buildDivider(divider));
-    }
-
-    list.append(buildRow(track, opts, position));
-  });
-
-  markCurrent(currentId);
+  const separators = new Map(dividers.map(divider => [divider.at, divider]));
+  batch.render(all, (tracks, start) => {
+    const fragment = document.createDocumentFragment();
+    tracks.forEach((track, index) => {
+      const position = start + index;
+      if (separators.has(position)) fragment.append(buildDivider(separators.get(position)));
+      const row = buildRow(track, opts, position);
+      updateRowState(row); fragment.append(row);
+    });
+    list.append(fragment);
+  }, { size: all.length > 120 ? 60 : Math.max(1, all.length), progress(done, total) {
+    list.setAttribute('aria-busy', String(done < total));
+    list.dispatchEvent(new Event('antares:rows-ready', { bubbles: true }));
+  } });
 }
 
 /** Un mensaje en lugar de filas, para una lista vacía. */
 export function renderEmpty(message, { lead = null } = {}) {
   hoverPrefetch.cancel();
+  batches.get(els.resultsList)?.stop();
+  els.resultsList.setAttribute('aria-busy', 'false');
 
   const li = document.createElement("li");
   li.className = "results__empty";
@@ -577,6 +589,8 @@ export function setVisible(visible) {
   document.body.classList.toggle("has-results", visible);
 
   if (!visible) {
+    batches.get(els.resultsList)?.stop();
+    els.resultsList.removeAttribute("aria-busy");
     hoverPrefetch.cancel();
     els.resultsList.replaceChildren();
   }

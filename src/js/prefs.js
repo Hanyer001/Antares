@@ -1,3 +1,4 @@
+import { runtime } from "./platform.js";
 // Lectura, actualización y notificaciones de preferencias.
 // Rust las persiste en settings.json; prefs-schema.js define su validación.
 //
@@ -7,7 +8,7 @@
 import * as schema from "./prefs-schema.js";
 import * as user from "./user.js";
 
-const { invoke } = window.__TAURI__.core;
+const { invoke } = runtime.core;
 
 /** Espera tras el último cambio antes de escribir: un deslizador manda decenas. */
 const SAVE_DELAY_MS = 300;

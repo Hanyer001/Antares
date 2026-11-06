@@ -1,3 +1,4 @@
+import { runtime } from "./platform.js";
 // Aplica las variables y atributos de themes.js y enlaza los controles de apariencia.
 // El zoom y la barra de título de Windows se actualizan en Rust al guardar.
 
@@ -22,7 +23,7 @@ import { DESIGNS, applyDesign, matchingDesign, mobileAppearance } from "./design
 
 const ANDROID = document.documentElement.dataset.platform === "android";
 
-const { invoke } = window.__TAURI__.core;
+const { invoke } = runtime.core;
 
 /** Lo que lee boot-theme.js para arrancar ya con el tema puesto (uno por usuario). */
 const LOOK_KEY = () => key("antares.look");

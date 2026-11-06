@@ -3,7 +3,7 @@
 // las preferencias persistidas en Rust se cargan después.
 (function () {
   // Aplicar el diseño de Android antes del primer renderizado.
-  if (/Android/i.test(navigator.userAgent)) {
+  if (/Android/i.test(navigator.userAgent) || (!window.__TAURI__ && /iPhone|iPad|iPod/i.test(navigator.userAgent))) {
     document.documentElement.setAttribute("data-platform", "android");
   }
 
@@ -12,7 +12,11 @@
     var who = localStorage.getItem("antares.user");
     var suffix = who && who !== "main" ? "." + who : "";
 
-    var look = JSON.parse(localStorage.getItem("antares.look" + suffix) || "null");
+    var account = localStorage.getItem("antares.web.account");
+    var owner = localStorage.getItem("antares.web.deviceOwner");
+    var prefix = !window.__TAURI__ && account && owner && account.slice(0, 24) !== owner
+      ? "antares.device." + account.slice(0, 24) + "." : "";
+    var look = JSON.parse(localStorage.getItem(prefix + "antares.look" + suffix) || "null");
     if (!look) return;
 
     var root = document.documentElement;
@@ -21,7 +25,7 @@
     for (name in look.attrs) root.setAttribute(name, look.attrs[name]);
 
     if (look.attrs["data-background"] === "image") {
-      var wallpaper = localStorage.getItem("antares.wallpaper" + suffix);
+      var wallpaper = localStorage.getItem(prefix + "antares.wallpaper" + suffix);
       if (wallpaper) root.style.setProperty("--wallpaper-url", 'url("' + wallpaper + '")');
     }
   } catch (error) {

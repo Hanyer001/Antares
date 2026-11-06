@@ -1,7 +1,10 @@
+import { runtime, WEB } from "./platform.js";
+import { nativeCall } from "./native-deck.js";
+import { webDeviceKey } from "./web-storage.js";
 // Usuario activo y claves de localStorage separadas por usuario.
 // Rust selecciona la carpeta de datos; key() separa el estado del WebView.
 
-const { invoke } = window.__TAURI__.core;
+const { invoke } = runtime.core;
 
 /** El usuario de siempre, cuyas claves no llevan sufijo (compatibles con antes). */
 export const MAIN_ID = "main";
@@ -41,7 +44,8 @@ export function currentUser() {
 
 /** Una clave de localStorage propia del usuario actual. */
 export function key(base) {
-  return isMain() ? base : `${base}.${state.current}`;
+  const name = isMain() ? base : `${base}.${state.current}`;
+  return WEB ? webDeviceKey(name) : name;
 }
 
 // --- Cambios -------------------------------------------------------------
@@ -57,8 +61,9 @@ export const remove = (id) => update("delete_user", { id });
 
 /** Cambia de usuario: la app se reinicia con los datos del nuevo. */
 export function switchTo(id) {
+  if (WEB) return invoke("switch_user", { id }).then(() => location.reload());
   if (document.documentElement.dataset.platform === "android") {
-    return invoke("plugin:player|stop").then(() => invoke("switch_user",{id})).then(() => location.reload());
+    return nativeCall("stop").then(() => invoke("switch_user",{id})).then(() => location.reload());
   }
   return invoke("switch_user", { id });
 }

@@ -74,11 +74,11 @@ impl Playlists {
         }
     }
 
-    #[cfg(mobile)]
+    #[cfg(any(mobile, feature = "web"))]
     pub(crate) fn flush_mobile(&self) -> Result<(), String> {
         self.file.save_sync(self.lists.lock().map_err(|_| "listas bloqueadas")?.clone()).map_err(|e| e.to_string())
     }
-    #[cfg(mobile)]
+    #[cfg(any(mobile, feature = "web"))]
     pub(crate) fn reload_mobile(&self, dir: PathBuf) -> Result<(), String> {
         let mut lists = self.lists.lock().map_err(|_| "listas bloqueadas")?;
         self.file.retarget(dir.join(PLAYLISTS_FILE));
@@ -107,8 +107,17 @@ impl Playlists {
             .unwrap_or(0);
         let n = self.counter.fetch_add(1, Ordering::SeqCst);
 
+        self.insert_playlist(format!("pl-{millis}-{n}"), name, tracks, details, now)
+    }
+
+    #[cfg(feature = "web")]
+    pub(crate) fn create_for_sync(&self, id: String, name: &str, tracks: Vec<SearchResult>) -> Result<Playlist, String> {
+        self.insert_playlist(id, clean_name(name)?, tracks, PlaylistDetails::default(), now_secs())
+    }
+
+    fn insert_playlist(&self, id: String, name: String, tracks: Vec<SearchResult>, details: PlaylistDetails, now: u64) -> Result<Playlist, String> {
         let playlist = Playlist {
-            id: format!("pl-{millis}-{n}"),
+            id,
             name,
             tracks: dedupe(tracks),
             created_at: now,
@@ -118,6 +127,7 @@ impl Playlists {
         };
 
         let mut lists = self.lock()?;
+        if let Some(existing) = lists.iter().find(|list| list.id == playlist.id) { return Ok(existing.clone()); }
         let mut next = lists.clone(); next.push(playlist.clone());
         self.file.save_sync(next.clone()).map_err(|e| format!("No se pudo guardar la lista: {e}"))?;
         *lists = next;

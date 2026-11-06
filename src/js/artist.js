@@ -1,58 +1,19 @@
+import { runtime } from "./platform.js";
 // Vistas de artistas, álbumes y listas de YouTube Music.
 // Comparte las filas de results.js y delega las acciones en main.js.
 
 import { els } from "./dom.js";
+import { createCatalogClient } from "./catalog-client.js";
 import { icon, iconButton } from "./icons.js";
 import * as results from "./results.js";
 
-const { invoke } = window.__TAURI__.core;
+const { invoke } = runtime.core;
 
-/** Cuánto se guarda lo ya pedido: volver atrás es instantáneo. */
-const CACHE_MS = 30 * 60 * 1000;
 /** A partir de cuántas tarjetas una estantería lleva flechas. */
 const ARROWS_FROM = 5;
-
-// --- Datos ---------------------------------------------------------------
-
-const cache = new Map();
-
-function cached(key, load) {
-  const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < CACHE_MS) return hit.promise;
-
-  const promise = load();
-  cache.set(key, { at: Date.now(), promise });
-  // Un fallo no se guarda: la próxima vez se vuelve a intentar.
-  promise.catch(() => cache.delete(key));
-  return promise;
-}
-
-export const fetchArtist = (id) => cached(`artist:${id}`, () => invoke("artist_page", { id }));
-export const fetchArtistSongs = (id) => cached(`artist-songs:${id}`, () => invoke("artist_songs", { id }));
-export const fetchAlbum = (id) => cached(`album:${id}`, () => invoke("album_page", { id }));
-export const fetchList = (id) => cached(`list:${id}`, () => invoke("youtube_list", { id }));
-
-function fetchMore(browseId, params) {
-  return cached(`more:${browseId}:${params ?? ""}`, () =>
-    invoke("shelf_more", { browseId, params: params ?? null }),
-  );
-}
-
-/** A qué artistas (y álbum) lleva una canción: `{ artists: [{ id, name }], album }`. */
-export function trackLinks(track) {
-  return cached(`links:${track.id}`, () =>
-    invoke("track_links", {
-      videoId: track.id ?? null,
-      uploader: track.uploader ?? null,
-      title: track.title ?? null,
-    }),
-  );
-}
-
-/** El artista que se está buscando, o null. Nunca falla: sin él, no hay tarjeta. */
-export function artistForQuery(query) {
-  return invoke("artist_for_query", { query }).catch(() => null);
-}
+const catalog = createCatalogClient(invoke);
+const { fetchMore } = catalog;
+export const { fetchArtist, fetchArtistSongs, fetchAlbum, fetchList, trackLinks, artistForQuery } = catalog;
 
 // --- Callbacks -----------------------------------------------------------
 

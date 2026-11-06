@@ -1,6 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { timeline, keyboardSeek } from '../src/js/timeline.js';
+import { timeline, keyboardSeek, mediaDuration, passedCatalogEnd } from '../src/js/timeline.js';
+
+test('Safari conserva una duración de catálogo válida frente a estimaciones exageradas', () => {
+  assert.equal(mediaDuration(550, 154, true), 154);
+  assert.equal(mediaDuration(153.9, 154, true), 153.9);
+  assert.equal(mediaDuration(NaN, 154, true), 154);
+  assert.equal(mediaDuration(550, 154, false), 550);
+  assert.equal(mediaDuration(90, null, true), 90);
+});
 
 test('duración desconocida o inválida nunca habilita saltos', () => {
   for (const duration of [null, 0, -1, NaN, Infinity]) {
@@ -23,4 +31,12 @@ test('teclado salta segundos constantes independientemente de la duración', () 
   assert.equal(keyboardSeek('ArrowLeft', 2, 60), 0);
   assert.equal(keyboardSeek('ArrowRight', 59, 60), 1);
   assert.equal(keyboardSeek('Tab', 10, 60), null);
+});
+
+test('el final de respaldo requiere una duración inconsistente y haber pasado el final', () => {
+  assert.equal(passedCatalogEnd(154.5, Infinity, 154), false);
+  assert.equal(passedCatalogEnd(155.1, Infinity, 154), true);
+  assert.equal(passedCatalogEnd(155.1, 550, 154), true);
+  assert.equal(passedCatalogEnd(155.1, 155, 154), false);
+  assert.equal(passedCatalogEnd(200, Infinity, null), false);
 });

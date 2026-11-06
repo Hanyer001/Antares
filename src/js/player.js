@@ -3,6 +3,8 @@
 // del activo se propagan al resto de la app.
 
 import { els } from "./dom.js";
+import { WEB } from "./platform.js";
+import { mediaDuration, passedCatalogEnd } from "./timeline.js";
 import { visualTask } from "./visual-activity.js";
 import { formatTime } from "./format.js";
 import * as prefs from "./prefs.js";
@@ -47,6 +49,7 @@ let retireTimer = null;
  */
 let durationHint = null;
 let pendingSeek = null;
+let endEmitted = false;
 
 function standby() {
   return active === decks[0] ? decks[1] : decks[0];
@@ -54,9 +57,7 @@ function standby() {
 
 /** La del <audio> manda; el dato de yt-dlp solo cubre el hueco inicial. */
 function displayDuration() {
-  const real = active.duration;
-  if (Number.isFinite(real) && real > 0) return real;
-  return durationHint;
+  return mediaDuration(active.duration, durationHint, WEB);
 }
 
 // --- Emisor mínimo -------------------------------------------------------
@@ -141,7 +142,7 @@ const renderProgress = visualTask(() => {
   const { currentTime } = active;
   const duration = displayDuration();
 
-  els.timeCurrent.textContent = formatTime(currentTime);
+  els.timeCurrent.textContent = formatTime(WEB && duration > 0 ? Math.min(currentTime, duration) : currentTime);
   els.timeTotal.textContent = formatTime(duration);
 
   if (!Number.isFinite(duration) || duration <= 0) {
@@ -187,6 +188,7 @@ function renderVolume() {
 }
 
 function resetTimeline(knownDuration) {
+  endEmitted = false;
   durationHint = Number.isFinite(knownDuration) && knownDuration > 0 ? knownDuration : null;
 
   els.scrub.value = "0";
@@ -219,6 +221,15 @@ export function isPlaying() {
 export function hasSource() {
   // `src` vacío resuelve a la URL de la página, así que se mira el atributo.
   return Boolean(active.getAttribute("src"));
+}
+
+export function bufferedAhead() {
+  const position = active.currentTime;
+  const ranges = active.buffered;
+  for (let i = 0; i < ranges.length; i++) {
+    if (ranges.start(i) <= position && ranges.end(i) >= position) return ranges.end(i) - position;
+  }
+  return 0;
 }
 
 export function currentTime() {
@@ -337,19 +348,19 @@ export function pause() {
 }
 
 export function skip(seconds) {
-  if (!Number.isFinite(active.duration)) return;
-
-  const target = active.currentTime + seconds;
-  active.currentTime = Math.min(Math.max(target, 0), active.duration);
+  seek(active.currentTime + seconds);
 }
 
 export function seek(seconds) {
-  if (!Number.isFinite(active.duration)) return;
-  active.currentTime = Math.min(Math.max(seconds, 0), active.duration);
+  const total = displayDuration();
+  if (!Number.isFinite(seconds) || !Number.isFinite(total) || total <= 0) return;
+  if (seconds < total) endEmitted = false;
+  active.currentTime = Math.min(Math.max(seconds, 0), total);
 }
 
 /** Vuelve al principio y suena otra vez. Es "repetir esta canción". */
 export function restart() {
+  endEmitted = false;
   active.currentTime = 0;
   return play();
 }
@@ -381,13 +392,15 @@ export function initPlayer() {
   // en vivo para que se oiga a dónde va mientras se arrastra.
   els.scrub.addEventListener("pointerdown", () => (isScrubbing = true));
   els.scrub.addEventListener("pointerup", () => (isScrubbing = false));
+  els.scrub.addEventListener("pointercancel", () => { isScrubbing = false; renderProgress(); });
+  els.scrub.addEventListener("blur", () => { isScrubbing = false; renderProgress(); });
 
   els.scrub.addEventListener("input", () => {
-    const { duration: total } = active;
+    const total = displayDuration();
     if (!Number.isFinite(total) || total <= 0) return;
 
     const ratio = Number(els.scrub.value) / SCRUB_STEPS;
-    active.currentTime = ratio * total;
+    seek(ratio * total);
     els.scrub.style.setProperty("--played", `${(ratio * 100).toFixed(2)}%`);
   });
 
@@ -422,10 +435,19 @@ export function initPlayer() {
     if (event.target === active) handler(event);
   };
 
+  const finishTrack = () => {
+    if (endEmitted) return;
+    endEmitted = true;
+    renderPlayState();
+    emit("ended");
+  };
+
   for (const deck of decks) {
     deck.addEventListener("loadedmetadata", fromActive(() => {
-      if (pendingSeek?.deck === active && Number.isFinite(active.duration)) {
-        active.currentTime = Math.min(pendingSeek.time, Math.max(0, active.duration - 0.1)); pendingSeek = null;
+      const total = displayDuration();
+      if (pendingSeek?.deck === active && Number.isFinite(total)) {
+        active.currentTime = Math.min(pendingSeek.time, Math.max(0, total - 0.1));
+        pendingSeek = null;
       }
       renderProgress();
     }));
@@ -434,7 +456,13 @@ export function initPlayer() {
       "timeupdate",
       fromActive(() => {
         renderProgress();
-        emit("time", active.currentTime);
+        const position = active.currentTime;
+        emit("time", WEB && durationHint ? Math.min(position, displayDuration()) : position);
+        if (WEB && !endEmitted && !active.paused && !active.seeking && !isScrubbing
+            && passedCatalogEnd(position, active.duration, durationHint)) {
+          active.pause();
+          finishTrack();
+        }
       }),
     );
     deck.addEventListener("progress", fromActive(renderBuffered));
@@ -467,10 +495,7 @@ export function initPlayer() {
 
     deck.addEventListener(
       "ended",
-      fromActive(() => {
-        renderPlayState();
-        emit("ended");
-      }),
+      fromActive(finishTrack),
     );
 
     // Salta si la URL caduca o si el servidor la rechaza. Con el cliente rápido

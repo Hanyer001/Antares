@@ -1,0 +1,11 @@
+[default]
+description = "Control del reproductor nativo de Antares y sus eventos."
+permissions = ["allow-transport"]
+
+[[permission]]
+identifier = "allow-transport"
+description = "Cola, reproducción, temporizador y escucha de eventos."
+commands.allow = [
+  "load", "play", "pause", "seek", "stop", "setVolume", "syncQueue", "setRepeat", "setSleep",
+  "registerListener", "removeListener",
+]

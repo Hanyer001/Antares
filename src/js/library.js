@@ -1,6 +1,7 @@
+import { runtime } from "./platform.js";
 // Acceso a escuchas, valoraciones, listas y recomendaciones de Rust.
 
-const { invoke } = window.__TAURI__.core;
+const { invoke } = runtime.core;
 
 /** Id reservado de la lista "Me gusta". Tiene que coincidir con `LIKES_ID` en Rust. */
 export const LIKES_ID = "likes";

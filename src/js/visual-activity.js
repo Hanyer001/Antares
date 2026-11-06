@@ -1,3 +1,4 @@
+import { runtime } from "./platform.js";
 // En WebKitGTK/Wayland minimizar no siempre cambia document.hidden.
 // Sin foco se detienen efectos decorativos y el progreso se pinta a 1 Hz.
 // Los eventos del reproductor y la música siguen funcionando normalmente.
@@ -15,7 +16,7 @@ const focus = value => { if (focused !== value) { focused = value; refresh(); } 
 window.addEventListener('focus', () => focus(true));
 window.addEventListener('blur', () => focus(false));
 document.addEventListener('visibilitychange', refresh);
-window.__TAURI__?.window?.getCurrentWindow().onFocusChanged(({payload}) => focus(payload)).catch(() => {});
+runtime?.window?.getCurrentWindow().onFocusChanged(({payload}) => focus(payload)).catch(() => {});
 export function onVisualActivity(callback) { listeners.add(callback); }
 export function visualTask(callback) {
   let last = -Infinity, args = [];

@@ -56,3 +56,6 @@ contrasena.txt
 # Herramientas y resultados de Android de esta máquina
 /android-tools.local.json
 /dist-android/
+
+# Datos privados de la API web
+.antares-web-data/

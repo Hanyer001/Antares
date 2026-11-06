@@ -1,3 +1,4 @@
+import { runtime } from "./platform.js";
 // Secciones de Inicio: mezclas, géneros, artistas, listas y estadísticas.
 // Cada sección se muestra cuando llegan sus datos; el orden y la visibilidad
 // se toman de las preferencias.
@@ -19,7 +20,7 @@ import { haptic } from "./haptics.js";
 import { toast } from "./toast.js";
 import { searchTracks } from "./search.js";
 
-const { invoke } = window.__TAURI__.core;
+const { invoke } = runtime.core;
 
 /** Canciones por estantería del recomendador o de una búsqueda. */
 const SHELF_SIZE = 14;

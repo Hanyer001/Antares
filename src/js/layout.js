@@ -1,3 +1,4 @@
+import { runtime } from "./platform.js";
 // Aplica el diseño mediante atributos y variables CSS.
 // Gestiona el tamaño de las columnas y los modos mini y escucha.
 
@@ -8,7 +9,7 @@ import { enterSurface } from "./motion.js";
 import { initDesktopShell, refreshDesktopShell } from "./desktop-shell.js";
 export { openContextPanel } from "./desktop-shell.js";
 
-const { invoke } = window.__TAURI__.core;
+const { invoke } = runtime.core;
 
 const root = document.documentElement;
 

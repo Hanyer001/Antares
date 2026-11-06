@@ -237,3 +237,12 @@
   :root[data-platform="android"][data-focus] .console { row-gap: 8px; }
   :root[data-platform="android"][data-focus] .btn--play { width: 64px; height: 64px; }
 }
+
+/* Mantener controles accesibles con el teclado y las barras dinámicas de Safari. */
+:root[data-platform="android"] .result__actions > button,
+:root[data-platform="android"] .result__move { min-width:44px; min-height:44px; }
+:root[data-platform="android"] .menu { max-height:calc(var(--mobile-vh, 100dvh) - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overflow-y:auto; }
+:root[data-platform="android"][data-keyboard-open] .sidebar,
+:root[data-platform="android"][data-keyboard-open]:not([data-focus]) .nowplaying { display:none; }
+:root[data-platform="android"][data-keyboard-open] .app { height:var(--mobile-vh, 100dvh); min-height:0; }
+:root[data-platform="android"] .result__title { overflow-wrap:anywhere; }

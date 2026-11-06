@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use serde_json::{json, Value};
 
-use crate::store::now_secs;
+use crate::cache::now_secs;
 use crate::track::{SearchResult, TrackInfo};
 
 const API: &str = "https://www.youtube.com/youtubei/v1";
@@ -280,19 +280,20 @@ pub fn video_id(query: &str) -> Option<String> {
 }
 
 /// Elige el formato de audio de la respuesta de `player`.
-fn pick_audio(player: &Value, saver: bool) -> Option<(String, u64)> {
+fn pick_audio(player: &Value, saver: bool, aac_only: bool) -> Option<(String, u64)> {
     let formats = player.pointer("/streamingData/adaptiveFormats")?.as_array()?;
     let mut audio: Vec<(&str, u64, bool)> = formats
         .iter()
         .filter_map(|f| {
             let mime = f.get("mimeType")?.as_str()?;
-            if !(mime.starts_with("audio/mp4") || mime.starts_with("audio/webm")) {
+            let aac = mime.starts_with("audio/mp4");
+            if !(aac || (!aac_only && mime.starts_with("audio/webm"))) {
                 return None;
             }
             // Sin `url` directa (con `signatureCipher`) habria que descifrar.
             let url = f.get("url")?.as_str()?;
             let bitrate = f.get("bitrate").and_then(Value::as_u64).unwrap_or(0);
-            Some((url, bitrate, mime.starts_with("audio/mp4")))
+            Some((url, bitrate, aac))
         })
         .collect();
 
@@ -320,7 +321,7 @@ fn pick_audio(player: &Value, saver: bool) -> Option<(String, u64)> {
 /// the preferred WebM with two tiny reads before selecting it. No full-song
 /// preloading; transient network failures remain the player's retry concern.
 async fn pick_playable_audio(player: &Value, saver: bool) -> Result<String, String> {
-    let (url, _) = pick_audio(player, saver)
+    let (url, _) = pick_audio(player, saver, false)
         .ok_or_else(|| "ERROR: el video no trae audio directo".to_string())?;
     let parsed = reqwest::Url::parse(&url).map_err(|_| "ERROR: URL de audio inválida")?;
     let webm = parsed.query_pairs().any(|(key, value)| key == "mime" && value == "audio/webm");
@@ -335,11 +336,7 @@ async fn pick_playable_audio(player: &Value, saver: bool) -> Result<String, Stri
             .timeout(Duration::from_secs(2)).send().await;
         if let Ok(response) = result {
             if matches!(response.status().as_u16(), 403 | 410) {
-                let mut compatible = player.clone();
-                if let Some(formats) = compatible.pointer_mut("/streamingData/adaptiveFormats").and_then(Value::as_array_mut) {
-                    formats.retain(|f| f.get("mimeType").and_then(Value::as_str).is_some_and(|mime| mime.starts_with("audio/mp4")));
-                }
-                return pick_audio(&compatible, saver).map(|(url,_)| url)
+                return pick_audio(player, saver, true).map(|(url,_)| url)
                     .ok_or_else(|| "ERROR: el servidor rechazó el stream de audio; vuelve a intentarlo".to_string());
             }
             // Only consume the explicitly requested tiny partial response.
@@ -434,6 +431,14 @@ async fn player(id: &str, s: &Session) -> Result<Value, String> {
 /// La URL de audio y los metadatos de un video (o de lo primero que salga al
 /// buscar el texto, como hace yt-dlp con `ytsearch1:`).
 pub async fn resolve_track(query: &str, saver: bool) -> Result<TrackInfo, String> {
+    resolve_track_with_format(query, saver, false).await
+}
+
+pub async fn resolve_track_with_format(
+    query: &str,
+    saver: bool,
+    aac_only: bool,
+) -> Result<TrackInfo, String> {
     let id = match video_id(query) {
         Some(id) => id,
         None => search_tracks(query, 1)
@@ -456,7 +461,13 @@ pub async fn resolve_track(query: &str, saver: bool) -> Result<TrackInfo, String
         return Err(format!("ERROR: {error}"));
     }
 
-    let url = pick_playable_audio(&response, saver).await?;
+    let url = if aac_only {
+        pick_audio(&response, saver, true)
+            .map(|(url, _)| url)
+            .ok_or_else(|| "El video no ofrece audio AAC.".to_string())?
+    } else {
+        pick_playable_audio(&response, saver).await?
+    };
 
     let details = response.get("videoDetails");
     let field = |k: &str| details.and_then(|d| d.get(k)).and_then(Value::as_str).map(str::to_string);
@@ -675,9 +686,10 @@ mod tests {
             { "mimeType": "audio/webm", "bitrate": 999999, "signatureCipher": "s=..." }
         ]}});
 
-        assert_eq!(pick_audio(&player, false).unwrap().0, "opus160", "alta: mejor audio disponible, sin limitarlo a AAC");
-        assert_eq!(pick_audio(&player, true).unwrap().0, "opus70", "ahorro: lo mejor que no pase de 72 kbps");
-        assert!(pick_audio(&json!({}), false).is_none());
+        assert_eq!(pick_audio(&player, false, false).unwrap().0, "opus160", "alta: mejor audio disponible, sin limitarlo a AAC");
+        assert_eq!(pick_audio(&player, true, false).unwrap().0, "opus70", "ahorro: lo mejor que no pase de 72 kbps");
+        assert_eq!(pick_audio(&player, false, true).unwrap().0, "aac128");
+        assert!(pick_audio(&json!({}), false, false).is_none());
     }
 
     #[test]

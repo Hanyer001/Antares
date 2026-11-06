@@ -1,3 +1,4 @@
+import { runtime } from "./platform.js";
 // Consulta nuevas versiones y muestra el aviso de actualización.
 // Rust descarga, verifica la firma e instala tras la confirmación del usuario.
 
@@ -5,8 +6,8 @@ import * as dialog from "./dialog.js";
 import * as prefs from "./prefs.js";
 import { toast } from "./toast.js";
 
-const { invoke } = window.__TAURI__.core;
-const { listen } = window.__TAURI__.event;
+const { invoke } = runtime.core;
+const { listen } = runtime.event;
 
 /** Al abrir, se espera un poco: primero que arranque todo lo demás. */
 const STARTUP_DELAY_MS = 6000;
@@ -28,7 +29,9 @@ async function install(update) {
     title: `Antares ${update.version}`,
     text:
       (update.notes ? `${update.notes}\n\n` : "") +
-      "Se descarga, se instala y Antares se vuelve a abrir. Tus listas, historial y ajustes no se tocan.",
+      (update.web
+        ? "Guardaremos la cola y la posición antes de volver a abrir Antares."
+        : "Se descarga, se instala y Antares se vuelve a abrir. Tus listas, historial y ajustes no se tocan."),
     confirmLabel: "Actualizar ahora",
     cancelLabel: "Más tarde",
   });

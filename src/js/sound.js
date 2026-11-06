@@ -1,3 +1,4 @@
+import { runtime, WEB } from "./platform.js";
 // Cadena de Web Audio y controles de sonido:
 //
 // audio A → ganancia A ─┐
@@ -13,6 +14,7 @@ import { els } from "./dom.js";
 import { EQ_BANDS } from "./prefs-schema.js";
 import * as store from "./prefs.js";
 import { spectrumTap } from './spectrum.js';
+import { configurePlaybackSession, resumeAudioContext } from './audio-session.js';
 
 /**
  * Ganancia extra tras el nivelador, en dB. Cero: el compresor de Chromium ya
@@ -154,7 +156,8 @@ export function attach(deck) {
  */
 export function sourceFor(url) {
   if (!ctx) return url;
-  return playbackSource(url, proxyBase, (value, scheme) => window.__TAURI__.core.convertFileSrc(value, scheme));
+  if (WEB) return url;
+  return playbackSource(url, proxyBase, (value, scheme) => runtime.core.convertFileSrc(value, scheme));
 }
 
 /**
@@ -195,7 +198,8 @@ export function setMaster(volume) {
  * suspendido. Se reanuda al reproducir.
  */
 export function resume() {
-  if (ctx?.state === "suspended") ctx.resume().catch(() => {});
+  if (WEB) configurePlaybackSession();
+  return resumeAudioContext(ctx);
 }
 
 // --- Preferencias --------------------------------------------------------
@@ -361,6 +365,7 @@ async function deletePreset() {
  *   sistema, no un <audio> de la página, y no hay cadena que montar.
  */
 export function initSound({ enabled: on = true, native: adapter = null, proxyBase: base = null } = {}) {
+  if (WEB) configurePlaybackSession();
   proxyBase = base;
   native = adapter;
   const applyNative = () => {
@@ -375,7 +380,7 @@ export function initSound({ enabled: on = true, native: adapter = null, proxyBas
   if (enabled) build();
   applyNative();
   if (native) store.on("mobile",applyNative);
-  if (native) window.__TAURI__.core.addPluginListener("player","state",applyNative).catch(console.warn);
+  if (native) runtime.core.addPluginListener("player","state",applyNative).catch(console.warn);
   buildBands();
   render();
 

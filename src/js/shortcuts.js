@@ -1,11 +1,12 @@
+import { runtime } from "./platform.js";
 // Atajos locales y globales definidos en las preferencias.
 // Rust registra los globales y emite shortcut; main.js asigna las acciones.
 
 import { comboFromEvent } from "./keys.js";
 import * as prefs from "./prefs.js";
 
-const { invoke } = window.__TAURI__.core;
-const { listen } = window.__TAURI__.event;
+const { invoke } = runtime.core;
+const { listen } = runtime.event;
 
 /** Acciones que funcionan aunque el foco esté en un campo de texto. */
 const EVEN_WHILE_TYPING = new Set(["fullscreen"]);

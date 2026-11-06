@@ -1,0 +1,9 @@
+#web-startup { position: fixed; z-index: 10000; inset: auto 12px max(12px, env(safe-area-inset-bottom)); padding: 16px; border-radius: 12px; color: var(--text, #fff); background: var(--panel, #211929); border: 1px solid var(--border, #66516f); }
+html[data-web="true"] .app { min-height: 100dvh; }
+html[data-web="true"] body { -webkit-tap-highlight-color: transparent; }
+@media (max-width: 700px) {
+  html[data-web="true"] input, html[data-web="true"] textarea, html[data-web="true"] select { font-size: max(16px, 1em); }
+}
+
+#web-demo-notice { position: fixed; z-index: 9999; top: max(12px, env(safe-area-inset-top)); left: 12px; right: 12px; max-width: 640px; margin-inline: auto; padding: 14px; border-radius: 12px; color: var(--text, #fff); background: var(--panel, #211929); border: 1px solid var(--border, #66516f); }
+#web-demo-notice button { margin-left: 12px; padding: 10px; color: inherit; background: transparent; border: 1px solid currentColor; border-radius: 8px; }
