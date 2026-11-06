@@ -8,6 +8,8 @@ try {
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./sw.js").catch(error => console.warn("PWA:", error));
   }
+  const { ensureAccountSession } = await import("./js/web-auth.js");
+  await ensureAccountSession();
   const storage = await import("./js/web-storage.js");
   storage.bindWebDevice();
   await storage.hydrateSession();
