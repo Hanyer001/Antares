@@ -7,3 +7,14 @@ html[data-web="true"] body { -webkit-tap-highlight-color: transparent; }
 
 #web-demo-notice { position: fixed; z-index: 9999; top: max(12px, env(safe-area-inset-top)); left: 12px; right: 12px; max-width: 640px; margin-inline: auto; padding: 14px; border-radius: 12px; color: var(--text, #fff); background: var(--panel, #211929); border: 1px solid var(--border, #66516f); }
 #web-demo-notice button { margin-left: 12px; padding: 10px; color: inherit; background: transparent; border: 1px solid currentColor; border-radius: 8px; }
+html[data-antares-auth="locked"] body > :not(#antares-login) { display: none !important; }
+#antares-login { min-height: 100dvh; display: grid; place-items: center; padding: max(24px, env(safe-area-inset-top)) 20px; background: #141019; color: #f5effa; }
+#antares-login form { width: min(100%, 390px); display: grid; gap: 18px; }
+#antares-login h1 { font-size: 30px; margin: 0; }
+#antares-login p { line-height: 1.5; margin: 0; }
+#antares-login label { display: grid; gap: 8px; }
+#antares-login input { width: 100%; box-sizing: border-box; padding: 14px; border: 1px solid #75647e; border-radius: 10px; background: #211928; color: inherit; font: inherit; font-size: 16px; }
+#antares-login button { min-height: 48px; border: 0; border-radius: 10px; background: #d2a8f5; color: #24102f; font: inherit; cursor: pointer; }
+#antares-login button:disabled { opacity: .6; }
+#antares-login :focus-visible { outline: 3px solid #e8c9ff; outline-offset: 3px; }
+#antares-login .auth-help { color: #c5b6cd; font-size: 14px; }

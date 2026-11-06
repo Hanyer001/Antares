@@ -17,6 +17,7 @@ use tower_http::{cors::CorsLayer, services::ServeDir};
 #[path = "../../src-tauri/src/cache.rs"]
 mod cache;
 mod catalog;
+mod auth;
 mod workspace;
 mod source;
 #[allow(dead_code)]
@@ -301,6 +302,20 @@ fn audio_response(upstream: reqwest::Response, method: Method) -> Result<Respons
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let root = env::var_os("ANTARES_WEB_DATA").map(std::path::PathBuf::from)
+        .unwrap_or_else(|| std::path::PathBuf::from(".antares-web-data"));
+    let args: Vec<String> = env::args().skip(1).collect();
+    if args.first().is_some_and(|arg| arg == "account") {
+        return auth::administer(&root, &args[1..]);
+    }
+    if !args.is_empty() { return Err("Argumentos desconocidos.".into()); }
+    let authentication = auth::Auth::from_env(&root)?;
+    let auth_routes = Router::new()
+        .route("/auth/me", get(auth::me))
+        .route("/auth/login", axum::routing::post(auth::login))
+        .route("/auth/logout", axum::routing::post(auth::logout))
+        .layer(axum::extract::DefaultBodyLimit::max(4096))
+        .with_state(authentication.clone());
     let address: SocketAddr = env::var("ANTARES_WEB_BIND")
         .unwrap_or_else(|_| env::var("PORT").map(|port| format!("0.0.0.0:{port}")).unwrap_or_else(|_| "127.0.0.1:4173".into()))
         .parse()?;
@@ -333,12 +348,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/audio/{id}", get(audio))
         .route("/audio/{id}/prepare", get(prepare_audio))
         .with_state(Arc::new(App {
-            workspaces: workspace::Workspaces::new(env::var_os("ANTARES_WEB_DATA").map(std::path::PathBuf::from).unwrap_or_else(|| std::path::PathBuf::from(".antares-web-data"))),
+            workspaces: workspace::Workspaces::new(root),
             cache: cache::AppCache::default(),
             client,
             lyrics: lyrics::LyricsCache::default(),
             diagnostics: env::var_os("ANTARES_WEB_DIAGNOSTICS").is_some(),
-        }));
+        }))
+        .merge(auth_routes)
+        .layer(axum::middleware::from_fn_with_state(authentication, auth::gate));
 
     if let Some(origin) = env::var("ANTARES_WEB_ORIGIN").ok().filter(|value| !value.trim().is_empty()) {
         api = api.layer(

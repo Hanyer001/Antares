@@ -1,6 +1,7 @@
 import { confirmAction } from "./dialog.js";
 import { toast } from "./toast.js";
-import { discardLibraryChange, librarySyncState, linkAccount, recoveryAvailable, recoveryKey, runtime, syncLibrary } from "./web-runtime.js";
+import { discardLibraryChange, flushPendingEvents, librarySyncState, linkAccount, recoveryAvailable, recoveryKey, runtime, syncLibrary } from "./web-runtime.js";
+import { serverAccount, logoutServerAccount } from './web-auth.js';
 
 export function initWebAccount({ beforeSwitch, refresh }) {
   const panel = document.getElementById("web-account");
@@ -18,17 +19,37 @@ export function initWebAccount({ beforeSwitch, refresh }) {
   const copy = dialog.querySelector('button[data-copy]');
   const secure = recoveryAvailable();
   exportKey.disabled = enterKey.disabled = !secure;
+  const signedIn = serverAccount();
+  if (signedIn) {
+    panel.querySelector('.setting__label').textContent = `Cuenta: ${signedIn.user}`;
+    exportKey.hidden = enterKey.hidden = true;
+    const logout = document.createElement('button');
+    logout.type = 'button'; logout.className = 'btn btn--mini'; logout.textContent = 'Cerrar sesión';
+    panel.querySelector('.setting__actions').append(logout);
+    logout.addEventListener('click', async () => {
+      logout.disabled = true;
+      try {
+        await beforeSwitch();
+        await syncLibrary();
+        await flushPendingEvents();
+        if (librarySyncState().pending) throw new Error('Hay cambios pendientes. Sincronízalos o exporta una copia antes de cerrar sesión.');
+        await logoutServerAccount();
+      } catch (error) { status.textContent = error.message; logout.disabled = false; }
+    });
+  }
 
   function render(state = librarySyncState()) {
     const network = navigator.onLine === false ? "Sin conexión. " : "";
     const pending = state.pending ? `${state.pending} cambio(s) pendientes. ` : "";
     const result = state.blocked ? `Sincronización detenida: ${state.blocked.message}`
+      : signedIn ? "Tu biblioteca se guarda en el servidor. Entra con esta cuenta en tus otros dispositivos."
       : secure ? "Usa la misma clave en tus otros dispositivos." : "El acceso a la cuenta requiere HTTPS.";
     status.textContent = network + pending + result;
     discard.hidden = !state.blocked;
   }
 
   async function synchronize() {
+    if (retry.disabled) return;
     retry.disabled = true;
     try { await syncLibrary(); await refresh(); }
     catch (error) { status.textContent = error.message; }
@@ -89,6 +110,11 @@ export function initWebAccount({ beforeSwitch, refresh }) {
     catch (error) { toast(error.message, { tone: "error" }); }
   });
   runtime.event.listen("library-sync", ({ payload }) => render(payload));
+  if (signedIn) setInterval(() => {
+    const editing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)
+      || document.activeElement?.isContentEditable || document.querySelector('dialog[open]');
+    if (!document.hidden && !editing && navigator.onLine !== false) synchronize();
+  }, 15000);
   window.addEventListener("offline", () => render());
   window.addEventListener("online", synchronize);
   let lastRefresh = Date.now();
