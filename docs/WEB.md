@@ -19,7 +19,7 @@ Cada instalación genera 256 bits aleatorios y conserva la clave en localStorage
 
 Los comandos se envían por `POST /api/command/:command`; la respuesta contiene `value` y `revision`. El cliente serializa sus operaciones y envía `X-Antares-Revision`; una escritura atrasada devuelve 409. Los eventos de escucha llevan un ID estable y se conservan en una cola local si falla la red. El servidor recuerda los IDs ya aplicados.
 
-La clave representa una instalación, no una cuenta con correo o inicio de sesión. No hay sincronización automática entre dispositivos/orígenes. Borrar los datos del sitio o cerrar la sesión privada puede perder esa clave. Las copias permiten transportar los datos. El entorno de prueba HTTPS añade además su propia protección de acceso. Antes de publicar, definir recuperación de acceso y límites de registro/tráfico para el entorno real.
+La clave identifica una biblioteca, no una cuenta con correo o inicio de sesión. Compartirla mediante «Biblioteca en tus dispositivos» permite usar esa biblioteca desde otro dispositivo/origen HTTPS conectado a la misma API; los cambios se sincronizan con los límites descritos abajo. Borrar los datos del sitio o cerrar la sesión privada puede perder la clave local. Las copias permiten transportar los datos a otro servidor. La publicación actual no añade autenticación HTTP de un túnel de prueba. Para un servicio público permanente, revisar recuperación administrada y límites de registro/tráfico.
 
 ## Copias e importación
 

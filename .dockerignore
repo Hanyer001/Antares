@@ -1,4 +1,5 @@
 .git
+.handoff
 .env*
 **/target
 **/node_modules
