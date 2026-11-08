@@ -127,7 +127,16 @@ fn development_sidecar(manifest_dir: &std::path::Path) -> Option<PathBuf> {
     let path = manifest_dir.join("binaries").join(format!(
         "yt-dlp-{}{}", env!("ANTARES_TARGET"), std::env::consts::EXE_SUFFIX
     ));
-    path.is_file().then_some(path)
+    if path.is_file() {
+        return Some(path);
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let universal = manifest_dir.join("binaries").join("yt-dlp-macos");
+        return universal.is_file().then_some(universal);
+    }
+    #[cfg(not(target_os = "macos"))]
+    None
 }
 
 /// `Command` ya configurado para el sistema operativo actual.

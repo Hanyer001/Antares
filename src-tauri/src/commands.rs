@@ -136,16 +136,15 @@ pub async fn get_audio_url(
     Ok(AudioResult { track, cached, safe })
 }
 
-/// Linux necesita HTTP para el elemento de audio de WebKitGTK. Las otras
-/// plataformas conservan el protocolo personalizado o su reproductor nativo.
+/// WebKit necesita HTTP para reproducir la pista completa en Linux y macOS.
 #[tauri::command]
 pub fn get_audio_proxy_base(app: tauri::AppHandle) -> Option<String> {
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     {
         use tauri::Manager;
         Some(app.state::<crate::audio_http::LocalAudio>().base.clone())
     }
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     {
         let _ = app;
         None

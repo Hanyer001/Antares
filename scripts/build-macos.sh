@@ -11,7 +11,9 @@ esac
 
 version=2026.10.26
 sha=0f922c15ccc0b83eefa1c8bc9104e434318c4bf16e408e1ee93b7745a6efe0aa
-sidecar="$root/src-tauri/binaries/yt-dlp-$target"
+# Conserva la firma original del binario universal. Si Tauri lo vuelve a
+# firmar como sidecar, PyInstaller no puede cargar su propia biblioteca.
+sidecar="$root/src-tauri/binaries/yt-dlp-macos"
 valid_sidecar() {
   [ -f "$1" ] && printf '%s  %s\n' "$sha" "$1" | shasum -a 256 -c - >/dev/null
 }

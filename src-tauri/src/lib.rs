@@ -13,7 +13,7 @@
 mod android_playback;
 mod app_update;
 mod audio_proxy;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 mod audio_http;
 mod backup;
 mod backup_model;
@@ -442,7 +442,7 @@ pub fn run() {
             // en Windows, el privado de la app en Android). Si el sistema no lo
             // diera, caemos al directorio actual antes que dejar la app sin
             // historial.
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
             app.manage(audio_http::LocalAudio::start()?);
             #[cfg(target_os = "linux")]
             if let Err(error) = voice_bridge::start(app.handle().clone()) {

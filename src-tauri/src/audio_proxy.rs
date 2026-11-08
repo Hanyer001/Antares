@@ -65,7 +65,8 @@ pub(super) fn error(status: StatusCode, message: &str) -> Response<Vec<u8>> {
         .unwrap_or_default()
 }
 
-/// Petición compartida por el protocolo de Windows y el flujo HTTP de Linux.
+/// Petición del puente HTTP de Linux y macOS.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 /// El consumidor decide el rango: HTTP debe poder completar el que pidió WebKit.
 pub(super) async fn fetch(
     target: &str,

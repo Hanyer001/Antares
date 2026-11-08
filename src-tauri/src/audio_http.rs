@@ -1,4 +1,4 @@
-//! Entrada HTTP local para medios de WebKitGTK, que no admite stream://.
+//! Entrada HTTP local para WebKitGTK y WKWebView.
 //! Mismos hosts permitidos y CORS; transmite completo el rango pedido.
 //! No acumula el archivo en RAM ni presenta un trozo como final del medio.
 

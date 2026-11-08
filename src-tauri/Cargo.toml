@@ -77,9 +77,8 @@ tauri-plugin-antares-ios = { path = "ios-player" }
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"
 
-# WebKitGTK no reproduce medios por esquemas personalizados. El puente HTTP
-# solo existe en Linux y reutiliza los clientes y tipos de HTTP ya presentes.
-[target.'cfg(target_os = "linux")'.dependencies]
+# WebKit usa el puente HTTP para recibir el rango completo sin cortarlo.
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 hyper = { version = "1", features = ["http1", "server"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 http-body-util = "0.1"

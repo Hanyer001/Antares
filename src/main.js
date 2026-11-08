@@ -53,7 +53,8 @@ import * as playerBar from "./js/playerbar.js";
 import { setSearchView } from "./js/loading.js";
 
 import { prefetchTrack, resolveTrack, searchSongs, searchTracks } from "./js/search.js";
-import { progressiveSearch } from "./js/progressive-search.js";
+import { appendUniqueTracks } from "./js/progressive-search.js";
+import { rankSearch } from "./js/searchrank.js";
 import * as settings from "./js/settings.js";
 import { initPlatformUi } from "./js/platform-ui.js";
 import { toast } from "./js/toast.js";
@@ -1830,7 +1831,6 @@ async function buscarResultados(query) {
   const mine = ++searchId;
   const searchStarted = performance.now();
   if (WEB) invoke("begin_search", { query });
-  let streamed = false;
 
   // Si lo buscado empieza por el nombre de un artista, su tarjeta sale encima.
   // Va aparte y en paralelo: las canciones no esperan por ella.
@@ -1860,23 +1860,17 @@ async function buscarResultados(query) {
       lastSearchArtist = null;
       lastSearchSplit = -1;
     } else {
-      // YouTube Music suele responder antes. No hacerle esperar al extractor
-      // de vídeos; la fuente tardía se añade abajo sin mover lo ya visible.
-      found = await progressiveSearch([searchSongs(query), searchTracks(query)], tracks => {
-        if (mine !== searchId) return;
-        const first = !streamed;
-        streamed = true;
-        lastResults = tracks;
-        lastSearchArtist = null;
-        lastSearchSplit = -1;
-        searching = false;
-        setBusy(false);
-        if (activeTab === "results") {
-          if (first || !results.appendSearchResults(tracks)) renderPanel();
-          else setView("Buscar", resumenBusqueda());
-        }
-        if (first && tracks[0]) prefetchTrack(tracks[0].watch_url);
-      });
+      // Combinar antes de pintar evita poner versiones ajenas por encima
+      // del artista solo porque una de las fuentes respondió primero.
+      const [music, videos] = await Promise.allSettled([searchSongs(query), searchTracks(query)]);
+      if (mine !== searchId) return;
+      const songs = music.status === "fulfilled" ? music.value : [];
+      if (videos.status === "rejected" && songs.length === 0) throw videos.reason;
+      const ranked = rankSearch(videos.status === "fulfilled" ? videos.value : [], songs, query);
+      found = appendUniqueTracks(ranked.tracks, songs);
+      lastSearchArtist = ranked.artist;
+      lastSearchSplit = ranked.split > 0 ? ranked.split
+        : ranked.artist && found.length > ranked.tracks.length ? ranked.tracks.length : -1;
     }
 
     if (mine !== searchId) return;
@@ -1892,7 +1886,7 @@ async function buscarResultados(query) {
 
   searching = false;
   setBusy(false, { error: searchError });
-  if (activeTab === "results" && !streamed) renderPanel();
+  if (activeTab === "results") renderPanel();
 
   // La primera es la que más probablemente se elija: se resuelve ya, para que
   // el clic sea instantáneo.
