@@ -77,7 +77,9 @@ const { invoke } = runtime.core;
 const { listen } = runtime.event;
 
 /** En el móvil (lo marca boot-theme.js antes de pintar). */
-const IOS = !WEB && await invoke("get_platform") === "ios";
+const PLATFORM = WEB ? "web" : await invoke("get_platform");
+const IOS = PLATFORM === "ios";
+if (PLATFORM === "macos") document.documentElement.dataset.platform = "macos";
 if (IOS) {
   document.documentElement.dataset.platform = "android";
   useIOSPlayer();
@@ -2019,7 +2021,7 @@ lyrics.initLyrics({ seek: (time) => player.seek(time) });
 
 // En Android los controles del sistema los pone el reproductor nativo.
 if (!NATIVE_PLAYER) media.initMediaSession({
-  play: alternarPlay,
+  play: () => { if (!player.isPlaying()) alternarPlay(); },
   pause: () => player.pause(),
   next: saltarASiguiente,
   prev: anterior,
@@ -2611,7 +2613,7 @@ initPlaybackDiagnostics(diagnostics, {
     buffered: player.bufferedAhead(),
   }),
 });
-initPlatformUi().catch(error => console.warn("Ajustes de plataforma:", error));
+initPlatformUi(PLATFORM).catch(error => console.warn("Ajustes de plataforma:", error));
 backups.init({ beforeBackup: async () => { guardarSesion(); await prefs.flush(); }, beforeRestore: async () => { recovery.pause(); player.pause(); await cerrarEscucha(false); guardarSesion(); await prefs.flush(); } });
 if (WEB) {
   import("./js/web-account-ui.js").then(({ initWebAccount }) => initWebAccount({
@@ -2707,7 +2709,7 @@ onUpdated((version) => {
 });
 
 // The assistant controls this player's queue, never another media application.
-if (!ANDROID && await invoke("get_platform") === "linux") {
+if (PLATFORM === "linux") {
   const voiceStatus = () => ({ playing: player.isPlaying(), id: playing.track?.id || "", title: playing.track?.title || "" });
   const voiceCancels = new Map();
   async function voicePlay(track, request, startAt = 0) {

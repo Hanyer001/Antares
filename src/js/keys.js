@@ -64,6 +64,7 @@ const KEY_LABELS = {
 };
 
 const MOD_LABELS = { Ctrl: "Ctrl", Alt: "Alt", Shift: "Mayús", Super: "Win" };
+const MAC_MOD_LABELS = { ...MOD_LABELS, Alt: "Opción", Super: "Comando" };
 
 function keyLabel(code) {
   if (KEY_LABELS[code]) return KEY_LABELS[code];
@@ -76,7 +77,9 @@ function keyLabel(code) {
 /** "Ctrl+Alt+ArrowRight" → ["Ctrl", "Alt", "→"], para pintar cada tecla. */
 export function comboParts(combo) {
   if (!combo) return [];
-  return combo.split("+").map((part) => MOD_LABELS[part] ?? keyLabel(part));
+  const labels = globalThis.document?.documentElement.dataset.platform === "macos"
+    ? MAC_MOD_LABELS : MOD_LABELS;
+  return combo.split("+").map((part) => labels[part] ?? keyLabel(part));
 }
 
 /** "Ctrl+Alt+ArrowRight" → "Ctrl + Alt + →". */

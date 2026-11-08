@@ -37,6 +37,7 @@ Public playlist imports, including Spotify lists with more than 100 tracks, matc
 
 - The desktop layout adapts to available space, with queue and lyrics tabs, an expanded player and an optional audio visualizer.
 - Desktop search shows results as providers respond. Artwork and hover previews do less work while scrolling.
+- Antares builds as a native Apple Silicon desktop app. See the [macOS guide (Spanish)](docs/MACOS.md) for packaging and verification.
 - Experimental Fedora support includes a local HTTP audio bridge for WebKitGTK. Build and run from source with the [Fedora guide (Spanish)](docs/LINUX.md).
 
 ## Engineering overview

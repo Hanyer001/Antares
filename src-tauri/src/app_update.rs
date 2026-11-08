@@ -94,12 +94,20 @@ pub async fn install_app_update(
     update.install(bytes).map_err(friendly)?;
 
     // Fuera de Windows el instalador no cierra la app: se reinicia aqui.
-    crate::restart_clean(&app);
+    crate::restart_clean(&app)
 }
 
 /// Los errores del actualizador, en palabras de persona.
 #[cfg(all(desktop, not(target_os = "linux")))]
 fn friendly(error: tauri_plugin_updater::Error) -> String {
+    #[cfg(target_os = "macos")]
+    if matches!(
+        error,
+        tauri_plugin_updater::Error::TargetNotFound(_) | tauri_plugin_updater::Error::TargetsNotFound(_)
+    ) {
+        return "La publicación consultada no incluye un paquete de Antares para macOS.".into();
+    }
+
     let text = error.to_string();
     let lower = text.to_lowercase();
     if lower.contains("valid release json") || lower.contains("release not found") {

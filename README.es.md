@@ -29,6 +29,7 @@ La copia de `rusty_ytdl` y su parche de cliente YouTube se documentan en [ANTARE
 
 - La interfaz de escritorio se adapta al espacio disponible e incluye pestañas de Cola y Letras, un reproductor ampliado y un visualizador opcional.
 - La búsqueda de escritorio muestra resultados a medida que responden los proveedores. Durante el desplazamiento se reduce el trabajo de las portadas y de la preparación de audio al pasar el puntero.
+- Antares se puede compilar como aplicación de escritorio para Apple Silicon. Consulta la [guía de macOS](docs/MACOS.md) para el paquete y el estado de las pruebas.
 - El soporte experimental para Fedora incluye un puente HTTP local de audio para WebKitGTK. Consulta la [guía de Fedora](docs/LINUX.md) para compilar y ejecutar desde el código fuente.
 
 ## Funciones principales

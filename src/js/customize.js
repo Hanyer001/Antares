@@ -188,7 +188,9 @@ function startRecording(button, path, requireModifier) {
     if (!combo) return; // solo un modificador: aún no ha terminado
 
     if (requireModifier && !hasModifier(combo)) {
-      note.textContent = "En todo el sistema hace falta Ctrl, Alt o Win.";
+      note.textContent = document.documentElement.dataset.platform === "macos"
+        ? "En todo el sistema hace falta Control, Opción o Comando."
+        : "En todo el sistema hace falta Ctrl, Alt o Win.";
       note.hidden = false;
       return;
     }

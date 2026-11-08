@@ -112,7 +112,7 @@ pub fn acknowledge_restored_workspace(state: State<'_, UsersState>) -> Result<()
 #[tauri::command]
 pub fn restart_after_restore(app: tauri::AppHandle) -> Result<(), String> {
     #[cfg(desktop)]
-    crate::restart_clean(&app);
+    return crate::restart_clean(&app);
     #[cfg(mobile)]
     { crate::commands::flush_mobile_data(&app)?; crate::commands::reload_mobile_data(&app) }
 }

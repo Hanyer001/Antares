@@ -751,13 +751,37 @@ pub fn set_thumbbar(title: String, state: ThumbStateArg, app: tauri::AppHandle) 
     }
     #[cfg(windows)]
     crate::thumbbar::update(&app, state);
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    update_macos_playback_menu(&app, &state);
+    #[cfg(not(any(windows, target_os = "macos")))]
     let _ = (title, state, app);
+}
+
+#[cfg(target_os = "macos")]
+fn update_macos_playback_menu(app: &tauri::AppHandle, state: &ThumbStateArg) {
+    let Some(menu) = app.menu().and_then(|menu| menu.get("macos.playback")) else {
+        return;
+    };
+    let Some(playback) = menu.as_submenu() else {
+        return;
+    };
+    let flag = |name: &str| state.get(name).and_then(serde_json::Value::as_bool).unwrap_or(false);
+    for (id, enabled, label) in [
+        ("macos.toggle", flag("hasTrack"), if flag("playing") { "Pausar" } else { "Reproducir" }),
+        ("macos.prev", flag("hasPrev"), "Anterior"),
+        ("macos.next", flag("hasNext"), "Siguiente"),
+        ("macos.like", flag("canLike"), if flag("liked") { "Quitar Me gusta" } else { "Marcar Me gusta" }),
+    ] {
+        if let Some(item) = playback.get(id).and_then(|item| item.as_menuitem().cloned()) {
+            let _ = item.set_enabled(enabled);
+            let _ = item.set_text(label);
+        }
+    }
 }
 
 #[cfg(windows)]
 pub type ThumbStateArg = crate::thumbbar::ThumbState;
-/// Fuera de Windows no hay miniatura: se acepta lo que llegue y se ignora.
+/// macOS usa el estado en su menú de reproducción.
 #[cfg(not(windows))]
 pub type ThumbStateArg = serde_json::Value;
 
@@ -906,7 +930,7 @@ pub fn switch_user(id: String, state: State<'_, UsersState>, app: tauri::AppHand
     flush_mobile_data(&app)?;
     state.change(|users| users.switch(&id))?;
     #[cfg(desktop)]
-    crate::restart_clean(&app);
+    return crate::restart_clean(&app);
     #[cfg(mobile)]
     reload_mobile_data(&app)
 }

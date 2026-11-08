@@ -1,7 +1,22 @@
 import { runtime } from "./platform.js";
 // Ajustes disponibles en la adaptación inicial de Linux. No cambia preferencias guardadas.
-export async function initPlatformUi() {
-  const platform = await runtime.core.invoke("get_platform");
+export async function initPlatformUi(platform) {
+  if (platform === "macos") {
+    const rows = [
+      ["system.closeToTray", "Barra de menús", "Al cerrar la ventana, la música sigue y puedes controlarla desde la barra de menús."],
+      ["system.startHidden", "Iniciar en la barra de menús", "Abre Antares en segundo plano al iniciar sesión."],
+      ["shortcuts.globalEnabled", "Fuera de Antares", "Funcionan aunque Antares esté en segundo plano. Necesitan Control, Opción o Comando."],
+      ["behavior.notify", "Avisar al cambiar de canción", "Una notificación de macOS cuando Antares está en segundo plano."],
+    ];
+    for (const [key, label, description] of rows) {
+      const row = document.querySelector(`[data-pref="${key}"]`)?.closest(".setting");
+      row?.querySelector(".setting__label")?.replaceChildren(label);
+      row?.querySelector(".setting__value")?.replaceChildren(description);
+      row?.querySelector(".sr-only")?.replaceChildren(label);
+    }
+    document.querySelector('[data-theme="system"] .theme-card__name')?.replaceChildren("Según el sistema");
+    return;
+  }
   if (platform === "web") {
     for (const [key, explanation] of [
       ["system.autostart", "El inicio automático pertenece a la aplicación de escritorio."],

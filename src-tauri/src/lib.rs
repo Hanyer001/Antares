@@ -137,7 +137,36 @@ pub fn remove_tray(app: &AppHandle) {
 }
 
 /// Reiniciar sin dejar el icono viejo en la bandeja (ver `remove_tray`).
-pub fn restart_clean(app: &AppHandle) -> ! {
+pub fn restart_clean(app: &AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    if let Some(bundle) = std::env::current_exe().ok().and_then(|path| {
+        let macos = path.parent()?;
+        let contents = macos.parent()?;
+        let bundle = contents.parent()?;
+        (macos.ends_with("MacOS") && contents.ends_with("Contents")
+            && bundle.extension().is_some_and(|ext| ext == "app"))
+            .then(|| bundle.to_owned())
+    }) {
+        // LaunchServices registra el paquete y lo activa. Espera a que termine
+        // la instancia anterior para que el bloqueo de instancia única se libere.
+        std::process::Command::new("/bin/sh")
+            .args(["-c", r#"
+                i=0
+                while kill -0 "$1" 2>/dev/null; do
+                    [ "$i" -lt 80 ] || exit 1
+                    i=$((i + 1))
+                    sleep 0.1
+                done
+                exec /usr/bin/open -n "$2"
+            "#, "antares-relaunch"])
+            .arg(std::process::id().to_string())
+            .arg(bundle)
+            .spawn()
+            .map_err(|error| format!("No se pudo reabrir Antares: {error}"))?;
+        app.exit(0);
+        return Ok(());
+    }
+
     remove_tray(app);
     app.restart()
 }
@@ -187,13 +216,14 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)
         .tooltip("Antares")
         .menu(&menu)
-        .show_menu_on_left_click(false)
+        .show_menu_on_left_click(cfg!(target_os = "macos"))
         .on_menu_event(|app, event| match event.id.as_ref() {
             "show" => show_window(app),
             "quit" => request_quit(app),
-            action => {
+            action @ ("toggle" | "next" | "prev") => {
                 let _ = app.emit("tray", action);
             }
+            _ => {}
         })
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click {
@@ -202,7 +232,9 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
                 ..
             } = event
             {
-                show_window(tray.app_handle());
+                if !cfg!(target_os = "macos") {
+                    show_window(tray.app_handle());
+                }
             }
         });
 
@@ -212,6 +244,32 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
 
     builder.build(app)?;
     Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn macos_menu(app: &AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
+    use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+
+    let menu = Menu::default(app)?;
+    let playback = Submenu::with_id_and_items(app, "macos.playback", "Reproducción", true, &[
+        &MenuItem::with_id(app, "macos.toggle", "Reproducir", false, None::<&str>)?,
+        &MenuItem::with_id(app, "macos.prev", "Anterior", false, None::<&str>)?,
+        &MenuItem::with_id(app, "macos.next", "Siguiente", false, None::<&str>)?,
+        &MenuItem::with_id(app, "macos.like", "Marcar Me gusta", false, None::<&str>)?,
+        &PredefinedMenuItem::separator(app)?,
+        &MenuItem::with_id(app, "macos.show", "Mostrar Antares", true, None::<&str>)?,
+    ])?;
+    menu.append(&playback)?;
+    if let Some(tauri::menu::MenuItemKind::Submenu(application)) = menu.items()?.into_iter().next() {
+        // El menú estándar termina con Salir. Usa el cierre que guarda la sesión.
+        if let Some(item) = application.items()?.into_iter().last() {
+            application.remove(&item)?;
+            application.append(&MenuItem::with_id(
+                app, "macos.quit", "Salir de Antares", true, Some("Cmd+Q"),
+            )?)?;
+        }
+    }
+    Ok(menu)
 }
 
 /// Lo que en escritorio se hace al arrancar y en movil no existe: la ventana
@@ -296,6 +354,19 @@ fn warm_related(handle: AppHandle) {
 pub fn run() {
     let builder = tauri::Builder::default();
 
+    #[cfg(target_os = "macos")]
+    let builder = builder.menu(macos_menu).on_menu_event(|app, event| {
+        match event.id.as_ref() {
+            "macos.show" => show_window(app),
+            "macos.quit" => request_quit(app),
+            "macos.toggle" => { let _ = app.emit("thumbbar", "toggle"); }
+            "macos.next" => { let _ = app.emit("thumbbar", "next"); }
+            "macos.prev" => { let _ = app.emit("thumbbar", "prev"); }
+            "macos.like" => { let _ = app.emit("thumbbar", "like"); }
+            _ => {}
+        }
+    });
+
     // Un solo Antares a la vez: abrirlo otra vez (el acceso directo, el menu
     // Inicio) con uno ya abierto, aunque este escondido en la bandeja, enseña
     // ese en vez de arrancar otro con su propio icono. Tiene que ser el primer
@@ -338,6 +409,9 @@ pub fn run() {
                 if to_tray && window.app_handle().tray_by_id(TRAY_ID).is_some() {
                     api.prevent_close();
                     let _ = window.hide();
+                } else if cfg!(target_os = "macos") {
+                    api.prevent_close();
+                    request_quit(window.app_handle());
                 }
             }
         });
@@ -482,6 +556,10 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("Error al ejecutar Tauri")
         .run(|app, event| {
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { has_visible_windows: false, .. } = &event {
+                show_window(app);
+            }
             // Por si se sale por un camino que no paso por `remove_tray`.
             if let tauri::RunEvent::Exit = event {
                 remove_tray(app);
