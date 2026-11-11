@@ -4,6 +4,7 @@ import { timeline, keyboardSeek, mediaDuration, passedCatalogEnd } from '../src/
 
 test('Safari conserva una duración de catálogo válida frente a estimaciones exageradas', () => {
   assert.equal(mediaDuration(550, 154, true), 154);
+  assert.equal(mediaDuration(301, 151, true), 151);
   assert.equal(mediaDuration(153.9, 154, true), 153.9);
   assert.equal(mediaDuration(NaN, 154, true), 154);
   assert.equal(mediaDuration(550, 154, false), 550);
@@ -34,6 +35,8 @@ test('teclado salta segundos constantes independientemente de la duración', () 
 });
 
 test('el final de respaldo requiere una duración inconsistente y haber pasado el final', () => {
+  assert.equal(passedCatalogEnd(151, 301, 151), false);
+  assert.equal(passedCatalogEnd(152, 301, 151), true);
   assert.equal(passedCatalogEnd(154.5, Infinity, 154), false);
   assert.equal(passedCatalogEnd(155.1, Infinity, 154), true);
   assert.equal(passedCatalogEnd(155.1, 550, 154), true);

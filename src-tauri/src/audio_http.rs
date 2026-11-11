@@ -141,6 +141,7 @@ async fn respond(request: Request<Vec<u8>>, host: &str, token: &str) -> Response
             "solo audio de googlevideo",
         ));
     };
+    let started = std::time::Instant::now();
     let upstream = match audio_proxy::fetch(
         &target,
         request.method().clone(),
@@ -157,13 +158,20 @@ async fn respond(request: Request<Vec<u8>>, host: &str, token: &str) -> Response
             ));
         }
     };
-    relay(upstream, request.method() == Method::HEAD)
+    let range = request.headers().get(header::RANGE).and_then(|value| value.to_str().ok());
+    let timing = (audio_proxy::parse_range(range).0 == 0).then_some(started);
+    relay_timed(upstream, request.method() == Method::HEAD, timing)
 }
 
 /// Conservar el contrato HTTP del origen. Recortar una respuesta bytes=0- a
 /// 1 MiB hacía que GStreamer aceptase la duración completa pero llegase a EOS
 /// al agotar ese trozo, también al buscar una posición posterior.
+#[cfg(test)]
 fn relay(upstream: reqwest::Response, head: bool) -> Response<AudioBody> {
+    relay_timed(upstream, head, None)
+}
+
+fn relay_timed(upstream: reqwest::Response, head: bool, timing: Option<std::time::Instant>) -> Response<AudioBody> {
     let mut response = Response::builder()
         .status(upstream.status())
         .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
@@ -171,7 +179,8 @@ fn relay(upstream: reqwest::Response, head: bool) -> Response<AudioBody> {
             header::ACCESS_CONTROL_EXPOSE_HEADERS,
             "Content-Range, Content-Length, Accept-Ranges",
         )
-        .header(header::CACHE_CONTROL, "no-store");
+        .header(header::CACHE_CONTROL, "no-store")
+        .header("Timing-Allow-Origin", "*");
     for name in [
         header::CONTENT_TYPE,
         header::CONTENT_LENGTH,
@@ -191,9 +200,13 @@ fn relay(upstream: reqwest::Response, head: bool) -> Response<AudioBody> {
             )
             .unwrap();
     }
-    let chunks = stream::try_unfold(upstream, |mut upstream| async move {
+    let timing = timing.filter(|_| upstream.status().is_success());
+    let chunks = stream::try_unfold((upstream, timing), |(mut upstream, timing)| async move {
         match upstream.chunk().await? {
-            Some(bytes) => Ok(Some((Frame::data(bytes), upstream))),
+            Some(bytes) => {
+                if let Some(started) = timing { crate::diagnostics::first_byte(started.elapsed()); }
+                Ok(Some((Frame::data(bytes), (upstream, None))))
+            }
             None => Ok(None),
         }
     });

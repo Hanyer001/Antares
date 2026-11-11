@@ -44,7 +44,6 @@ export function initMobile({ openTab, next, previous, canSwipe }) {
   function render() {
     const layout = prefs.get("layout");
     const active = document.querySelector('.sidebar [data-tab][aria-current="page"]')?.dataset.tab;
-    root.dataset.mobileTab = active ?? "detail";
     const primary = primaryTabs(layout.tabOrder,layout.hiddenTabs,active);
     for (const tab of tabs) tab.classList.toggle("mobile-overflow", !primary.includes(tab.dataset.tab));
     nav.append(more);

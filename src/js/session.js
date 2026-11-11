@@ -4,17 +4,11 @@
 
 import { key } from "./user.js";
 import { WEB } from "./platform.js";
+import { readSession, sessionForStorage } from "./session-model.js";
 import { persistSession, readCachedSession } from "./web-storage.js";
 
 /** Cada usuario del PC retoma lo suyo. */
 const storageKey = () => key("antares.session");
-
-/**
- * Una cola importada puede ser enorme: se guardan como mucho estas pistas, en
- * una ventana que empieza un poco antes de la que suena.
- */
-const MAX_ITEMS = 500;
-const KEEP_BEFORE = 50;
 
 /**
  * @param {object} state
@@ -24,17 +18,9 @@ const KEEP_BEFORE = 50;
  * @param {object[]} state.picks  Las semillas de las recomendaciones.
  */
 export function save(state) {
-  const queue = state.queue;
-  const from = queue.items.length > MAX_ITEMS ? Math.max(queue.index - KEEP_BEFORE, 0) : 0;
-  const trimmed = {
-    ...queue,
-    items: queue.items.slice(from, from + MAX_ITEMS),
-    original: queue.original.slice(0, MAX_ITEMS),
-    index: queue.index - from,
-  };
-
   try {
-    const saved = { ...state, queue: trimmed, savedAt: Date.now() };
+    const saved = sessionForStorage(state, Date.now());
+    if (!saved) return;
     if (WEB) return persistSession(storageKey(), saved);
     localStorage.setItem(storageKey(), JSON.stringify(saved));
   } catch {
@@ -43,9 +29,9 @@ export function save(state) {
 }
 
 export function load() {
-  if (WEB) return readCachedSession(storageKey());
   try {
-    return JSON.parse(localStorage.getItem(storageKey()) ?? "null");
+    const saved = WEB ? readCachedSession(storageKey()) : JSON.parse(localStorage.getItem(storageKey()) ?? "null");
+    return readSession(saved);
   } catch {
     return null;
   }

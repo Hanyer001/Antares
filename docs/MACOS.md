@@ -4,13 +4,13 @@ La compilación nativa se verificó en Apple Silicon. Antares usa Tauri con WKWe
 
 ## Compilar
 
-Instala Xcode o sus herramientas de línea de comandos, Rust y Node con npm. Desde el repositorio, ejecuta:
+Instala Xcode o sus herramientas de línea de comandos, Rust, la CLI de Tauri de Cargo y wasm-bindgen según la [guía de desarrollo](development.md). Desde el repositorio, ejecuta:
 
 ```sh
 sh scripts/build-macos.sh
 ```
 
-El asistente detecta Apple Silicon o Intel, descarga el yt-dlp oficial para Mac si hace falta y valida SHA-256 antes de instalarlo como sidecar. Se puede ejecutar con `--prepare` para preparar solo el sidecar. La configuración de macOS empaqueta `.app` y `.dmg`. Para compilar solo la aplicación:
+El asistente detecta Apple Silicon o Intel y ejecuta `cargo tauri build`. La configuración de macOS empaqueta `.app` y `.dmg`. Para compilar solo la aplicación:
 
 ```sh
 APPLE_SIGNING_IDENTITY=- sh scripts/build-macos.sh --bundles app

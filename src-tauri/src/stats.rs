@@ -229,8 +229,7 @@ impl Stats {
         }
     }
 
-    #[cfg(any(mobile, feature = "web"))]
-    pub(crate) fn flush_mobile(&self) -> Result<(), String> {
+    pub(crate) fn flush(&self) -> Result<(), String> {
         self.file.save_sync(self.tracks.lock().map_err(|_| "estadisticas bloqueadas")?.clone()).map_err(|e| e.to_string())?;
         self.signals_file.save_sync(self.signals.lock().map_err(|_| "gustos bloqueados")?.clone()).map_err(|e| e.to_string())
     }
@@ -363,7 +362,7 @@ impl Stats {
     /// Arregla titulos y canales rotos con los de pistas recien leidas de
     /// YouTube.
     ///
-    /// Lo guardado antes de forzar UTF-8 en yt-dlp trae "�" donde iban tildes
+    /// Lo guardado con versiones antiguas del catálogo trae "�" donde iban tildes
     /// y eñes, y solo se corregiria al volver a escuchar cada pista. Los Mix que
     /// pide el recomendador traen esas mismas pistas bien escritas: se
     /// aprovechan.
@@ -402,7 +401,7 @@ impl Stats {
     }
 
     /// Copia de todo lo que sabemos, para el recomendador. Una copia y no una
-    /// referencia porque recomendar espera a yt-dlp, y el mutex no puede quedar
+    /// referencia porque recomendar espera a YouTube, y el mutex no puede quedar
     /// tomado durante esa espera.
     pub fn snapshot(&self) -> Vec<TrackStats> {
         self.tracks

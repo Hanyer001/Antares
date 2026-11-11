@@ -1,6 +1,6 @@
 // Importa listas públicas de Spotify, Deezer y Apple Music, o canciones de texto y CSV.
 // Busca cada pista en YouTube Music y compara duraciones para elegir la versión.
-// Las listas de YouTube se cargan directamente mediante source::playlist.
+// Las listas de YouTube se cargan directamente mediante innertube::list_playlist.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock};
@@ -448,8 +448,8 @@ async fn read_deezer(kind: &str, id: &str) -> Result<(String, Vec<Wanted>), Stri
             break;
         }
         let url = deezer_page_url(&url)?;
-        if !visited.insert(url.clone()) {
-            return Err("Deezer repitió una página de canciones. Inténtalo de nuevo.".into());
+        if visited.len() >= 32 || !visited.insert(url.clone()) {
+            return Err("Deezer no permitió completar la lista. Inténtalo de nuevo.".into());
         }
         let (_, body) = fetch(&url).await?;
         let page: Value = serde_json::from_str(&body).map_err(|_| "No se pudo leer una página de canciones de Deezer.")?;

@@ -11,7 +11,7 @@ import { displayThumbnail } from "./thumbnails.js";
 import { createHoverPrefetch, bindScrollFeedback } from "./scroll-activity.js";
 import { makeFilter } from "./filters.js";
 import { detectGenres, genreById, GENRES, tracksOfGenre } from "./genres.js";
-import { icon, iconButton } from "./icons.js";
+import { HomeSection, home_section_id as sectionId, move_home_section } from "./rust-core.js";
 import * as prefs from "./prefs.js";
 import { bindTouchSort, dropPosition } from "./mobile-interactions.js";
 import { orderedShelves } from "./interaction-policy.js";
@@ -97,11 +97,6 @@ export function initHome(callbacks) {
 export function setPlaylists(lists) {
   playlists = lists;
   render();
-}
-
-/** Los géneros deducidos de lo que escuchas (para Ajustes). */
-export function detectedGenres() {
-  return detected;
 }
 
 // --- Datos ---------------------------------------------------------------
@@ -312,274 +307,80 @@ function shelves() {
   });
 }
 
-function signature(shelf) {
-  const items = shelf.tracks ?? shelf.items ?? [];
-  return `${prefs.get("home.pinnedShelves").includes(sectionId(shelf.key))}|${shelf.state}|${shelf.title}|${items.map((i) => i.id ?? i.name).join(",")}`;
+const thumbnail = src => src ? displayThumbnail(src) : null;
+
+function shelfModel(shelf) {
+  const section = sectionId(shelf.key);
+  const cards = shelf.kind === "artists"
+    ? shelf.items.map(({ name, tracks }) => ({ kind: "artist", name, thumbnail: thumbnail(tracks[0]?.thumbnail) }))
+    : shelf.kind === "lists"
+      ? shelf.items.map(({ name, tracks, system }) => ({
+        kind: "list", name, count: tracks.length, system: Boolean(system),
+        thumbnails: system ? [] : tracks.map(t => t.thumbnail).filter(Boolean).slice(0, 4).map(thumbnail),
+      }))
+      : (shelf.tracks ?? []).map(({ id, title, uploader, thumbnail: src }) => ({
+        kind: "track", id, title, artist: uploader, thumbnail: thumbnail(src),
+      }));
+  return {
+    section, title: shelf.title ?? "", subtitle: shelf.subtitle,
+    pinned: prefs.get("home.pinnedShelves").includes(section),
+    mobile: document.documentElement.dataset.platform === "android",
+    loading: shelf.state === "loading", playable: Boolean(shelf.tracks?.length), cards,
+  };
 }
 
-function shelfHeader(shelf, row) {
-  const head = document.createElement("header");
-  head.className = "shelf__head";
-
-  const text = document.createElement("div");
-  text.className = "shelf__text";
-  const title = document.createElement("h3");
-  title.className = "shelf__title";
-  title.textContent = shelf.title ?? "";
-  text.append(title);
-  if(prefs.get("home.pinnedShelves").includes(sectionId(shelf.key))){
-    const badge=document.createElement("span");badge.className="shelf__pinned";badge.textContent="Fijada";text.append(badge);
-  }
-  if (shelf.subtitle) {
-    const sub = document.createElement("p");
-    sub.className = "shelf__sub";
-    sub.textContent = shelf.subtitle;
-    text.append(sub);
-  }
-
-  const actions = document.createElement("div");
-  actions.className = "shelf__actions";
-
-  if (shelf.tracks?.length) {
-    actions.append(
-      iconButton({
-        icon: "play",
-        label: "Reproducir",
-        className: "btn btn--mini btn--with-icon",
-        text: true,
-        onClick: () => handlers.playAll(shelf.tracks, shelf.title),
-      }),
-    );
-  }
-
-  if(document.documentElement.dataset.platform==='android'){
-    const handle=iconButton({icon:'grip',label:`Organizar sección ${shelf.title}`,className:'btn shelf__organize',onClick:(_event,button)=>sectionMenu(shelf,button)});
-    actions.append(handle);
-  }
-  // Flechas para recorrer la fila sin rueda horizontal.
-  for (const [name, dir] of [["back", -1], ["back", 1]]) {
-    const button = iconButton({
-      icon: name,
-      label: dir < 0 ? "Anteriores" : "Siguientes",
-      className: `btn btn--icon shelf__arrow${dir > 0 ? " shelf__arrow--next" : ""}`,
-      onClick: () => row.scrollBy({ left: dir * row.clientWidth * 0.8, behavior: "smooth" }),
+function bindShelf(node, entry) {
+  const row = node.querySelector(".shelf__row");
+  for (const button of node.querySelectorAll("[data-home-action]")) {
+    button.addEventListener("click", () => {
+      const shelf = entry.shelf;
+      switch (button.dataset.homeAction) {
+        case "play": handlers.playAll(shelf.tracks, shelf.title); break;
+        case "organize": sectionMenu(shelf, button); break;
+        default: {
+          const dir = button.dataset.homeAction === "previous" ? -1 : 1;
+          row.scrollBy({ left: dir * row.clientWidth * 0.8, behavior: "smooth" });
+        }
+      }
     });
-    actions.append(button);
   }
-
-  head.append(text, actions);
-  return head;
-}
-
-function art(src, className) {
-  const img = document.createElement("img");
-  img.className = className;
-  img.alt = "";
-  img.loading = "lazy";
-  img.decoding = "async";
-  if (src) img.src = displayThumbnail(src);
-  return img;
-}
-
-function trackCard(track) {
-  const card = document.createElement("div");
-  card.className = "card";
-  card.tabIndex = 0;
-  card.setAttribute("role", "button");
-  card.dataset.id = track.id;
-  card.title = [track.title, track.uploader].filter(Boolean).join(" · ");
-
-  const cover = document.createElement("div");
-  cover.className = "card__cover";
-  cover.append(art(track.thumbnail, "card__art"));
-
-  const play = document.createElement("span");
-  play.className = "card__play";
-  play.append(icon("play"));
-  cover.append(play);
-
-  const more = iconButton({
-    icon: "more",
-    label: "Más opciones",
-    className: "card__more",
-    onClick: (event, button) => {
-      event.stopPropagation();
-      handlers.menu(track, button);
-    },
-  });
-  const mobile = document.documentElement.dataset.platform === "android";
-  if (!mobile) cover.append(more);
-
-  const title = document.createElement("span");
-  title.className = "card__title";
-  title.textContent = track.title || "Sin título";
-
-  // El artista lleva a su página; el resto de la tarjeta, a la canción.
-  const by = document.createElement(track.uploader ? "button" : "span");
-  by.className = "card__by";
-  by.textContent = track.uploader || "";
-  if (track.uploader) {
-    by.type = "button";
-    by.classList.add("card__by--link");
-    by.title = `Ir a ${track.uploader.replace(/ - Topic$/, "")}`;
-    by.addEventListener("click", (event) => {
-      event.stopPropagation();
-      handlers.artist(track, by);
+  row.querySelectorAll(".card:not(.card--skeleton)").forEach((card, index) => {
+    if (entry.shelf.kind === "artists") {
+      card.addEventListener("click", () => handlers.artistPlay(entry.shelf.items[index]));
+      return;
+    }
+    if (entry.shelf.kind === "lists") {
+      card.addEventListener("click", () => handlers.openList(entry.shelf.items[index].id));
+      return;
+    }
+    const track = () => entry.shelf.tracks[index];
+    const more = card.querySelector(".card__more");
+    more.addEventListener("click", event => { event.stopPropagation(); handlers.menu(track(), more); });
+    const by = card.querySelector(".card__by--link");
+    by?.addEventListener("click", event => { event.stopPropagation(); handlers.artist(track(), by); });
+    by?.addEventListener("keydown", event => event.stopPropagation());
+    const pick = () => handlers.pick(track());
+    card.addEventListener("click", pick);
+    card.addEventListener("keydown", event => {
+      if (event.target !== card || (event.key !== "Enter" && event.key !== " ")) return;
+      event.preventDefault();
+      pick();
     });
-    by.addEventListener("keydown", (event) => event.stopPropagation());
-  }
-
-  if (mobile) {
-    const meta = document.createElement("div"); meta.className = "mobile-card-meta";
-    const text = document.createElement("div"); text.append(title, by);
-    meta.append(text, more); card.append(cover, meta);
-  } else card.append(cover, title, by);
-
-  const pick = () => handlers.pick(track);
-  card.addEventListener("click", pick);
-  card.addEventListener("keydown", (event) => {
-    if (event.target !== card || (event.key !== "Enter" && event.key !== " ")) return;
-    event.preventDefault();
-    pick();
-  });
-  card.addEventListener("contextmenu", (event) => {
-    event.preventDefault();
-    handlers.menu(track, more);
-  });
-  hoverPrefetch.bind(card, () => handlers.prefetch(track), HOVER_PREFETCH_MS);
-
-  return card;
-}
-
-function artistCard(artist) {
-  const card = document.createElement("button");
-  card.type = "button";
-  card.className = "card card--artist";
-  card.title = `Reproducir las canciones de ${artist.name.replace(/ - Topic$/, "")}`;
-
-  const cover = document.createElement("div");
-  cover.className = "card__cover";
-  cover.append(art(artist.tracks[0]?.thumbnail, "card__art"));
-  const play = document.createElement("span");
-  play.className = "card__play";
-  play.append(icon("play"));
-  cover.append(play);
-
-  const name = document.createElement("span");
-  name.className = "card__title";
-  name.textContent = artist.name.replace(/ - Topic$/, "");
-
-  const by = document.createElement("span");
-  by.className = "card__by";
-  by.textContent = "Reproducir artista";
-
-  card.append(cover, name, by);
-  card.addEventListener("click", () => handlers.artistPlay(artist));
-  return card;
-}
-
-function listCard(list) {
-  const card = document.createElement("button");
-  card.type = "button";
-  card.className = "card card--list";
-
-  const cover = document.createElement("div");
-  cover.className = "card__cover";
-  if (list.system) {
-    cover.classList.add("card__cover--likes");
-    cover.append(icon("heart"));
-  } else {
-    // Mosaico de hasta cuatro carátulas.
-    const thumbs = list.tracks.map((t) => t.thumbnail).filter(Boolean).slice(0, 4);
-    cover.classList.toggle("card__cover--mosaic", thumbs.length >= 4);
-    for (const src of thumbs.length >= 4 ? thumbs : thumbs.slice(0, 1)) cover.append(art(src, "card__art"));
-  }
-
-  const name = document.createElement("span");
-  name.className = "card__title";
-  name.textContent = list.name;
-
-  const by = document.createElement("span");
-  by.className = "card__by";
-  const n = list.tracks.length;
-  by.textContent = `${n} ${n === 1 ? "canción" : "canciones"}`;
-
-  card.append(cover, name, by);
-  card.addEventListener("click", () => handlers.openList(list.id));
-  return card;
-}
-
-function skeletons() {
-  return Array.from({ length: 6 }, () => {
-    const card = document.createElement("div");
-    card.className = "card card--skeleton";
-    card.setAttribute("aria-hidden", "true");
-    card.innerHTML = '<div class="card__cover"></div><span class="card__title"></span><span class="card__by"></span>';
-    return card;
+    card.addEventListener("contextmenu", event => { event.preventDefault(); handlers.menu(track(), more); });
+    hoverPrefetch.bind(card, () => handlers.prefetch(track()), HOVER_PREFETCH_MS);
   });
 }
 
-function buildShelf(shelf) {
-  const section = document.createElement("section");
-  section.className = "shelf";
-  section.dataset.section = sectionId(shelf.key);
-  section.setAttribute("aria-busy", String(shelf.state === "loading"));
-
-  const row = document.createElement("div");
-  row.className = "shelf__row";
-
-  if (shelf.state === "loading") {
-    row.append(...skeletons());
-  } else if (shelf.kind === "artists") {
-    row.append(...shelf.items.map(artistCard));
-  } else if (shelf.kind === "lists") {
-    row.append(...shelf.items.map(listCard));
-  } else {
-    row.append(...shelf.tracks.map(trackCard));
-  }
-
-  section.append(shelfHeader(shelf, row), row);
-  return section;
+function isDiscoveryShelf(key) {
+  return ["mix", "genres", "because", "discoveries", "explore"].includes(sectionId(key));
 }
-
-/** Sin nada escuchado ni géneros elegidos: preguntar qué le gusta. */
-function welcome() {
-  const box = document.createElement("section");
-  box.className = "home__welcome";
-
-  const title = document.createElement("h3");
-  title.className = "shelf__title";
-  title.textContent = "¿Qué música te gusta?";
-
-  const text = document.createElement("p");
-  text.className = "shelf__sub";
-  text.textContent =
-    "Elige uno o varios géneros y Antares te preparará estanterías con ellos. Según escuches, aprenderá tus gustos solo.";
-
-  const chips = document.createElement("div");
-  chips.className = "genre-chips";
-  for (const genre of GENRES) {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "genre-chip";
-    chip.textContent = genre.name;
-    chip.addEventListener("click", () => prefs.set("home.genres", [...prefs.get("home.genres"), genre.id]));
-    chips.append(chip);
-  }
-
-  box.append(title, text, chips);
-  return box;
-}
-
-function sectionId(key){return key.split(':')[0].replace('genre','genres');}
-function isDiscoveryShelf(key){return ['mix','genres','because','discoveries','explore'].includes(sectionId(key));}
-function moveSection(from,to){
-  const order=[...prefs.get('home.shelfOrder')],pins=prefs.get('home.pinnedShelves');
-  const sameGroup=orderedShelves(order,pins).filter(id=>pins.includes(id)===pins.includes(from));
-  const old=sameGroup.indexOf(from),at=sameGroup.indexOf(to);if(old<0||at<0||old===at)return;
-  sameGroup.splice(old,1);sameGroup.splice(at,0,from);
-  let i=0;prefs.set('home.shelfOrder',order.map(id=>pins.includes(id)===pins.includes(from)?sameGroup[i++]:id));
-  haptic();toast('Orden de Inicio actualizado.');
+function moveSection(from, to) {
+  if (to == null) return;
+  const order = move_home_section(prefs.get("home.shelfOrder"), prefs.get("home.pinnedShelves"), from, to);
+  if (!order) return;
+  prefs.set("home.shelfOrder", order);
+  haptic();
+  toast("Orden de Inicio actualizado.");
 }
 function sectionMenu(shelf,button){
   const id=sectionId(shelf.key),pins=prefs.get('home.pinnedShelves'),pinned=pins.includes(id);
@@ -613,32 +414,42 @@ export function render() {
   const needsWelcome = data.library.length === 0 && prefs.get("home.genres").length === 0;
 
   const nodes = [];
-  if (needsWelcome) nodes.push(painted.get("welcome")?.node ?? welcome());
-
-  const keep = new Set(needsWelcome ? ["welcome"] : []);
-  if (needsWelcome) painted.set("welcome", { node: nodes[0], sig: "welcome" });
-
+  const keep = new Set();
+  const update = (key, signature, makeView, shelf) => {
+    keep.add(key);
+    let entry = painted.get(key);
+    if (!entry || entry.signature !== signature) {
+      const view = makeView();
+      const node = view.element();
+      entry?.view.free();
+      entry = { view, node, signature, shelf };
+      painted.set(key, entry);
+      if (shelf) bindShelf(node, entry);
+      else if (key === "welcome") {
+        for (const button of node.querySelectorAll("[data-genre]")) {
+          button.addEventListener("click", () => prefs.set("home.genres", [...prefs.get("home.genres"), button.dataset.genre]));
+        }
+      }
+    }
+    entry.shelf = shelf;
+    nodes.push(entry.node);
+  };
+  if (needsWelcome) update("welcome", "", () => HomeSection.welcome(JSON.stringify(GENRES)));
   for (const shelf of list) {
-    const sig = signature(shelf);
-    const old = painted.get(shelf.key);
-    const node = old && old.sig === sig ? old.node : buildShelf(shelf);
-    painted.set(shelf.key, { node, sig });
-    keep.add(shelf.key);
-    nodes.push(node);
+    const model = JSON.stringify(shelfModel(shelf));
+    update(shelf.key, model, () => HomeSection.shelf(model), shelf);
+  }
+  if (!nodes.length) update("empty", "", () => HomeSection.empty());
+  for (const [key, entry] of painted) {
+    if (!keep.has(key)) {
+      entry.view.free();
+      painted.delete(key);
+    }
   }
 
-  for (const key of painted.keys()) if (!keep.has(key)) painted.delete(key);
-
-  if (nodes.length === 0) {
-    const p = document.createElement("p");
-    p.className = "results__empty";
-    p.textContent = "Todas las secciones de Inicio están ocultas. Actívalas en Ajustes › Inicio.";
-    nodes.push(p);
+  // Se mueven los nodos existentes para conservar el foco y el scroll horizontal.
+  for (const [index, node] of nodes.entries()) {
+    if (els.home.children[index] !== node) els.home.insertBefore(node, els.home.children[index] ?? null);
   }
-
-  // Solo se mueve lo que cambió: el scroll horizontal de cada fila se conserva.
-  const current = [...els.home.children];
-  if (current.length !== nodes.length || current.some((n, i) => n !== nodes[i])) {
-    els.home.replaceChildren(...nodes);
-  }
+  while (els.home.children.length > nodes.length) els.home.lastElementChild.remove();
 }

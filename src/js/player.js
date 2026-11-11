@@ -6,7 +6,7 @@ import { els } from "./dom.js";
 import { WEB } from "./platform.js";
 import { mediaDuration, passedCatalogEnd } from "./timeline.js";
 import { visualTask } from "./visual-activity.js";
-import { formatTime } from "./format.js";
+import { console_play, console_time, console_volume, format_clock } from "./rust-core.js";
 import * as prefs from "./prefs.js";
 import * as sound from "./sound.js";
 import { gainFor } from "./volume.js";
@@ -55,9 +55,13 @@ function standby() {
   return active === decks[0] ? decks[1] : decks[0];
 }
 
-/** La del <audio> manda; el dato de yt-dlp solo cubre el hueco inicial. */
+/** WebKit en macOS puede sobreestimar la duración después de un salto. */
+function checksCatalogDuration() {
+  return WEB || document.documentElement.dataset.platform === "macos";
+}
+
 function displayDuration() {
-  return mediaDuration(active.duration, durationHint, WEB);
+  return mediaDuration(active.duration, durationHint, checksCatalogDuration());
 }
 
 // --- Emisor mínimo -------------------------------------------------------
@@ -121,39 +125,13 @@ function retire(deck) {
 // --- Pintado -------------------------------------------------------------
 
 function renderPlayState() {
-  const playing = isPlaying();
-
-  els.iconPlay.classList.toggle("is-hidden", playing);
-  els.iconPause.classList.toggle("is-hidden", !playing);
-  els.play.setAttribute("aria-label", playing ? "Pausar" : "Reproducir");
-  if (nativeDecks) {
-    els.play.dataset.playback = playing ? "playing" : "paused";
-    els.play.setAttribute("aria-pressed", String(playing));
-    if (!playing) els.play.classList.remove("is-loading");
-  }
-
-  // La clase va en <body> porque de ella cuelgan el halo de la consola y la
-  // animación del medidor, que están en otras ramas del árbol.
-  document.body.classList.toggle("is-playing", playing);
+  console_play(els.play, els.iconPlay, els.iconPause, isPlaying(), nativeDecks);
 }
 
 const renderProgress = visualTask(() => {
   if (document.hidden) return;
-  const { currentTime } = active;
-  const duration = displayDuration();
-
-  els.timeCurrent.textContent = formatTime(WEB && duration > 0 ? Math.min(currentTime, duration) : currentTime);
-  els.timeTotal.textContent = formatTime(duration);
-
-  if (!Number.isFinite(duration) || duration <= 0) {
-    els.scrub.style.setProperty("--played", "0%");
-    return;
-  }
-
-  const ratio = currentTime / duration;
-
-  if (!isScrubbing) els.scrub.value = String(Math.round(ratio * SCRUB_STEPS));
-  els.scrub.style.setProperty("--played", `${(ratio * 100).toFixed(2)}%`);
+  console_time(els.scrub, els.timeCurrent, els.timeTotal, active.currentTime,
+    displayDuration() ?? NaN, isScrubbing, checksCatalogDuration());
 });
 
 /** Pinta por detrás cuánto lleva descargado el navegador. */
@@ -172,19 +150,7 @@ const renderBuffered = visualTask(() => {
 });
 
 function renderVolume() {
-  const silent = muted || volume === 0;
-  const percent = Math.round(volume * 100);
-
-  els.iconVol.classList.toggle("is-hidden", silent);
-  els.iconMute.classList.toggle("is-hidden", !silent);
-  els.mute.setAttribute("aria-label", silent ? "Activar sonido" : "Silenciar");
-
-  // El deslizador conserva su posición al silenciar: así se ve a qué volumen
-  // volverá. Lo que cambia es la cifra, que dice la verdad de lo que suena.
-  els.volume.value = String(percent);
-  els.volume.style.setProperty("--level", `${percent}%`);
-  els.volume.classList.toggle("is-muted", silent);
-  els.volumeValue.textContent = silent ? "—" : String(percent);
+  console_volume(els.volume, els.volumeValue, els.mute, els.iconVol, els.iconMute, volume, muted);
 }
 
 function resetTimeline(knownDuration) {
@@ -195,7 +161,7 @@ function resetTimeline(knownDuration) {
   els.scrub.style.setProperty("--played", "0%");
   els.scrub.style.setProperty("--buffered", "0%");
   els.timeCurrent.textContent = "0:00";
-  els.timeTotal.textContent = formatTime(durationHint);
+  els.timeTotal.textContent = format_clock(durationHint ?? NaN);
 }
 
 /** El volumen se recuerda entre sesiones, con las demás preferencias. */
@@ -236,7 +202,7 @@ export function currentTime() {
   return active.currentTime;
 }
 
-/** Duración real si ya se conoce; si no, la que dio yt-dlp. */
+/** Duración real si ya se conoce; si no, la que dio el catálogo. */
 export function duration() {
   return displayDuration();
 }
@@ -261,7 +227,7 @@ export function toggleMute() {
  * Carga una URL nueva en el plato activo y deja la barra en cero.
  *
  * @param {string} url
- * @param {number|null} knownDuration Duración en segundos según yt-dlp, si la hay.
+ * @param {number|null} knownDuration Duración en segundos según el catálogo, si la hay.
  * @param {number} [startAt] Segundo en el que empezar (al retomar una sesión).
  * @param {object} [meta] `{ title, artist, artwork }`: en Android van a la
  *   notificación y a la pantalla de bloqueo.
@@ -457,8 +423,9 @@ export function initPlayer() {
       fromActive(() => {
         renderProgress();
         const position = active.currentTime;
-        emit("time", WEB && durationHint ? Math.min(position, displayDuration()) : position);
-        if (WEB && !endEmitted && !active.paused && !active.seeking && !isScrubbing
+        const checkDuration = checksCatalogDuration();
+        emit("time", checkDuration && durationHint ? Math.min(position, displayDuration()) : position);
+        if (checkDuration && !endEmitted && !active.paused && !active.seeking && !isScrubbing
             && passedCatalogEnd(position, active.duration, durationHint)) {
           active.pause();
           finishTrack();

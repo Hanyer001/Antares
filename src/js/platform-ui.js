@@ -1,6 +1,20 @@
 import { runtime } from "./platform.js";
 // Ajustes disponibles en la adaptación inicial de Linux. No cambia preferencias guardadas.
 export async function initPlatformUi(platform) {
+  if (platform === "macos" || platform === "windows") {
+    const capabilities = await runtime.core.invoke("desktop_capabilities");
+    for (const [key, available, explanation] of [
+      ["system.closeToTray", capabilities.tray, "La bandeja no está disponible en esta sesión. Cerrar la ventana saldrá de Antares."],
+      ["system.startHidden", capabilities.tray, "Antares abrirá su ventana para que puedas acceder a los controles."],
+      ["shortcuts.globalEnabled", capabilities.globalShortcuts, "Los atajos globales no están disponibles en esta sesión."],
+    ]) {
+      if (available) continue;
+      const input = document.querySelector(`[data-pref="${key}"]`);
+      if (!input) continue;
+      input.disabled = true;
+      input.closest(".setting")?.querySelector(".setting__value")?.replaceChildren(explanation);
+    }
+  }
   if (platform === "macos") {
     const rows = [
       ["system.closeToTray", "Barra de menús", "Al cerrar la ventana, la música sigue y puedes controlarla desde la barra de menús."],
@@ -9,6 +23,7 @@ export async function initPlatformUi(platform) {
       ["behavior.notify", "Avisar al cambiar de canción", "Una notificación de macOS cuando Antares está en segundo plano."],
     ];
     for (const [key, label, description] of rows) {
+      if (document.querySelector(`[data-pref="${key}"]`)?.disabled) continue;
       const row = document.querySelector(`[data-pref="${key}"]`)?.closest(".setting");
       row?.querySelector(".setting__label")?.replaceChildren(label);
       row?.querySelector(".setting__value")?.replaceChildren(description);
@@ -32,8 +47,6 @@ export async function initPlatformUi(platform) {
       const note = input.closest(".setting")?.querySelector(".setting__value");
       if (note) note.textContent = explanation;
     }
-    const update = document.getElementById("update-button");
-    if (update) { update.disabled = true; update.textContent = "Motor del servidor"; }
     return;
   }
   if (platform !== "linux") return;

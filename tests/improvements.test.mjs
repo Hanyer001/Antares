@@ -80,3 +80,16 @@ test("los saltos de posición hacia atrás no reinician el presupuesto",async()=
   x.r.progress(162);x.r.progress(10);x.r.progress(11);
   assert.equal(x.r.attempts,1);
 });
+
+test("el índice Rust detecta cambios de título y orden en la misma colección", () => {
+  const tracks = [
+    { id: "a", title: "Canción uno", uploader: "Álex" },
+    { id: "b", title: "Otra canción", uploader: "María" },
+  ];
+  assert.deepEqual(filterTracks(tracks, "alex"), [tracks[0]]);
+  tracks.reverse();
+  assert.deepEqual(filterTracks(tracks, "alex"), [tracks[1]]);
+  tracks[1].uploader = "María";
+  assert.deepEqual(filterTracks(tracks, "alex"), []);
+  assert.deepEqual(filterTracks(tracks, "maria"), tracks);
+});

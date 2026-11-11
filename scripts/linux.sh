@@ -17,12 +17,11 @@ export CARGO_PROFILE_DEV_DEBUG=0
 export CARGO_PROFILE_TEST_DEBUG=0
 export CARGO_INCREMENTAL=0
 export PATH="$TOOLS/node/bin:$CARGO_HOME/bin:$PATH"
-CLI="$TOOLS/antares-cli/node_modules/@tauri-apps/cli/tauri.js"
 fail() { printf '%s\n' "$*" >&2; exit 1; }
 download() { curl --fail --location --retry 3 --connect-timeout 20 --proto '=https' --tlsv1.2 "$1" -o "$2"; }
 prepare_dirs() { mkdir -p "$TOOLS" "$CARGO_HOME" "$RUSTUP_HOME" "$CARGO_TARGET_DIR" "$npm_config_cache" "$XDG_DATA_HOME" "$TMPDIR"; }
 require_tools() {
-  [[ -x "$TOOLS/node/bin/node" && -x "$CARGO_HOME/bin/cargo" && -f "$CLI" ]] || fail "Primero ejecuta: bash scripts/linux.sh preparar"
+  [[ -x "$TOOLS/node/bin/node" && -x "$CARGO_HOME/bin/cargo" && -x "$CARGO_HOME/bin/cargo-tauri" && -x "$CARGO_HOME/bin/wasm-bindgen" ]] || fail "Primero ejecuta: bash scripts/linux.sh preparar"
 }
 configure_webview() {
   # En GNOME/Wayland, no heredar X11 de la app que abre la terminal.
@@ -76,27 +75,14 @@ prepare() {
     rustup default stable
   fi
   rustup component add rustfmt clippy
-  local cli_version
-  cli_version="$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).packages["node_modules/@tauri-apps/cli"].version' "$PROJECT_ROOT/package-lock.json")"
-  if [[ ! -f "$CLI" ]] || [[ "$(node -p 'require(process.argv[1]).version' "$TOOLS/antares-cli/node_modules/@tauri-apps/cli/package.json")" != "$cli_version" ]]; then
-    npm install --prefix "$TOOLS/antares-cli" --no-audit --no-fund --package-lock=false "@tauri-apps/cli@$cli_version"
+  rustup target add wasm32-unknown-unknown
+  if [[ "$(cargo tauri --version 2>/dev/null || true)" != "tauri-cli 2.11.4" ]]; then
+    cargo install tauri-cli --version 2.11.4 --locked
   fi
-  local sidecar="$PROJECT_ROOT/src-tauri/binaries/yt-dlp-x86_64-unknown-linux-gnu"
-  if [[ ! -f "$sidecar" ]]; then
-    local staged="$sidecar.part" checksums="$TMPDIR/ytdlp-SHA2-256SUMS" expected actual tag
-    mkdir -p "$PROJECT_ROOT/src-tauri/binaries"
-    tag="$(curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>process.stdout.write(JSON.parse(s).tag_name))')"
-    [[ "$tag" =~ ^[0-9]{4}\.[0-9]{2}\.[0-9]{2}([.][0-9]+)?$ ]] || fail "Etiqueta de yt-dlp inesperada."
-    download "https://github.com/yt-dlp/yt-dlp/releases/download/$tag/SHA2-256SUMS" "$checksums"
-    expected="$(awk '$2 == "yt-dlp_linux" || $2 == "*yt-dlp_linux" {print $1; exit}' "$checksums")"
-    [[ "$expected" =~ ^[a-fA-F0-9]{64}$ ]] || fail "Falta el checksum de yt-dlp_linux."
-    download "https://github.com/yt-dlp/yt-dlp/releases/download/$tag/yt-dlp_linux" "$staged"
-    actual="$(sha256sum "$staged")"; actual="${actual%% *}"
-    [[ "$actual" == "$expected" ]] || fail "Checksum incorrecto de yt-dlp. No se instala."
-    chmod u+x "$staged"
-    "$staged" --version
-    mv -- "$staged" "$sidecar"
+  if [[ "$(wasm-bindgen --version 2>/dev/null || true)" != "wasm-bindgen 0.2.130" ]]; then
+    cargo install wasm-bindgen-cli --version 0.2.130 --locked
   fi
+  npm ci
   node --version
   npm --version
   rustc --version
@@ -118,13 +104,13 @@ case "${1:-ayuda}" in
     ;;
   pruebas)
     prepare_dirs; require_tools
-    node --test tests/*.test.mjs
+    npm test
     cargo test --locked --manifest-path src-tauri/Cargo.toml --lib 2>&1 | tee "$CARGO_TARGET_DIR/test.log"
     ;;
   abrir)
     prepare_dirs; require_tools; system_check
     configure_webview
-    exec node "$CLI" dev -- --locked
+    exec cargo tauri dev -- --locked
     ;;
   ejecutar)
     prepare_dirs
@@ -134,7 +120,7 @@ case "${1:-ayuda}" in
     ;;
   compilar)
     prepare_dirs; require_tools; system_check
-    exec node "$CLI" build --no-bundle -- --locked
+    exec cargo tauri build --no-bundle -- --locked
     ;;
   *) printf 'Uso: bash scripts/linux.sh {preparar|diagnostico|comprobar|pruebas|abrir|compilar|ejecutar}\n' ;;
 esac

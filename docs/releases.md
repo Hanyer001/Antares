@@ -10,7 +10,7 @@ Conserva el identificador `com.hanyer.antares` para que las instalaciones nuevas
 
 ## Windows
 
-Prepara primero el entorno descrito en [desarrollo](development.md), incluido el ejecutable auxiliar de yt-dlp.
+Prepara primero el entorno descrito en [desarrollo](development.md).
 
 La configuración habilita los artefactos del actualizador, que requieren firma. El script del mantenedor utiliza `../firma-actualizaciones/antares-updater.key` y `../firma-actualizaciones/contrasena.txt`, fuera del repositorio:
 
@@ -18,7 +18,7 @@ La configuración habilita los artefactos del actualizador, que requieren firma.
 .\scripts\release-windows.ps1 -Notas "Descripción de los cambios"
 ```
 
-El script compila y firma el instalador. Deja `Antares_<versión>_x64-setup.exe`, una copia idéntica llamada `Antares-Setup.exe` y `latest.json` listos para publicar en `../publicar/vX.Y.Z/`, pero no los sube a GitHub. La página descarga la copia con nombre fijo. Las claves privadas y sus contraseñas no deben añadirse al control de versiones.
+El script compila Windows x64, verifica la firma con la clave pública de la app y prepara una carpeta nueva en `../publicar/vX.Y.Z/windows-x86_64/`. Incluye instalador, firma, copia con nombre fijo, `latest.json`, notas, `SHA256SUMS` y `revision.json`. Este registro identifica Git, arquitectura y Cargo.lock. La revisión debe estar guardada y el directorio de trabajo limpio antes de preparar la entrega. La firma del actualizador y la firma Authenticode del ejecutable son verificaciones independientes. Este asistente comprueba la primera.
 
 En [antares-actualizaciones](https://github.com/Hanyer001/antares-actualizaciones/releases), crea una release con la etiqueta de la versión y adjunta los dos nombres del instalador y `latest.json` preparados por el script. Marca la publicación estable como la última versión. El código fuente permanece en [Antares](https://github.com/Hanyer001/Antares).
 
@@ -30,7 +30,7 @@ Para generar un instalador de pruebas sin las claves del mantenedor:
 
 ```powershell
 $config = '{"bundle":{"createUpdaterArtifacts":false}}'
-npm run tauri -- build --config $config
+cargo tauri build --config $config
 ```
 
 Ese instalador no sirve como actualización firmada del canal existente. La salida de NSIS queda en `src-tauri/target/release/bundle/nsis/`.
@@ -43,6 +43,30 @@ Usa la ruta absoluta a la carpeta que contiene el instalador y `latest.json`:
 $env:ANTARES_PUBLICAR = "C:\ruta\publicar\vX.Y.Z"
 cargo test --manifest-path src-tauri/Cargo.toml --lib firma_publicada -- --ignored
 ```
+
+## macOS y manifiesto compartido
+
+El asistente para Apple Silicon recibe las notas y una carpeta nueva de salida.
+
+```sh
+sh scripts/release-macos.sh /ruta/notas.md /ruta/publicar/vX.Y.Z/darwin-aarch64
+```
+
+Requiere `APPLE_SIGNING_IDENTITY` con una identidad Developer ID Application, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` y la clave del actualizador en `TAURI_SIGNING_PRIVATE_KEY`. La contraseña de esa clave se recibe en `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. En CI, Tauri recibe el certificado y su contraseña mediante `APPLE_CERTIFICATE` y `APPLE_CERTIFICATE_PASSWORD`. Mantener estas credenciales en el entorno o en secretos de GitHub.
+
+El asistente habilita los paquetes del actualizador para esa compilación, verifica la firma del bundle y exige que Gatekeeper acepte la app antes de preparar `darwin-aarch64`. La compilación local habitual conserva su configuración de pruebas. [Firma de macOS en Tauri](https://v2.tauri.app/distribute/sign/macos/)
+
+El flujo manual `antares-release.yml` ejecuta las pruebas y genera artefactos de revisión para ambos sistemas. Configura los secretos de firma para ejecutarlo. Las dos carpetas deben corresponder al mismo commit, versión, Cargo.lock y notas. Para generar el manifiesto que reúne las entradas verificadas de ambas carpetas, usa una ruta de salida nueva.
+
+```sh
+cargo run --locked -p antares-build -- release-merge /ruta/latest.json /ruta/windows-x86_64 /ruta/darwin-aarch64
+```
+
+La herramienta vuelve a verificar cada firma y el hash del paquete. Adjunta los paquetes de ambas carpetas y ese `latest.json` a la misma release. Incluir únicamente las arquitecturas con paquete firmado. [Formato del actualizador de Tauri](https://v2.tauri.app/plugin/updater/)
+
+La descarga en la app se puede cancelar y reintentar. Tras verificar el paquete se guarda la posición más reciente y se fuerza la escritura de biblioteca y preferencias antes de instalar. Un fallo de descarga conserva la actualización encontrada para otro intento.
+
+Antes de aprobar una entrega, probar actualización desde la versión instalada con un perfil QA, cancelación, pérdida de conexión y paquete alterado. Las pruebas criptográficas usan un paquete de ejemplo firmado con una clave de prueba. La instalación real y el comportamiento de Gatekeeper y WebView2 requieren los paquetes de distribución y sus equipos correspondientes.
 
 ## Android
 
@@ -72,7 +96,7 @@ El repositorio no incluye claves ni contraseñas. Conserva la misma clave de fir
 El original está en `assets/branding/icon.svg`. Para regenerar los tamaños usados por Tauri:
 
 ```powershell
-npx tauri icon assets/branding/icon.svg
+cargo tauri icon assets/branding/icon.svg
 ```
 
 Los iconos que necesita la app están en `src-tauri/icons/` y los recursos del proyecto Android en `src-tauri/gen/android/app/src/main/res/`.

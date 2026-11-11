@@ -36,7 +36,7 @@ impl AppCache {
     /// entrada caducada, para que el mapa no crezca indefinidamente.
     ///
     /// Cachear la pista entera y no solo la URL importa: los metadatos vienen de
-    /// la misma invocacion de yt-dlp, asi que un acierto de cache devuelve
+    /// la misma resolución de audio, asi que un acierto de cache devuelve
     /// tambien titulo y caratula sin tocar la red.
     pub fn get(&self, key: &str) -> Option<TrackInfo> {
         let mut entries = self.entries.lock().ok()?;

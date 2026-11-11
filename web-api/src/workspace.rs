@@ -152,10 +152,10 @@ impl Workspace {
         })
     }
     fn flush(&self) -> Result<(), String> {
-        self.lists.flush_mobile()?;
-        self.stats.flush_mobile()?;
-        self.history.flush_mobile()?;
-        self.settings.flush_mobile()?;
+        self.lists.flush()?;
+        self.stats.flush()?;
+        self.history.flush()?;
+        self.settings.flush()?;
         store::write_json_atomic(&self.dir.join("events.json"), &self.events)
             .map_err(|e| e.to_string())?;
         store::write_json_atomic(&self.dir.join("revision.json"), &self.revision)

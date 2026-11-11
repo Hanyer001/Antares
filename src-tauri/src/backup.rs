@@ -67,12 +67,52 @@ pub fn inspect_backup(contents: String) -> Result<Preview, String> {
 
 #[tauri::command]
 pub fn restore_backup(contents: String, previous: String, backups: State<'_, Backups>) -> Result<(), String> {
-    let next = parse(&contents)?;
-    let old = parse(&previous)?;
     let _guard = backups.lock.lock().map_err(|_| "Copia ocupada".to_string())?;
-    save(&backups.dir()?, "before-restore.json", &old)?;
-    // La marca se guarda de forma atómica. Si hay un fallo, el arranque repite la restauración completa.
-    store::write_json_atomic(&backups.dir()?.join("pending-restore.json"), &next).map_err(|e| e.to_string())
+    stage_restore(&backups.dir()?, &contents, &previous)
+}
+
+fn stage_restore(dir: &Path, contents: &str, previous: &str) -> Result<(), String> {
+    let next = parse(contents)?;
+    let old = parse(previous)?;
+    let pending = dir.join("pending-restore.json");
+    if pending.exists() {
+        return Err("Reinicia Antares para terminar la restauración pendiente.".into());
+    }
+
+    #[cfg(desktop)]
+    let next = {
+        let mut next = next;
+        preserve_device_settings(&mut next.settings, &old.settings);
+        crate::settings::validate(&next.settings)?;
+        next
+    };
+
+    save(dir, "before-restore.json", &old)?;
+    // Si se interrumpe la aplicación de la copia, el arranque la repite.
+    store::write_json_atomic(&pending, &next).map_err(|e| e.to_string())
+}
+
+#[cfg(desktop)]
+fn preserve_device_settings(imported: &mut Value, current: &Value) {
+    let Some(imported) = imported.as_object_mut() else { return };
+    for (section, keys) in [
+        ("system", ["autostart", "startHidden"]),
+        ("shortcuts", ["globalEnabled", "global"]),
+    ] {
+        let device = current.get(section).and_then(Value::as_object);
+        if let Some(portable) = imported.get_mut(section).and_then(Value::as_object_mut) {
+            for key in keys {
+                portable.remove(key);
+            }
+        }
+        for (key, value) in keys.into_iter().filter_map(|key| Some((key, device?.get(key)?))) {
+            let target = imported.entry(section).or_insert_with(|| serde_json::json!({}));
+            if !target.is_object() {
+                *target = serde_json::json!({});
+            }
+            target[key] = value.clone();
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -114,7 +154,7 @@ pub fn restart_after_restore(app: tauri::AppHandle) -> Result<(), String> {
     #[cfg(desktop)]
     return crate::restart_clean(&app);
     #[cfg(mobile)]
-    { crate::commands::flush_mobile_data(&app)?; crate::commands::reload_mobile_data(&app) }
+    { crate::commands::flush_data(&app)?; crate::commands::reload_mobile_data(&app) }
 }
 
 pub fn apply_pending(dir: &Path) -> Result<(), String> {
@@ -152,6 +192,93 @@ mod tests {
         store::write_json_atomic(&dir.join("pending-restore.json"),&serde_json::json!({"bad":true})).unwrap();
         assert!(apply_pending(&dir).is_err());assert_eq!(store::read_json::<Value>(&dir.join("settings.json")).unwrap(),serde_json::json!({"keep":true}));
     }
+    #[test]
+    fn invalid_import_keeps_the_profile_and_existing_safety_copy() {
+        let dir = dir("invalid-import");
+        let b = sample();
+        let valid = serde_json::to_string(&b).unwrap();
+        let mut incompatible = b.clone();
+        incompatible.version = 999;
+        save(&dir, "before-restore.json", &b).unwrap();
+        let safety = dir.join("backups/before-restore.json");
+        let before = std::fs::read(&safety).unwrap();
+        store::write_json_atomic(&dir.join("settings.json"), &b.settings).unwrap();
+
+        for contents in [&valid[..valid.len() / 2], &serde_json::to_string(&incompatible).unwrap()] {
+            assert!(stage_restore(&dir, contents, &valid).is_err());
+            assert!(!dir.join("pending-restore.json").exists());
+            assert_eq!(std::fs::read(&safety).unwrap(), before);
+            assert_eq!(store::read_json::<Value>(&dir.join("settings.json")).unwrap(), b.settings);
+        }
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[cfg(desktop)]
+    #[test]
+    fn restore_retries_and_keeps_device_settings_and_profiles_separate() {
+        use crate::users::{Users, MAIN_ID};
+        use serde_json::json;
+
+        let root = dir("portable-restore");
+        let mut users = Users::default();
+        let other = users.create("Edición 🎵").unwrap();
+        users.switch(&other).unwrap();
+        users.save(&root).unwrap();
+        let destination = Users::load(&root).data_dir(&root);
+        let main = crate::users::user_dir(&root, MAIN_ID);
+        let main_state = json!({"session":{"position":8.0}});
+        store::write_json_atomic(&main.join("workspace.json"), &main_state).unwrap();
+        assert_eq!(Users::load(&root).users[1].name, "Edición 🎵");
+
+        let track = json!({"id":"demo2","title":"Canción 🎵","channel":"Artista","watch_url":"","duration":210});
+        let mut imported = sample();
+        imported.playlists = serde_json::from_value(json!([{
+            "id":"mix","name":"Colección 🎵","tracks":[track],"created_at":1,"updated_at":1
+        }])).unwrap();
+        imported.stats = serde_json::from_value(json!({"demo2":{
+            "id":"demo2","title":"Canción 🎵","channel":"Artista","watch_url":"","rating":"like",
+            "plays":1,"skips":0,"completions":0,"listened_secs":39.5,"last_played":1
+        }})).unwrap();
+        imported.local = json!({"session":{"queue":["demo2","demo1"],"time":39.5},"moments":{}});
+        imported.settings = json!({
+            "version":2,"appearance":{"theme":"light"},
+            "system":{"autostart":true,"startHidden":true,"closeToTray":false},
+            "shortcuts":{"globalEnabled":true,"global":{"next":"Super+N"},"local":{"next":"N"}}
+        });
+        let mut old = sample();
+        old.settings = json!({
+            "version":2,"system":{"autostart":false},
+            "shortcuts":{"global":{"next":"Alt+N"}}
+        });
+        let contents = serde_json::to_string(&imported).unwrap();
+        let previous = serde_json::to_string(&old).unwrap();
+        stage_restore(&destination, &contents, &previous).unwrap();
+        assert!(stage_restore(&destination, &contents, &previous).is_err());
+
+        let blocked = destination.join("workspace.json");
+        std::fs::create_dir(&blocked).unwrap();
+        assert!(apply_pending(&destination).unwrap_err().contains("workspace.json"));
+        assert!(destination.join("pending-restore.json").is_file());
+        std::fs::remove_dir(&blocked).unwrap();
+        apply_pending(&destination).unwrap();
+        assert!(!destination.join("pending-restore.json").exists());
+
+        let settings: Value = store::read_json(&destination.join("settings.json")).unwrap();
+        assert_eq!(settings, json!({
+            "version":2,"appearance":{"theme":"light"},
+            "system":{"autostart":false,"closeToTray":false},
+            "shortcuts":{"global":{"next":"Alt+N"},"local":{"next":"N"}}
+        }));
+        let lists = Playlists::load(destination.clone()).all();
+        assert_eq!(lists[0].name, "Colección 🎵");
+        assert_eq!(lists[0].tracks[0].id, "demo2");
+        let stats = Stats::load(destination.clone()).snapshot();
+        assert_eq!(stats[0].rating, crate::stats::Rating::Like);
+        assert_eq!(store::read_json::<Value>(&destination.join("restored-workspace.json")).unwrap(), imported.local);
+        assert_eq!(store::read_json::<Value>(&main.join("workspace.json")).unwrap(), main_state);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
     #[test] fn automatic_backups_keep_seven_days() {
         let dir=dir("rotation");let mut b=sample();for day in 20000..20010 {b.created_at=day*86400;automatic(&dir,&b).unwrap();}
         let count=std::fs::read_dir(dir.join("backups")).unwrap().filter_map(Result::ok).filter(|e|e.path().extension().is_some_and(|x|x=="json")).count();assert_eq!(count,7);

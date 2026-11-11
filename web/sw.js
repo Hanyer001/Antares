@@ -74,7 +74,9 @@ self.addEventListener("fetch", event => {
       return response;
     }).catch(async () => (await caches.open(cacheName)).match("./index.html")));
   } else if (shell.has(request.url) || (url.href.startsWith(self.registration.scope)
-      && (/\/assets\/[^/]+-[A-Z0-9]+\.js$/.test(url.pathname) || url.searchParams.has("v")
+      && (/\/assets\/[^/]+-[A-Z0-9]+\.js$/.test(url.pathname)
+        || /\/engine\/antares_core_bg(?:-[a-f0-9]+)?\.wasm$/.test(url.pathname)
+        || url.searchParams.has("v")
         && /\/(?:[^/]+\.css|boot-theme\.js)$/.test(url.pathname)))) {
     event.respondWith(versionedAsset(request));
   }

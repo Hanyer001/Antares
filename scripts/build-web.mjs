@@ -22,7 +22,10 @@ for (const name of ['web/sw.js', 'scripts/build-web.mjs', 'package-lock.json']) 
 }
 const version = fingerprint.update(endpoint?.href ?? '').digest('hex').slice(0, 12);
 await writeFile(new URL('config.js', out), `export const API = ${JSON.stringify(endpoint ? endpoint.href.replace(/\/$/, '') + '/' : './api/')};\nexport const WEB_VERSION = "${version}";\n`);
+const wasm = `./engine/antares_core_bg-${version}.wasm`;
+await rename(new URL('./engine/antares_core_bg.wasm', out), new URL(wasm, out));
 const result = await build({ entryPoints: [fileURLToPath(new URL('bootstrap.js', out))], outdir: fileURLToPath(new URL('assets/', out)),
+  define: { __ANTARES_WASM_PATH__: JSON.stringify(wasm) },
   bundle: true, splitting: true, format: 'esm', minify: true, target: ['safari16.4', 'chrome110'],
   entryNames: '[name]-[hash]', chunkNames: 'chunk-[hash]', metafile: true, logLevel: 'warning' });
 const outputs = Object.entries(result.metafile.outputs);

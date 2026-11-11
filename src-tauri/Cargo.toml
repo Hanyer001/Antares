@@ -18,6 +18,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+antares-core = { path = "../crates/antares-core" }
 # `tray-icon`: el icono de la bandeja del sistema, para seguir sonando con la
 # ventana cerrada.
 tauri = { version = "2", features = ["tray-icon"] }
@@ -30,10 +31,8 @@ tokio = { version = "1", features = ["full"] }
 # Extraccion nativa con el parche local de cliente YouTube (ver vendor/rusty_ytdl/ANTARES_PATCH.md).
 
 
-# Solo para la autoactualizacion de yt-dlp. `blocking` porque la comprobacion
-# corre en su propio hilo y no necesita el runtime async; `rustls-tls` para no
-# depender de OpenSSL ni de la configuracion TLS del sistema.
-reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls", "http2"] }
+# Cliente HTTP con TLS sin dependencias del sistema.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "http2", "gzip"] }
 
 # Decodificar la URL de audio que llega al proxy local, y codificar la busqueda
 # de letras. Ya venia en el arbol como dependencia de reqwest.

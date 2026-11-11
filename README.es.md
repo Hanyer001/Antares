@@ -7,11 +7,11 @@
 <h1 align="center">Antares</h1>
 
 <p align="center">Tu música, tus listas y nuevas canciones por descubrir.</p>
-<p align="center"><strong>Windows · Android · Tauri 2 · Rust · JavaScript</strong></p>
+<p align="center"><strong>Rust · Tauri 2 · Leptos · Windows · Android · macOS en desarrollo</strong></p>
 
 Antares es un reproductor de música que permite buscar canciones en YouTube, organizar una biblioteca personal y descubrir música a partir de tus escuchas. Combina una interfaz personalizable con listas inteligentes, letras sincronizadas y controles de reproducción integrados en el sistema.
 
-La versión del proyecto es **0.3.3**. El código de Windows y Android se mantiene en este repositorio; los paquetes de actualización de Windows se distribuyen por separado en [antares-actualizaciones](https://github.com/Hanyer001/antares-actualizaciones/releases).
+La versión del código es **0.3.3**. Las descargas publicadas corresponden a Windows **0.3.3** y Android **0.3.3 Beta 1**. Los avances recientes de Rust y macOS están en este árbol de fuentes y se distribuyen cuando se publica un nuevo paquete firmado en [antares-actualizaciones](https://github.com/Hanyer001/antares-actualizaciones/releases).
 
 ## Novedades de 0.3.3
 
@@ -25,12 +25,15 @@ La copia de `rusty_ytdl` y su parche de cliente YouTube se documentan en [ANTARE
 
 [Descargar Antares 0.3.3 para Windows](https://github.com/Hanyer001/antares-actualizaciones/releases/download/v0.3.3/Antares-Setup.exe) · [Página de Antares](https://hanyer001.github.io/Pagina-Antares/)
 
-## Cambios recientes en el código
+## Desarrollo actual
 
-- La interfaz de escritorio se adapta al espacio disponible e incluye pestañas de Cola y Letras, un reproductor ampliado y un visualizador opcional.
-- La búsqueda de escritorio muestra resultados a medida que responden los proveedores. Durante el desplazamiento se reduce el trabajo de las portadas y de la preparación de audio al pasar el puntero.
-- Antares se puede compilar como aplicación de escritorio para Apple Silicon. Consulta la [guía de macOS](docs/MACOS.md) para el paquete y el estado de las pruebas.
-- El soporte experimental para Fedora incluye un puente HTTP local de audio para WebKitGTK. Consulta la [guía de Fedora](docs/LINUX.md) para compilar y ejecutar desde el código fuente.
+- Las búsquedas de YouTube y YouTube Music, las importaciones y la resolución de audio se ejecutan en Rust. InnerTube es la primera ruta de audio y el extractor `rusty_ytdl` queda como respaldo en escritorio. Estas funciones prescinden de yt-dlp y de un intérprete externo de Python.
+- `antares-core` comparte cola, recuperación, sesión, orden de búsqueda, esquema de preferencias, validación y migraciones. Sus funciones se compilan a WebAssembly para el cliente.
+- Leptos aporta componentes de navegación, búsqueda, biblioteca, ajustes y reproductor. Los adaptadores JavaScript conectan Web Audio, almacenamiento, eventos y controles nativos.
+- macOS Apple Silicon tiene compilación y pruebas locales de reproducción, volumen, saltos, cola, menú Reproducción, mini y restauración de copias. La firma de distribución y las pruebas nativas de esta revisión en Windows siguen pendientes.
+- El diagnóstico local registra tiempos, mediana y p95 con muestras acotadas. El índice Rust reutiliza el texto normalizado al filtrar una colección.
+- Las copias completas conservan los ajustes de inicio y atajos globales del equipo de destino. Antes de salir o instalar se fuerza el guardado de datos pendientes.
+- Los flujos de escritorio y entrega comprueban versiones, firmas, sumas SHA-256 y revisión del código. La [ruta de macOS y Windows](docs/obsidian/Ruta%20de%20mejoras%20para%20macOS%20y%20Windows.md) recoge evidencias y comprobaciones pendientes.
 
 ## Funciones principales
 
@@ -49,40 +52,30 @@ También permite importar listas públicas de otros servicios y canciones desde 
 
 ## Plataformas
 
-| Característica | Windows | Android |
+| Plataforma | Disponibilidad | Reproducción e integración |
 | --- | --- | --- |
-| Búsqueda, biblioteca y recomendaciones | Sí | Sí |
-| Reproducción | rusty_ytdl y WebView2 | InnerTube y ExoPlayer |
-| Audio en segundo plano | Bandeja del sistema | Servicio de reproducción |
-| Letras y copias internas | Sí | Sí |
-| Ecualizador, nivelador y fundidos | Sí | Efectos nativos según dispositivo; fundidos opcionales |
-| Usuarios y copias completas | Sí | Sí, con selector de documentos |
-| Mini ventana y atajos globales | Sí | Controles multimedia y navegación táctil |
+| Windows x64 | 0.3.3 estable publicada. El código actual añade cambios pendientes de validación nativa. | Rust, WebView2 y Web Audio. Bandeja, mini, miniatura de la barra de tareas y atajos globales. |
+| Android ARM 32/64 | 0.3.3 Beta 1 publicada, Android 7.0 o posterior. | Resolución Rust y servicio Kotlin Media3/ExoPlayer. Audio en segundo plano y controles de bloqueo. |
+| macOS Apple Silicon | Compilación desde fuentes y paquetes QA locales. | Rust, AAC y puente HTTP para WKWebView. Menú Reproducción, barra de menús y mini. |
+| Web / iPhone | PWA y adaptación iOS experimentales. | Interfaz Wasm compartida. La reproducción depende del navegador o reproductor nativo de la compilación. |
+| Linux / Fedora | Adaptación experimental desde fuentes. | Rust y puente HTTP de audio para WebKitGTK. |
 
-La adaptación Android es una **versión de pruebas**, con navegación táctil personalizable y ahorro de recursos activado por defecto. La [guía Android](docs/android.md) describe funciones, compilación del APK y verificaciones pendientes en un teléfono.
+La [guía Android](docs/android.md), la [guía de macOS](docs/MACOS.md) y la [guía web/iOS](docs/WEB.md) detallan cada recorrido. La PWA necesita una API Rust alojada en un servidor. GitHub Pages sirve su interfaz estática. El trabajo de autenticación está en la [rama de cuentas](https://github.com/Hanyer001/Antares/tree/feat/cuentas-web).
 
-La búsqueda y la reproducción requieren conexión a internet. La disponibilidad de canciones y letras depende de los servicios consultados.
+La búsqueda y la reproducción requieren conexión. La disponibilidad de canciones y letras depende de los servicios consultados.
 
 ## Ejecutar en desarrollo
 
-Para Windows necesitas **Node.js 22 o posterior**, npm, Rust con el target MSVC, Microsoft C++ Build Tools y WebView2. La [guía de desarrollo](docs/development.md) detalla la preparación y la configuración de Android.
+Instala Rust y Node.js 24. Windows necesita el target MSVC, Microsoft C++ Build Tools y WebView2. macOS necesita las herramientas de Xcode y su licencia aceptada. La [guía de desarrollo](docs/development.md) describe también PWA y Android.
 
 ```powershell
 git clone https://github.com/Hanyer001/Antares.git
 cd Antares
+rustup target add wasm32-unknown-unknown
+cargo install tauri-cli --version 2.11.4 --locked
+cargo install wasm-bindgen-cli --version 0.2.130 --locked
 npm ci
-```
-
-Descarga `yt-dlp.exe` desde las [versiones oficiales de yt-dlp](https://github.com/yt-dlp/yt-dlp/releases/latest) y guárdalo con este nombre:
-
-```text
-src-tauri/binaries/yt-dlp-x86_64-pc-windows-msvc.exe
-```
-
-Crea la carpeta `binaries` si no existe. El ejecutable no se incluye en Git. Se conserva para búsquedas y listas; la extracción de audio de Windows usa el crate nativo `rusty_ytdl`.
-
-```powershell
-npm run dev
+cargo tauri dev
 ```
 
 La interfaz utiliza las API de Tauri: abrir `src/index.html` directamente en el navegador no sustituye el modo de desarrollo.
@@ -91,30 +84,28 @@ La interfaz utiliza las API de Tauri: abrir `src/index.html` directamente en el 
 
 ```text
 Antares/
-├── assets/
-│   └── branding/          # Icono fuente del proyecto
-├── docs/                  # Funciones, desarrollo, arquitectura y publicación
-├── scripts/               # Herramientas de Android, publicación y diagnóstico
-├── src/                   # Interfaz web
-│   ├── fonts/             # Fuentes locales y sus créditos
-│   ├── js/                # Módulos de reproducción, biblioteca y vistas
-│   ├── boot-theme.js      # Tema inicial
-│   ├── index.html
-│   ├── main.js            # Inicialización y coordinación
-│   └── styles.css
+├── Cargo.toml / Cargo.lock  Workspace y dependencias Rust compartidas
+├── crates/
+│   ├── antares-core/        Cola, recuperación, sesión, búsqueda, preferencias y tiempos
+│   ├── antares-ui/          Componentes Leptos y puente WebAssembly
+│   └── antares-build/       Generación Wasm, verificación de entregas y mediciones
+├── src/                    HTML, CSS y adaptadores del navegador
+│   └── engine/             Motor Wasm generado, excluido de Git
 ├── src-tauri/
-│   ├── capabilities/      # Permisos de Tauri
-│   ├── gen/android/       # Proyecto Android y reproductor Kotlin
-│   ├── icons/             # Iconos de la aplicación
-│   ├── src/               # Backend Rust
-│   ├── vendor/rusty_ytdl/  # Crate nativo y parche de extracción de YouTube
-│   ├── Cargo.toml
-│   └── tauri.conf.json
-├── tests/                 # Pruebas de JavaScript
-├── CHANGELOG.md
-├── package.json
-└── README.md
+│   ├── src/                Servicios Rust, persistencia y comandos Tauri
+│   ├── gen/android/        Proyecto Android y servicio Kotlin
+│   ├── ios-player/         Plugin de reproducción iOS
+│   └── vendor/             Extractor Rust con parche de cliente YouTube
+├── web/                    Bootstrap, manifiesto y service worker de la PWA
+├── web-api/                API Rust y bibliotecas del servidor
+├── deploy/                 Configuración de alojamiento
+├── scripts/                Compilación, publicación y diagnóstico
+├── tests/                  Pruebas del cliente y del motor Wasm real
+├── docs/obsidian/           Notas, rutas de migración y registros de validación
+└── .github/workflows/      Pages, validación de escritorio y preparación de entrega
 ```
+
+El código está en [Antares](https://github.com/Hanyer001/Antares), la web de presentación en [Pagina-Antares](https://github.com/Hanyer001/Pagina-Antares) y los instaladores en [antares-actualizaciones](https://github.com/Hanyer001/antares-actualizaciones).
 
 ## Generar el instalador de Windows
 
@@ -124,16 +115,18 @@ Con los archivos de firma del canal configurados según la [guía de publicació
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\release-windows.ps1 -Notas "Listas completas, albumes y modo Solo este artista"
 ```
 
-Para esta versión, el script prepara `Antares_0.3.3_x64-setup.exe`, `Antares-Setup.exe` y `latest.json` en `../publicar/v0.3.3/`. El manifiesto contiene la firma del instalador que comprueba la aplicación. Los tres archivos se adjuntan a la release `v0.3.3` del repositorio de actualizaciones.
+El script prepara el instalador, su firma, la copia con nombre fijo, notas, `SHA256SUMS`, `revision.json` y `latest.json` en una carpeta nueva por versión y arquitectura. La herramienta Rust exige una revisión guardada, versiones coherentes y una firma válida. La [guía de publicación](docs/releases.md) incluye el asistente de macOS y la unión de manifiestos de ambos sistemas.
 
 ## Comprobaciones
 
-Desde la raíz del proyecto:
+Tras instalar dependencias, ejecuta desde la raíz. `npm test` genera primero el motor Wasm necesario para las pruebas de escritorio.
 
 ```powershell
 npm test
-npm run check:rust
-npm run test:rust
+cargo test --locked -p antares -p antares-core --lib
+cargo test --locked -p antares-build
+cargo test --locked -p antares-web-api
+cargo run --locked -p antares-build -- release-check
 ```
 
 Las pruebas que necesitan servicios externos o paquetes firmados están marcadas como ignoradas y se ejecutan por separado. Estos comandos no generan instaladores.
@@ -153,7 +146,7 @@ Abre un [issue](https://github.com/Hanyer001/Antares/issues) indicando la versi�
 
 ## Tecnologías
 
-[Tauri](https://v2.tauri.app/), [Rust](https://www.rust-lang.org/), HTML, CSS y JavaScript con módulos ES. En Windows, Antares extrae el audio con [rusty_ytdl](https://github.com/Mithronn/rusty_ytdl) y conserva [yt-dlp](https://github.com/yt-dlp/yt-dlp) para búsquedas y listas. Android usa InnerTube y ExoPlayer y [LRCLIB](https://lrclib.net/) para las letras. La fuente Inter se incluye localmente; sus créditos están en [src/fonts/LEEME.txt](src/fonts/LEEME.txt).
+[Tauri](https://v2.tauri.app/), [Rust](https://www.rust-lang.org/), HTML, CSS y JavaScript con módulos ES. El catálogo usa InnerTube en Rust y el audio de escritorio usa [rusty_ytdl](https://github.com/Mithronn/rusty_ytdl). Android usa ExoPlayer y [LRCLIB](https://lrclib.net/) proporciona las letras. La fuente Inter se incluye localmente; sus créditos están en [src/fonts/LEEME.txt](src/fonts/LEEME.txt).
 
 
 ### Antares Android 0.3.3 Beta 1

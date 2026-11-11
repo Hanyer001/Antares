@@ -1,8 +1,10 @@
-import { runtime } from "./platform.js";
+import { runtime, WEB } from "./platform.js";
 // Acceso a los comandos de búsqueda y resolución de audio de Rust.
 
 import { createSearchCache } from "./search-cache.js";
 const { invoke } = runtime.core;
+const fetchSongs = query => invoke("search_songs", { query });
+const cachedSongs = createSearchCache(fetchSongs);
 const cachedSearch = createSearchCache((query, limit) => invoke("search_tracks", { query, limit }));
 
 /**
@@ -36,10 +38,16 @@ const SONGS_TIMEOUT_MS = 4000;
  * `artists`. Nunca falla ni hace esperar de más: sin ellas (sin conexión con
  * YouTube Music, o si tarda), la búsqueda sale igual, sin ordenar por artista.
  */
-export function searchSongs(query) {
-  const songs = invoke("search_songs", { query }).catch(() => []);
-  const late = new Promise((resolve) => setTimeout(() => resolve([]), SONGS_TIMEOUT_MS));
-  return Promise.race([songs, late]);
+export async function searchSongs(query) {
+  let timer;
+  try {
+    return await Promise.race([
+      (WEB ? fetchSongs(query) : cachedSongs(query)).catch(() => []),
+      new Promise(resolve => { timer = setTimeout(() => resolve([]), SONGS_TIMEOUT_MS); }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**

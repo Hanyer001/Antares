@@ -275,3 +275,13 @@ test("con el acento de la carátula no se fija ningún color", () => {
   const mono = computeLook({ ...defaults().appearance, accentMode: "mono" });
   assert.equal(mono.accent.s, 0);
 });
+
+test("las rutas sobre ajustes incompletos se crean sin perder otras secciones", () => {
+  assert.deepEqual(withPath(null, "sound.crossfade", 3), { sound: { crossfade: 3 } });
+  const base = { sound: null, appearance: { theme: "dark" } };
+  assert.deepEqual(withPath(base, "sound.crossfade", 3), {
+    sound: { crossfade: 3 }, appearance: { theme: "dark" },
+  });
+  assert.equal(base.sound, null);
+  assert.deepEqual(fromLegacy(() => "false"), {});
+});

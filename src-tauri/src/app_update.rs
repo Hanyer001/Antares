@@ -16,10 +16,33 @@ pub struct AppUpdate {
 /// La actualizacion encontrada en la ultima comprobacion, para instalar esa
 /// misma sin volver a preguntar.
 #[derive(Default)]
-pub struct Pending(
-    #[cfg(all(desktop, not(target_os = "linux")))] std::sync::Mutex<Option<tauri_plugin_updater::Update>>,
-    #[cfg(any(mobile, target_os = "linux"))] (),
-);
+pub struct Pending {
+    #[cfg(all(desktop, not(target_os = "linux")))]
+    update: std::sync::Mutex<Option<tauri_plugin_updater::Update>>,
+    #[cfg(all(desktop, not(target_os = "linux")))]
+    prepared: std::sync::Mutex<Option<(tauri_plugin_updater::Update, Vec<u8>)>>,
+    #[cfg(all(desktop, not(target_os = "linux")))]
+    busy: std::sync::atomic::AtomicBool,
+    #[cfg(all(desktop, not(target_os = "linux")))]
+    cancel: tokio::sync::Notify,
+}
+
+#[cfg(all(desktop, not(target_os = "linux")))]
+struct Operation<'a>(&'a std::sync::atomic::AtomicBool);
+
+#[cfg(all(desktop, not(target_os = "linux")))]
+impl Drop for Operation<'_> {
+    fn drop(&mut self) { self.0.store(false, std::sync::atomic::Ordering::Release); }
+}
+
+#[cfg(all(desktop, not(target_os = "linux")))]
+impl Pending {
+    fn operation(&self) -> Result<Operation<'_>, String> {
+        self.busy.compare_exchange(false, true, std::sync::atomic::Ordering::AcqRel, std::sync::atomic::Ordering::Acquire)
+            .map_err(|_| "Hay una operación de actualización en curso.")?;
+        Ok(Operation(&self.busy))
+    }
+}
 
 /// La version que esta corriendo.
 #[tauri::command]
@@ -36,64 +59,75 @@ pub async fn check_app_update(
 ) -> Result<Option<AppUpdate>, String> {
     use tauri_plugin_updater::UpdaterExt;
 
-    let update = app
-        .updater()
-        .map_err(|e| e.to_string())?
-        .check()
-        .await
-        .map_err(friendly)?;
+    let _operation = pending.operation()?;
+    *pending.update.lock().map_err(|_| "estado bloqueado")? = None;
+    *pending.prepared.lock().map_err(|_| "estado bloqueado")? = None;
+    let before_exit = app.clone();
+    let result = app.updater_builder()
+        .on_before_exit(move || crate::remove_tray(&before_exit))
+        .timeout(std::time::Duration::from_secs(30))
+        .build().map_err(friendly)?.check().await;
+    let update = match result {
+        Ok(update) => update,
+        Err(error) => return Err(friendly(error)),
+    };
 
     let info = update.as_ref().map(|u| AppUpdate {
         version: u.version.clone(),
         current: u.current_version.clone(),
         notes: u.body.clone().filter(|b| !b.trim().is_empty()),
     });
-    *pending.0.lock().map_err(|_| "estado bloqueado".to_string())? = update;
+    *pending.update.lock().map_err(|_| "estado bloqueado".to_string())? = update;
     Ok(info)
 }
 
-/// Descarga, comprueba la firma e instala la version encontrada. Mientras
-/// baja, avisa al frontend ("app-update-progress": bajado y total en bytes).
-/// En Windows no vuelve: el instalador cierra la app y la abre de nuevo.
+/// Descarga verificada, cancelable y reutilizable si falla la instalación.
 #[cfg(all(desktop, not(target_os = "linux")))]
 #[tauri::command]
-pub async fn install_app_update(
+pub async fn download_app_update(
     app: tauri::AppHandle,
     pending: tauri::State<'_, Pending>,
 ) -> Result<(), String> {
     use tauri::Emitter;
-
-    let update = pending
-        .0
-        .lock()
-        .map_err(|_| "estado bloqueado".to_string())?
-        .take()
+    let _operation = pending.operation()?;
+    let update = pending.update.lock().map_err(|_| "estado bloqueado")?.clone()
         .ok_or("No hay ninguna actualización pendiente. Vuelve a buscarla.")?;
-
-    let mut downloaded: u64 = 0;
-    let progress = app.clone();
-    // Descargar (y comprobar la firma) primero; instalar despues, que en
-    // Windows cierra la app al momento.
-    let bytes = update
-        .download(
-            move |chunk, total| {
+    *pending.prepared.lock().map_err(|_| "estado bloqueado")? = None;
+    let cancelled = pending.cancel.notified();
+    tokio::pin!(cancelled);
+    cancelled.as_mut().enable();
+    let mut downloaded = 0u64;
+    let bytes = tokio::select! {
+        result = update.download(
+            |chunk, total| {
                 downloaded += chunk as u64;
-                let _ = progress.emit(
-                    "app-update-progress",
-                    serde_json::json!({ "downloaded": downloaded, "total": total }),
-                );
+                let _ = app.emit("app-update-progress", serde_json::json!({"downloaded":downloaded,"total":total}));
             },
             || {},
-        )
-        .await
-        .map_err(friendly)?;
+        ) => result.map_err(friendly)?,
+        _ = &mut cancelled => return Err("Descarga cancelada. Puedes volver a intentarlo.".into()),
+    };
+    *pending.prepared.lock().map_err(|_| "estado bloqueado")? = Some((update, bytes));
+    Ok(())
+}
 
-    // El instalador cierra la app de golpe: el icono de la bandeja se quita
-    // antes, o quedaria uno fantasma (ver `remove_tray`).
-    crate::remove_tray(&app);
+#[cfg(all(desktop, not(target_os = "linux")))]
+#[tauri::command]
+pub fn cancel_app_update(pending: tauri::State<'_, Pending>) {
+    pending.cancel.notify_waiters();
+}
+
+/// Instalar después de que la interfaz guarde la sesión más reciente.
+#[cfg(all(desktop, not(target_os = "linux")))]
+#[tauri::command]
+pub fn install_app_update(app: tauri::AppHandle, pending: tauri::State<'_, Pending>) -> Result<(), String> {
+    let _operation = pending.operation()?;
+    let prepared = pending.prepared.lock().map_err(|_| "estado bloqueado")?.take()
+        .ok_or("Descarga y verifica la actualización antes de instalarla.")?;
+    let (update, bytes) = prepared;
+    crate::commands::flush_data(&app)?;
     update.install(bytes).map_err(friendly)?;
-
-    // Fuera de Windows el instalador no cierra la app: se reinicia aqui.
+    *pending.update.lock().map_err(|_| "estado bloqueado")? = None;
     crate::restart_clean(&app)
 }
 
@@ -129,6 +163,23 @@ mod tests {
     fn decode(b64: &str) -> String {
         let bytes = base64::engine::general_purpose::STANDARD.decode(b64.trim()).expect("base64");
         String::from_utf8(bytes).expect("texto")
+    }
+
+    #[cfg(all(desktop, not(target_os = "linux")))]
+    #[tokio::test]
+    async fn concurrent_update_operations_and_cancel_retry() {
+        let pending = super::Pending::default();
+        let operation = pending.operation().unwrap();
+        assert!(pending.operation().is_err());
+        let cancelled = pending.cancel.notified();
+        tokio::pin!(cancelled);
+        cancelled.as_mut().enable();
+        pending.cancel.notify_waiters();
+        tokio::time::timeout(std::time::Duration::from_millis(100), &mut cancelled).await.unwrap();
+        drop(operation);
+        assert!(pending.operation().is_ok());
+        // Una cancelación finalizada no queda pendiente para el siguiente intento.
+        assert!(tokio::time::timeout(std::time::Duration::ZERO, pending.cancel.notified()).await.is_err());
     }
 
     /// La clave publica de tauri.conf.json, tal como la lee el actualizador.
@@ -193,3 +244,12 @@ pub async fn check_app_update() -> Result<Option<AppUpdate>, String> {
 pub async fn install_app_update() -> Result<(), String> {
     Err("La versión Linux se actualiza desde su código o paquete de Linux.".to_string())
 }
+
+#[cfg(any(mobile, target_os = "linux"))]
+#[tauri::command]
+pub async fn download_app_update() -> Result<(), String> {
+    Err("Este sistema no tiene un canal de actualizaciones de escritorio.".into())
+}
+#[cfg(any(mobile, target_os = "linux"))]
+#[tauri::command]
+pub fn cancel_app_update() {}

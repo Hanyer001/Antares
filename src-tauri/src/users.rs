@@ -1,6 +1,6 @@
 //! Usuarios y separación de sus datos. users.json guarda el usuario activo.
 //! El principal usa el directorio raíz; los demás, users/<id>/.
-//! Cambiar de usuario reinicia la app. La caché de Mix y yt-dlp son compartidos.
+//! Cambiar de usuario reinicia la app. La caché de Mix se comparte.
 
 use std::fs;
 use std::path::{Path, PathBuf};

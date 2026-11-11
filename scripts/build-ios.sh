@@ -10,6 +10,7 @@ esac
 export IPHONEOS_DEPLOYMENT_TARGET=16.4
 export CARGO_TARGET_DIR="$PWD/src-tauri/target"
 command -v xcodegen >/dev/null || { echo "Hace falta XcodeGen en PATH."; exit 1; }
+cargo run --locked -p antares-build
 xcodegen generate --spec src-tauri/gen/apple/project.yml
 cargo build --locked --manifest-path src-tauri/Cargo.toml --target "$rust_target" --lib --features tauri/custom-protocol
 set -- -project src-tauri/gen/apple/Antares.xcodeproj -scheme Antares_iOS -configuration Debug -sdk "$sdk" -destination "$destination" -derivedDataPath src-tauri/gen/apple/DerivedData

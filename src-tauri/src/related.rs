@@ -21,7 +21,7 @@ const MAX_SEEDS: usize = 300;
 
 /// Pistas que se piden de cada Mix. Las primeras son las mas relacionadas; mas
 /// alla de 25 la relacion ya es floja y la llamada tarda mas.
-const MIX_LIMIT: &str = "25";
+const MIX_LIMIT: usize = 25;
 
 #[derive(Clone, Serialize, Deserialize)]
 struct Entry {
@@ -41,7 +41,7 @@ fn mix_url(id: &str) -> String {
 
 impl Related {
     pub fn load(dir: PathBuf) -> Self {
-        let file_name = if crate::source::native() { "related-music-v2.json" } else { RELATED_FILE };
+        let file_name = if crate::source::music_only() { "related-music-v2.json" } else { RELATED_FILE };
         let entries = read_json(&dir.join(file_name)).unwrap_or_default();
 
         Self {
@@ -96,9 +96,9 @@ impl Related {
 
             let id = id.clone();
             tasks.spawn(async move {
-                let result = if crate::source::native() {
-                    crate::ytmusic::music_mix(&id, 25).await.map(|songs| (None, songs))
-                } else { crate::source::playlist(mix_url(&id), MIX_LIMIT).await };
+                let result = if crate::source::music_only() {
+                    crate::ytmusic::music_mix(&id, MIX_LIMIT).await.map(|songs| (None, songs))
+                } else { crate::innertube::list_playlist(&mix_url(&id), MIX_LIMIT).await };
                 (id, result)
             });
         }

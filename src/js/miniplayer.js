@@ -3,11 +3,10 @@ import { runtime } from "./platform.js";
 // Comparte estado y controles con la consola a través de nowstate.js.
 // La ventana se puede arrastrar desde las zonas sin controles.
 
-import { formatTime } from "./format.js";
+import { PlayerView, volume_action } from "./rust-core.js";
 import * as now from "./nowstate.js";
 import * as prefs from "./prefs.js";
 
-const SCRUB_STEPS = 1000;
 /** Sin tocar nada, el volumen vuelve a ser los controles. */
 const VOLUME_IDLE_MS = 3500;
 
@@ -16,7 +15,8 @@ const $ = (id) => document.getElementById(id);
 
 let mini;
 let scrub;
-let scrubbing = false;
+let view;
+const identity = s => JSON.stringify([s.revision, s.title, s.artist]);
 let volumeTimer = null;
 
 function applyPrefs() {
@@ -30,47 +30,11 @@ function applyPrefs() {
 }
 
 function render(s) {
-  mini.classList.toggle("is-playing", s.playing);
-  mini.classList.toggle("is-loading", s.loading);
-  mini.classList.toggle("is-muted", s.muted);
-  mini.classList.toggle("has-art", Boolean(s.artwork));
-
-  $("mini-title").textContent = s.title || "Sin reproducción";
-  $("mini-title").title = s.title;
-  $("mini-artist").textContent = s.artist;
-
-  const url = s.artwork ? `url("${s.artwork}")` : "none";
-  if ($("mini-bg").style.backgroundImage !== url) {
-    $("mini-bg").style.backgroundImage = url;
-    if (s.artwork) $("mini-art").src = s.artwork;
-    else $("mini-art").removeAttribute("src");
-  }
-
-  for (const b of mini.querySelectorAll("[data-act]")) {
-    const act = b.dataset.act;
-    if (act === "toggle") {
-      b.disabled = !s.hasTrack;
-      b.setAttribute("aria-label", s.playing ? "Pausar" : "Reproducir");
-      b.title = b.getAttribute("aria-label");
-    } else if (act === "prev") b.disabled = !s.hasPrev;
-    else if (act === "next") b.disabled = !s.hasNext;
-    else if (act === "more") b.disabled = !s.hasTrack;
-  }
-
-  const vol = $("mini-vol");
-  if (document.activeElement !== vol) vol.value = String(Math.round(s.volume * 100));
-  vol.style.setProperty("--level", `${s.muted ? 0 : s.volume * 100}%`);
+  if (view.render(JSON.stringify(s), identity(s))) renderTime(now.position());
 }
 
 function renderTime({ current, duration }) {
-  if (document.hidden || !document.documentElement.hasAttribute("data-mini")) return;
-  $("mini-current").textContent = formatTime(current);
-  // Como Apple: lo que falta, no lo que dura.
-  $("mini-remaining").textContent = duration ? `-${formatTime(Math.max(duration - current, 0))}` : "-0:00";
-  const ratio = duration ? Math.min(current / duration, 1) : 0;
-  if (!scrubbing) scrub.value = String(Math.round(ratio * SCRUB_STEPS));
-  scrub.style.setProperty("--played", `${(ratio * 100).toFixed(2)}%`);
-  scrub.disabled = !duration;
+  if (!document.hidden && root.hasAttribute("data-mini")) view.update_time(current, duration ?? NaN);
 }
 
 function renderLine(line) {
@@ -109,6 +73,7 @@ function bindDrag() {
 export function initMiniPlayer({ restore, queue, onLyricLine }) {
   mini = $("miniplayer");
   scrub = $("mini-scrub");
+  view = new PlayerView(mini, true);
 
   applyPrefs();
   prefs.on("player", applyPrefs);
@@ -137,18 +102,27 @@ export function initMiniPlayer({ restore, queue, onLyricLine }) {
     if (!event.target.closest("button, input")) now.actions.toggle();
   });
 
-  scrub.addEventListener("pointerdown", () => (scrubbing = true));
-  scrub.addEventListener("input", () => {
-    scrub.style.setProperty("--played", `${Number(scrub.value) / 10}%`);
-  });
+  const currentTrack = () => identity(now.snapshot());
+  scrub.addEventListener("pointerdown", () => view.begin(currentTrack()));
+  scrub.addEventListener("input", () => view.input(currentTrack()));
   scrub.addEventListener("change", () => {
-    scrubbing = false;
-    now.actions.seek(Number(scrub.value) / SCRUB_STEPS);
+    const ratio = view.commit(currentTrack());
+    if (ratio == null) renderTime(now.position());
+    else now.actions.seek(ratio);
+  });
+  scrub.addEventListener("pointercancel", () => view.reset(true));
+  scrub.addEventListener("blur", () => view.reset(false));
+  scrub.addEventListener("keydown", event => {
+    if (event.key === "Escape") { view.reset(true); return; }
+    const ratio = view.seek_key(event.key);
+    if (ratio == null) return;
+    event.preventDefault();
+    now.actions.seek(ratio);
   });
 
   const vol = $("mini-vol");
   vol.addEventListener("input", () => {
-    now.actions.setVolume(Number(vol.value) / 100);
+    now.actions.setVolume(volume_action(vol.valueAsNumber, 0));
     showVolume(true);
   });
 
@@ -157,8 +131,8 @@ export function initMiniPlayer({ restore, queue, onLyricLine }) {
     "wheel",
     (event) => {
       event.preventDefault();
-      const step = prefs.get("behavior.volumeStep") / 100;
-      now.actions.setVolume(Number(vol.value) / 100 + (event.deltaY < 0 ? step : -step));
+      const step = prefs.get("behavior.volumeStep");
+      now.actions.setVolume(volume_action(vol.valueAsNumber, event.deltaY < 0 ? step : -step));
       showVolume(true);
     },
     { passive: false },

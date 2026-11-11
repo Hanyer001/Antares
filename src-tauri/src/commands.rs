@@ -17,9 +17,7 @@ use crate::source;
 use crate::stats::{Outcome, Rating, Stats, Summary};
 use crate::store::Store;
 use crate::track::{HistoryEntry, SearchResult, TrackInfo, TrackInput};
-use crate::updater;
 use crate::users::Users;
-use crate::ytdlp;
 use crate::ytmusic;
 
 /// Lo que devolvemos al frontend: la pista, mas como se consiguio.
@@ -43,8 +41,7 @@ pub struct AudioResult {
 ///
 /// Si alguien ya esta resolviendo esta misma clave —lo tipico: el prefetch sigue
 /// en marcha cuando el usuario pulsa Enter—, esperamos a que termine y nos
-/// llevamos su resultado en vez de lanzar un segundo yt-dlp que haria el mismo
-/// trabajo desde cero.
+/// llevamos su resultado en vez de repetir el mismo trabajo desde cero.
 pub(crate) async fn resolve(query: &str, cache: &AppCache, safe: bool) -> Result<(TrackInfo, bool), String> {
     let key = cache_key(query, safe);
 
@@ -78,9 +75,7 @@ pub(crate) async fn resolve_fresh(query: &str, cache: &AppCache, safe: bool) -> 
 
 /// La resolucion en si, ya con el turno de la clave en la mano.
 ///
-/// Si el modo rapido falla, reintenta en modo seguro antes de rendirse: el
-/// cliente `android` puede dejar de funcionar de un dia para otro y eso no
-/// deberia romper la app.
+/// Si falla la primera resolución, prueba la fuente AAC de InnerTube.
 async fn resolve_in_turn(
     query: &str,
     key: &str,
@@ -110,7 +105,7 @@ async fn resolve_in_turn(
 /// el disco ni la red, y con los metadatos incluidos.
 ///
 /// `safeMode` lo activa el frontend cuando el elemento `<audio>` rechazo la URL
-/// anterior (tipicamente un 403 sobre una URL del cliente android).
+/// anterior (por ejemplo, un 403 del CDN).
 #[tauri::command]
 pub async fn get_audio_url(
     query: String,
@@ -208,7 +203,7 @@ pub async fn search_tracks(
     }
 
     let limit = limit.unwrap_or(SEARCH_LIMIT).clamp(1, MAX_SEARCH_LIMIT);
-    let trimmed_key = if source::native() { format!("music-v2:{trimmed}") } else { trimmed.to_string() };
+    let trimmed_key = if source::music_only() { format!("music-v2:{trimmed}") } else { trimmed.to_string() };
     let key = if limit == SEARCH_LIMIT {
         cache_key(&trimmed_key, false)
     } else {
@@ -222,7 +217,7 @@ pub async fn search_tracks(
         return Ok(results);
     }
 
-    let results = source::search(trimmed.to_string(), limit).await?;
+    let results = source::search(trimmed, limit).await?;
     store.put_search(&key, &results);
 
     Ok(results)
@@ -439,7 +434,7 @@ pub async fn import_playlist(
         );
     }
 
-    let (title, tracks) = source::playlist(url, ytdlp::PLAYLIST_LIMIT).await?;
+    let (title, tracks) = innertube::list_playlist(&url, source::PLAYLIST_LIMIT).await?;
 
     if tracks.is_empty() {
         return Err("No encontré canciones en esa lista. ¿Es privada?".to_string());
@@ -787,9 +782,11 @@ pub type ThumbStateArg = serde_json::Value;
 /// Cierra la app de verdad. Lo llama el frontend cuando ya ha guardado lo que
 /// sonaba (la escucha en curso, la cola), al elegir "Salir" en la bandeja.
 #[tauri::command]
-pub fn quit_app(app: tauri::AppHandle) {
+pub fn quit_app(app: tauri::AppHandle) -> Result<(), String> {
+    flush_data(&app)?;
     crate::remove_tray(&app);
     app.exit(0);
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -818,7 +815,7 @@ pub fn save_settings(
     settings.set(value)?;
 
     if settings.data_saver() != saver {
-        ytdlp::set_data_saver(settings.data_saver());
+        source::set_data_saver(settings.data_saver());
         // Las URLs guardadas son de la otra calidad.
         cache.clear();
     }
@@ -860,7 +857,7 @@ pub fn set_wallpaper(image: Option<String>, settings: State<'_, Settings>) -> Re
 #[tauri::command]
 pub fn get_home(stats: State<'_, Stats>) -> crate::home::Home {
     let mut library = stats.recommendation_snapshot();
-    if source::native() { library.retain(|entry| recommend::is_music(&entry.track)); }
+    if source::music_only() { library.retain(|entry| recommend::is_music(&entry.track)); }
     crate::home::build(&library, crate::store::now_secs())
 }
 
@@ -926,7 +923,7 @@ pub fn delete_user(id: String, state: State<'_, UsersState>) -> Result<Users, St
 #[tauri::command]
 pub fn switch_user(id: String, state: State<'_, UsersState>, app: tauri::AppHandle) -> Result<(), String> {
     #[cfg(mobile)]
-    flush_mobile_data(&app)?;
+    flush_data(&app)?;
     state.change(|users| users.switch(&id))?;
     #[cfg(desktop)]
     return crate::restart_clean(&app);
@@ -936,11 +933,10 @@ pub fn switch_user(id: String, state: State<'_, UsersState>, app: tauri::AppHand
 
 /// Cambios de usuario/restauración recargan el estado, sin intentar arrancar
 /// un ejecutable de escritorio en Android. El frontend se recarga después.
-#[cfg(mobile)]
-pub(crate) fn flush_mobile_data(app: &tauri::AppHandle) -> Result<(), String> {
+pub(crate) fn flush_data(app: &tauri::AppHandle) -> Result<(), String> {
     use tauri::Manager;
-    app.state::<Store>().flush_mobile()?; app.state::<Stats>().flush_mobile()?;
-    app.state::<Playlists>().flush_mobile()?; app.state::<Settings>().flush_mobile()
+    app.state::<Store>().flush()?; app.state::<Stats>().flush()?;
+    app.state::<Playlists>().flush()?; app.state::<Settings>().flush()
 }
 
 #[cfg(mobile)]
@@ -953,7 +949,7 @@ pub(crate) fn reload_mobile_data(app: &tauri::AppHandle) -> Result<(), String> {
     app.state::<Playlists>().reload_mobile(dir.clone())?;
     app.state::<crate::backup::Backups>().retarget(dir.clone())?;
     app.state::<Settings>().reload_mobile(dir)?;
-    ytdlp::set_data_saver(app.state::<Settings>().data_saver());
+    source::set_data_saver(app.state::<Settings>().data_saver());
     app.state::<AppCache>().clear();
     Ok(())
 }
@@ -1041,14 +1037,24 @@ pub fn set_mini_mode(
         .set_min_size(Some(LogicalSize::new(NORMAL_MIN.0, NORMAL_MIN.1)))
         .map_err(err)?;
 
-    match saved.take() {
+    match saved.as_ref() {
         Some(restore) if restore.maximized => window.maximize().map_err(err)?,
         Some(restore) => {
             window.set_size(restore.size).map_err(err)?;
-            window.set_position(restore.position).map_err(err)?;
+            let monitors = window.available_monitors().map_err(err)?;
+            let visible = monitors.iter().any(|monitor| {
+                let area = monitor.work_area();
+                crate::desktop::contains_title(
+                    (area.position.x, area.position.y, area.size.width, area.size.height),
+                    (restore.position.x, restore.position.y),
+                )
+            });
+            if visible { window.set_position(restore.position).map_err(err)?; }
+            else { window.center().map_err(err)?; }
         }
         None => window.maximize().map_err(err)?,
     }
+    *saved = None;
     Ok(())
 }
 
@@ -1202,55 +1208,6 @@ pub fn export_file(name: String, contents: String, app: tauri::AppHandle) -> Res
     let _ = tauri_plugin_opener::reveal_item_in_dir(&path);
 
     Ok(path.display().to_string())
-}
-
-// ---------------------------------------------------------------------------
-// yt-dlp
-// ---------------------------------------------------------------------------
-
-/// Fuerza una comprobacion de version de yt-dlp, saltandose el limite diario.
-///
-/// Existe para el dia en que YouTube rompa algo y no quieras esperar a mañana:
-/// el arranque ya comprueba solo una vez cada 24 h.
-///
-/// Devuelve la version nueva si la instalo, o `None` si ya estaba al dia.
-#[tauri::command]
-pub async fn update_ytdlp(app: tauri::AppHandle) -> Result<Option<String>, String> {
-    use tauri::Manager;
-
-    if source::native() {
-        return Ok(None);
-    }
-
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("no hay directorio de datos: {e}"))?;
-
-    // La comprobacion hace red y disco: fuera del runtime asincrono.
-    tokio::task::spawn_blocking(move || match updater::check(&dir, true) {
-        Ok(updater::Outcome::Updated(version)) => Ok(Some(version)),
-        Ok(updater::Outcome::UpToDate) => Ok(None),
-        Err(e) => Err(e),
-    })
-    .await
-    .map_err(|e| format!("fallo interno: {e}"))?
-}
-
-/// Version de yt-dlp que se esta usando ahora mismo.
-///
-/// Preguntarselo al binario cuesta ~1 s (arranca PyInstaller), asi que el
-/// frontend solo lo pide al abrir los ajustes y se lo queda.
-#[tauri::command]
-pub async fn ytdlp_version() -> Option<String> {
-    // Con el cliente propio (Android) no hay yt-dlp que preguntar.
-    if source::native() {
-        return None;
-    }
-    tokio::task::spawn_blocking(ytdlp::installed_version)
-        .await
-        .ok()
-        .flatten()
 }
 
 /// En que sistema corre la app ("windows", "android"...): la interfaz esconde

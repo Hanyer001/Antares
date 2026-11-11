@@ -43,8 +43,6 @@ cargo test --locked --manifest-path web-api/Cargo.toml
 npm run web:build
 ```
 
-Para comprobar los tipos de la aplicación nativa en una máquina sin el sidecar de yt-dlp, se usó una sobrescritura de configuración de compilación con `bundle.externalBin=[]`. No se modificó el empaquetado original.
-
 ## Usar la misma biblioteca en PC y teléfono
 
 En la web, abre **Ajustes → Tus datos → Biblioteca en tus dispositivos**. Guarda la clave de recuperación desde un origen HTTPS y úsala en **Usar una clave** desde el otro equipo. La clave da acceso a todos los perfiles de esa biblioteca. Guárdala como una contraseña. Cada equipo conserva su cola, posición, volumen y calidad de audio. El historial, los gustos y las listas del mismo perfil se consultan en el servidor. Usa **Sincronizar ahora** para actualizar la vista al momento.

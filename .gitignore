@@ -59,3 +59,6 @@ contrasena.txt
 
 # Datos privados de la API web
 .antares-web-data/
+
+# Módulo WebAssembly generado
+/src/engine/

@@ -12,7 +12,7 @@ sudo dnf install gcc gcc-c++ make pkgconf-pkg-config git curl tar xz \
   libappindicator-gtk3-devel libxdo-devel
 ```
 
-Desde la raíz del repositorio, elige un directorio de trabajo con espacio para las herramientas y compilaciones. `preparar` instala allí Node, Rust y la versión de la CLI de Tauri fijada en `package-lock.json`. También descarga y verifica `yt-dlp` para Linux en `src-tauri/binaries/`. Ejecuta el asistente con tu usuario habitual.
+Desde la raíz del repositorio, elige un directorio de trabajo con espacio para las herramientas y compilaciones. `preparar` instala allí Rust, las versiones de la CLI de Tauri y de wasm-bindgen fijadas en el asistente, y Node para las pruebas JavaScript. Ejecuta el asistente con tu usuario habitual.
 
 ```bash
 export ANTARES_LINUX_ROOT="$HOME/.local/share/antares-dev"
@@ -36,5 +36,5 @@ Si compartes el código con Windows, usa el mismo valor de `ANTARES_LINUX_ROOT` 
 
 - WebKitGTK recibe el audio mediante un puente HTTP local que admite búsquedas dentro de la pista y transmite los rangos solicitados.
 - Al cerrar la ventana, Antares guarda la sesión y sale. Los atajos de la ventana funcionan en Wayland. Los atajos globales requieren una sesión compatible con el plugin X11.
-- La actualización de Antares para Windows se deshabilita en Linux. El actualizador de `yt-dlp` usa el binario correspondiente a Linux.
+- La actualización de Antares para Windows se deshabilita en Linux.
 - En sesiones Wayland con NVIDIA, el asistente configura el compositor de WebKitGTK para el proceso de Antares. Puedes probar Skia con `WEBKIT_USE_SKIA_FOR_COMPOSITION=1` al ejecutar el asistente.

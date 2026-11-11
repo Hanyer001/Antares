@@ -1,142 +1,115 @@
-<p align="center">
-  <img src="assets/branding/icon.svg" alt="Antares icon" width="96" />
-</p>
-
+<p align="center"><img src="assets/branding/icon.svg" alt="Antares icon" width="96" /></p>
 <h1 align="center">Antares</h1>
-
-<p align="center">A personal music player for Windows and Android, built with Tauri, Rust and JavaScript.</p>
-
+<p align="center">A personal music player built with Rust, Tauri and Leptos.</p>
 <p align="center"><strong>English</strong> · <a href="README.es.md">Español</a></p>
-
 <p align="center">
   <a href="https://github.com/Hanyer001/antares-actualizaciones/releases/latest">Windows downloads</a> ·
   <a href="https://github.com/Hanyer001/antares-actualizaciones/releases/tag/android-v0.3.3-beta.1">Android beta</a> ·
   <a href="https://hanyer001.github.io/Pagina-Antares/">Product website</a>
 </p>
 
-Antares brings music search, playback, library organization and listening-based discovery into a customizable native application. It combines a modular web interface with a Rust backend and a Kotlin playback service on Android.
+Antares searches YouTube and YouTube Music, plays audio, organizes playlists and recommends music from listening history. It includes synchronized lyrics, configurable sound effects, themes, profiles and per-user backups.
 
-**Release status:** Windows **0.3.3** is available; Android **0.3.3 Beta 1** is a public test release. Search and playback require an internet connection and depend on external services. Android does not yet check for application updates automatically.
+The source version is **0.3.3**. Published downloads are **Windows 0.3.3** and **Android 0.3.3 Beta 1**. Recent Rust and macOS work is available in this source tree and becomes a downloadable update when a new signed package is published.
 
-## Highlights
+## Current development
 
-| Area | Capabilities |
-| --- | --- |
-| Playback | Search by song or link, queue management, shuffle, repeat and session restoration. |
-| Albums and artists | Full albums in order, top tracks with continued playback, and an artist-only queue. |
-| Library | Playlists, folders, pinned lists, custom covers, descriptions and bulk song actions. |
-| Smart playlists | Rules based on favorites, artists, listening history, skips and time since last played. |
-| Discovery | Seed-based radio, adjustable discovery and listening contexts such as work or relaxation. |
-| Lyrics and audio | Synchronized lyrics, equalizer, leveling and fades, with platform-specific capabilities. |
-| Appearance | Themes, fonts, colors, backgrounds, layouts, shortcuts and saved appearance profiles. |
-| Personal data | Listening statistics, incognito mode and complete per-user backup and restore. |
+- **Rust search and extraction.** InnerTube and YouTube Music queries run in Rust. Desktop audio resolution uses InnerTube first and the patched `rusty_ytdl` extractor when needed. Search, imports and audio resolution run without yt-dlp or an external Python runtime.
+- **Shared Rust core.** Queue, playback recovery, session handling, search ranking, preference validation and migrations live in `antares-core`. Browser tests exercise the generated WebAssembly.
+- **Rust interface components.** Leptos renders navigation, search results, library views, settings groups and player components. JavaScript adapters still connect browser audio, storage, events and native controls.
+- **macOS Apple Silicon.** Local QA covers playback, volume controls, seeking, queue transitions, the native playback menu, the mini player, hiding and reopening, and backup restoration. Distribution signing and native Windows validation of this revision are still pending.
+- **Data protection and diagnostics.** Atomic writes, recovery copies, isolated users and portable backups preserve device-specific startup and shortcut settings. Optional local diagnostics record bounded timing samples, median and p95.
+- **Desktop delivery tools.** Separate workflows validate macOS/Windows candidates and prepare signed delivery artifacts. Rust checks versions, package signatures, hashes and matching revisions before generating update manifests.
 
-Public playlist imports, including Spotify lists with more than 100 tracks, match tracks to playable sources. Text and CSV imports are also supported. See the [feature guide (Spanish)](docs/features.md) for formats and platform differences.
+The [macOS and Windows progress record](docs/obsidian/Ruta%20de%20mejoras%20para%20macOS%20y%20Windows.md) describes measured scenarios and outstanding checks. Recorded measurements belong to their stated machine and test scope.
 
-## Recent source changes
+## Platform status
 
-- The desktop layout adapts to available space, with queue and lyrics tabs, an expanded player and an optional audio visualizer.
-- Desktop search shows results as providers respond. Artwork and hover previews do less work while scrolling.
-- Antares builds as a native Apple Silicon desktop app. See the [macOS guide (Spanish)](docs/MACOS.md) for packaging and verification.
-- Experimental Fedora support includes a local HTTP audio bridge for WebKitGTK. Build and run from source with the [Fedora guide (Spanish)](docs/LINUX.md).
-
-## Engineering overview
-
-```mermaid
-flowchart LR
-  UI[HTML / CSS / JavaScript] -->|Tauri commands| Rust[Rust services]
-  Rust --> Data[Local JSON data and caches]
-  Rust --> Sources[Music search and audio resolution]
-  Rust --> Windows[Windows audio proxy / WebView2]
-  Rust --> Android[Kotlin / Media3 playback service]
-```
-
-- **Shared application logic:** the frontend delegates search, persistence and native integration to Rust through Tauri 2.
-- **Platform-specific playback:** Windows resolves audio with a locally patched `rusty_ytdl` crate and uses a WebView audio pipeline. Android uses InnerTube and a native Media3/ExoPlayer service for background playback and media controls.
-- **Playback recovery:** temporary audio URLs can be resolved again after a failure, with bounded retries and restoration of the saved position.
-- **Testable models:** queue, preferences, matching and library models have JavaScript tests that run without opening Tauri.
-- **Distribution:** signed Windows update packages are published in a separate [release repository](https://github.com/Hanyer001/antares-actualizaciones).
-
-The YouTube client changes are documented in [ANTARES_PATCH.md](src-tauri/vendor/rusty_ytdl/ANTARES_PATCH.md). Detailed architecture documentation is available [in Spanish](docs/architecture.md).
-
-## Platform support
-
-| | Windows | Android |
+| Platform | Availability | Playback and integration |
 | --- | --- | --- |
-| Release channel | Stable 0.3.3 | Public beta 0.3.3 Beta 1 |
-| Runtime | WebView2 and Rust | Android WebView, Rust and Kotlin |
-| Background playback | System tray integration | Native playback service |
-| Audio processing | Web Audio effects | Native effects depend on the device; optional fades |
-| Native controls | Mini window and global shortcuts | Notifications, lock-screen controls and touch navigation |
-| Backups | Per-user export and restore | Export and restore through the document picker |
+| Windows x64 | Published stable 0.3.3. Current source has additional changes awaiting native validation. | Rust resolution, WebView2/Web Audio, tray, mini player, taskbar thumbnail and global shortcuts. |
+| Android ARM 32/64 | Published 0.3.3 Beta 1, Android 7.0+. | Rust resolution, Kotlin Media3/ExoPlayer service, background playback and lock-screen controls. |
+| macOS Apple Silicon | Build from source and local QA packages. | Rust resolution with AAC, a local HTTP bridge for WKWebView, playback menu, menu-bar controls and mini player. |
+| Web / iPhone | Experimental PWA and iOS source adaptation. | Shared Wasm interface, browser or native playback according to the build. The PWA needs a separately hosted Rust API. |
+| Linux / Fedora | Experimental source adaptation. | Rust backend and local HTTP audio bridge for WebKitGTK. |
 
-Windows packages target 64-bit Windows 10/11. The Android beta targets Android 7.0+ on 32-bit and 64-bit ARM. See the [Android guide (Spanish)](docs/android.md) for installation, migration, build instructions and device validation.
+Search and playback require internet access. Availability depends on the queried services. GitHub Pages hosts the static interface. The Rust API and persistent libraries need their own server. Account authentication remains on the [separate accounts branch](https://github.com/Hanyer001/Antares/tree/feat/cuentas-web).
 
-## Run locally on Windows
+## Features
 
-Prerequisites: **Node.js 22+**, npm, Rust with the **MSVC** target, Microsoft C++ Build Tools with the desktop C++ workload, and WebView2.
+- Song and link search, albums in order, artist pages, queue, shuffle, repeat and session resume.
+- Playlists, folders, covers, descriptions, bulk actions and listening-based smart lists.
+- Recommendations, radios, discovery controls, listening statistics and incognito mode.
+- Synchronized lyrics, equalizer, loudness control and transitions according to platform capabilities.
+- Themes, fonts, layout controls, settings profiles and per-user export/restore.
+- Imports from supported public music services, text and CSV.
 
-```powershell
+See [features and usage](docs/features.md) for supported formats and platform differences.
+
+## Build and test
+
+Install Rust, Node.js 24 and the native prerequisites for your system. Windows requires MSVC C++ Build Tools and WebView2. macOS requires Xcode command-line tools and its accepted license.
+
+```sh
 git clone https://github.com/Hanyer001/Antares.git
 cd Antares
+rustup target add wasm32-unknown-unknown
+cargo install tauri-cli --version 2.11.4 --locked
+cargo install wasm-bindgen-cli --version 0.2.130 --locked
 npm ci
+cargo tauri dev
 ```
 
-Download `yt-dlp.exe` from the [official releases](https://github.com/yt-dlp/yt-dlp/releases/latest), create `src-tauri/binaries/`, and save it as:
+Tauri builds the Wasm engine before starting. Generate the engine before running desktop Rust tests in a fresh checkout.
 
-```text
-src-tauri/binaries/yt-dlp-x86_64-pc-windows-msvc.exe
-```
-
-This sidecar is needed for search and playlist queries; Windows audio extraction uses `rusty_ytdl`. The executable is not tracked in Git.
-
-```powershell
-npm run dev
-```
-
-The interface calls Tauri APIs, so opening `src/index.html` directly in a browser does not launch the application. Android requires its own SDK, NDK, Java and Rust targets; follow the [development guide (Spanish)](docs/development.md).
-
-## Checks
-
-Run from the repository root:
-
-```powershell
+```sh
 npm test
-npm run check:rust
-npm run test:rust
+cargo test --locked -p antares -p antares-core --lib
+cargo test --locked -p antares-build
+cargo test --locked -p antares-web-api
+cargo run --locked -p antares-build -- release-check
 ```
 
-The Rust desktop checks require the configured native environment and sidecar. Tests that need external services or signed release packages are ignored by default and run separately; see [development](docs/development.md) and [release documentation](docs/releases.md).
+Network, live-service and signed-delivery tests run separately. Native Windows, macOS distribution signing and physical device checks are tracked independently from automated tests.
 
 ## Repository map
 
 ```text
-assets/branding/          Source application icon
-docs/                    Feature, architecture, data and release guides
-scripts/                 Android builds, Windows releases and diagnostics
-src/                     Web interface and JavaScript models
-src-tauri/src/           Rust services, persistence and Tauri commands
+Cargo.toml / Cargo.lock   Shared Rust workspace and dependency lock
+crates/antares-core/      Queue, recovery, session, search, preferences and timing summaries
+crates/antares-ui/        Leptos components and Wasm/browser bridges
+crates/antares-build/     Wasm generation, release verification and startup measurements
+src/                     HTML/CSS, browser adapters and generated engine assets
+src-tauri/src/           Native Rust services, persistence and Tauri commands
 src-tauri/gen/android/   Android project and Kotlin playback service
-src-tauri/vendor/        Patched native YouTube extraction dependency
-tests/                   JavaScript tests
+src-tauri/ios-player/    iOS playback plugin
+src-tauri/vendor/        Patched Rust YouTube extractor
+web/                     PWA bootstrap, manifest and service worker
+web-api/                 Rust API and server-side library storage
+deploy/                  Hosting configuration
+tests/                   Client tests, including the real Wasm core
+docs/obsidian/           Architecture notes, migration routes and validation records
+.github/workflows/       Pages, desktop validation and signed-delivery preparation
 ```
 
-## Documentation
+`src/engine/` is generated and excluded from Git. Build scripts generate it from the Rust workspace.
 
-The main README is available in [Spanish](README.es.md). The detailed guides below are currently in Spanish:
+## Project repositories
 
-- [Features and usage](docs/features.md)
-- [Development and tests](docs/development.md)
-- [Architecture](docs/architecture.md)
-- [Local data and backups](docs/data.md)
-- [Android](docs/android.md)
-- [Builds and release publishing](docs/releases.md)
-- [Changelog](CHANGELOG.md)
+| Repository | Responsibility |
+| --- | --- |
+| [Antares](https://github.com/Hanyer001/Antares) | Application source and documentation. |
+| [Pagina-Antares](https://github.com/Hanyer001/Pagina-Antares) | Product website published with GitHub Pages. |
+| [antares-actualizaciones](https://github.com/Hanyer001/antares-actualizaciones) | Published installers and signed update manifests. |
 
-For a Windows release, the PowerShell release script prepares the installer, its fixed-name download copy and the update manifest. Follow the release guide to configure signing and publish the matching artifacts; a source commit alone does not distribute an update.
+A source change and a published installer have separate delivery steps. Follow the [release guide](docs/releases.md) to prepare and verify packages.
 
-## Feedback and credits
+## Documentation and feedback
 
-Report a problem in [Issues](https://github.com/Hanyer001/Antares/issues), including the version, operating system, reproduction steps and expected behavior. A public example song link helps with playback reports.
+Detailed guides are currently in Spanish.
 
-Built with Tauri 2, Rust, HTML, CSS and JavaScript ES modules. Playback and search integrations include `rusty_ytdl`, yt-dlp, InnerTube and Media3/ExoPlayer; synchronized lyrics use LRCLIB. Local font credits are preserved in [src/fonts/LEEME.txt](src/fonts/LEEME.txt).
+[Development](docs/development.md) · [Architecture](docs/architecture.md) · [Data and backups](docs/data.md) · [macOS](docs/MACOS.md) · [Android](docs/android.md) · [Web and iOS](docs/WEB.md) · [Fedora](docs/LINUX.md) · [Releases](docs/releases.md) · [Changelog](CHANGELOG.md)
+
+Report reproducible problems in [Issues](https://github.com/Hanyer001/Antares/issues), including the version, operating system and expected behavior.
+
+Built with Rust, Tauri 2, Leptos, HTML/CSS and JavaScript adapters. Playback integrations include InnerTube, `rusty_ytdl`, Media3/ExoPlayer and the iOS player plugin. Lyrics use LRCLIB. Font credits are preserved in [src/fonts/LEEME.txt](src/fonts/LEEME.txt).

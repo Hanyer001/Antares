@@ -1,6 +1,6 @@
 # Arquitectura
 
-Antares combina una interfaz HTML/CSS/JavaScript con un backend Rust mediante Tauri 2. El frontend envía comandos a Rust; Rust resuelve contenido, persiste datos e integra la aplicación con el sistema.
+Antares combina componentes Leptos compilados a WebAssembly, HTML/CSS y adaptadores JavaScript con un backend Rust mediante Tauri 2. El frontend envía comandos a Rust; Rust resuelve contenido, persiste datos e integra la aplicación con el sistema.
 
 ## Interfaz
 
@@ -14,9 +14,9 @@ Antares combina una interfaz HTML/CSS/JavaScript con un backend Rust mediante Ta
 | Búsqueda y descubrimiento | `search.js`, `searchrank.js`, `discovery.js`, `moments.js`, `home.js`, `artist.js` |
 | Apariencia y ajustes | `prefs.js`, `prefs-schema.js`, `themes.js`, `appearance.js`, `layout.js`, `settings.js` |
 | Vistas y controles | `results.js`, `playerbar.js`, `miniplayer.js`, `lyrics.js`, `dialog.js`, `menu.js` |
-| Datos y actualizaciones | `backups.js`, `user.js`, `appupdate.js`, `updater.js` |
+| Datos y actualizaciones | `backups.js`, `user.js`, `appupdate.js` |
 
-Los modelos puros se pueden probar con Node sin abrir Tauri. Las vistas delegan las acciones en callbacks y los módulos de acceso a datos centralizan las llamadas al backend.
+`crates/antares-core/` reúne cola, recuperación, sesión, orden de búsqueda, preferencias y resúmenes de tiempos. `crates/antares-ui/` aporta componentes Leptos y puentes Wasm. `crates/antares-build/` genera el motor y verifica las entregas. Las pruebas del cliente ejecutan ese Wasm con Node sin abrir Tauri. Las vistas delegan las acciones en callbacks y los módulos de acceso a datos centralizan las llamadas al backend.
 
 ## Backend
 
@@ -25,7 +25,7 @@ Los modelos puros se pueden probar con Node sin abrir Tauri. Las vistas delegan 
 | `lib.rs` / `main.rs` | Arranque, registro de comandos y estado compartido. |
 | `commands.rs` | Operaciones expuestas al frontend. |
 | `source.rs` | Selección del proveedor de audio. |
-| `ytdlp.rs` / `innertube.rs` | Resolución de audio y consultas a YouTube. |
+| `desktop_audio.rs` / `innertube.rs` | Resolución de audio y consultas a YouTube. |
 | `ytmusic.rs` | Artistas, álbumes y listas de YouTube Music. |
 | `cache.rs` / `related.rs` | Cachés de audio resuelto y canciones relacionadas. |
 | `store.rs` | Historial, búsquedas y escritura atómica de archivos JSON. |
@@ -34,17 +34,17 @@ Los modelos puros se pueden probar con Node sin abrir Tauri. Las vistas delegan 
 | `settings.rs` / `users.rs` / `backup.rs` | Preferencias, separación por usuario y restauraciones. |
 | `importer.rs` / `lyrics.rs` | Importación de listas y letras. |
 | `audio_proxy.rs` | Audio con cabeceras CORS para Web Audio. |
-| `app_update.rs` / `updater.rs` | Actualización de Antares y de yt-dlp, respectivamente. |
+| `app_update.rs` | Actualización firmada de Antares. |
 
 ## Reproducción
 
 1. El frontend selecciona una consulta o un identificador de vídeo.
 2. Rust consulta la caché y resuelve una URL de audio si hace falta. Las solicitudes simultáneas del mismo contenido comparten el turno de resolución.
-3. En Windows, el audio pasa por el proxy `stream://`, que permite aplicar efectos con Web Audio. En Android lo reproduce el servicio nativo.
+3. En Windows, el audio pasa por el proxy `stream://` para Web Audio. En macOS, WKWebView utiliza AAC y el puente HTTP local. En Android lo reproduce el servicio nativo.
 4. En escritorio, la siguiente canción se precarga para reducir la espera. En Android, la precarga web es opcional y está desactivada por defecto; Media3 administra el búfer de su cola nativa.
 5. Ante un fallo, la recuperación renueva la URL e intenta continuar desde la posición guardada. Los reintentos están limitados y se cancelan al pausar o elegir otra canción.
 
-Desde 0.3.2, `ytdlp.rs` resuelve el audio de Windows mediante el crate `rusty_ytdl` y conserva sus consultas de búsqueda y listas con yt-dlp. La dependencia local en `vendor/rusty_ytdl/` adapta el cliente YouTube; el contrato de pistas, la caché y el proxy se conservan. Android sigue utilizando `innertube.rs`.
+El catálogo usa InnerTube y YouTube Music en Rust. En escritorio, `desktop_audio.rs` integra la copia local de `rusty_ytdl` y el modo de recuperación prueba audio AAC de InnerTube. En Android e iOS, InnerTube resuelve la fuente y el adaptador nativo se encarga de reproducirla.
 
 Las URLs directas son temporales. Historial y listas guardan identificadores y metadatos para volver a resolverlas cuando se necesitan.
 
@@ -56,7 +56,7 @@ El control de aventura ajusta la proporción de canciones nuevas. Las radios se 
 
 ## Apariencia
 
-`prefs-schema.js` define tipos y valores predeterminados. `themes.js` calcula variables CSS y atributos; `appearance.js` los aplica. Una copia del aspecto en localStorage permite a `boot-theme.js` mostrar el tema antes de cargar las preferencias de Rust.
+`antares-core/src/preferences*.rs` define el esquema, tipos, límites, valores predeterminados y migraciones. `prefs-schema.js` adapta las llamadas a ese núcleo Wasm. `themes.js` calcula variables CSS y atributos; `appearance.js` los aplica. Una copia del aspecto en localStorage permite a `boot-theme.js` mostrar el tema antes de cargar las preferencias de Rust.
 
 ## Android
 

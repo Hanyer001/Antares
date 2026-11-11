@@ -100,10 +100,3 @@ export function toast(text, { tone = "ok", action = null, key = null, ms = null 
   }
   if (!el.matches(":hover")) arm(el, el.showMs);
 }
-
-/** Quita el aviso de `key`, si lo hay (algo en curso que se canceló). */
-export function clearToast(key) {
-  for (const el of els.toasts?.children ?? []) {
-    if (el.dataset.key === key) dismiss(el);
-  }
-}

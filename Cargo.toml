@@ -1,0 +1,4 @@
+[workspace]
+resolver = "2"
+members = ["crates/antares-core", "crates/antares-ui", "crates/antares-build", "src-tauri", "src-tauri/ios-player", "web-api"]
+exclude = ["src-tauri/vendor/rusty_ytdl"]

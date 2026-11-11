@@ -88,11 +88,16 @@ pub async fn handle(request: Request<Vec<u8>>) -> Response<Vec<u8>> {
         .headers()
         .get(header::RANGE)
         .and_then(|v| v.to_str().ok());
+    fetch_chunk(&target, range).await
+}
+
+async fn fetch_chunk(target: &str, range: Option<&str>) -> Response<Vec<u8>> {
     let (start, end) = parse_range(range);
     let (start, end) = clamp_range(start, end);
 
-    let upstream = match client()
-        .get(&target)
+    let started = std::time::Instant::now();
+    let mut upstream = match client()
+        .get(target)
         .header(header::RANGE, format!("bytes={start}-{end}"))
         .send()
         .await
@@ -108,7 +113,15 @@ pub async fn handle(request: Request<Vec<u8>>) -> Response<Vec<u8>> {
     let content_type = upstream.headers().get(header::CONTENT_TYPE).cloned();
     let content_range = upstream.headers().get(header::CONTENT_RANGE).cloned();
 
-    let body = match upstream.bytes().await {
+    let first = match upstream.chunk().await {
+        Ok(first) => first,
+        Err(_) => return error(StatusCode::BAD_GATEWAY, "el audio llego cortado"),
+    };
+    if first.is_some() && start == 0 && status.is_success() {
+        crate::diagnostics::first_byte(started.elapsed());
+    }
+    let mut body = first.map(|bytes| bytes.to_vec()).unwrap_or_default();
+    let remaining = match upstream.bytes().await {
         Ok(bytes) => bytes.to_vec(),
         Err(e) => {
             eprintln!("Proxy de audio: {e}");
@@ -116,6 +129,7 @@ pub async fn handle(request: Request<Vec<u8>>) -> Response<Vec<u8>> {
         }
     };
 
+    body.extend_from_slice(&remaining);
     let mut response = Response::builder()
         .status(status.as_u16())
         .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
@@ -139,6 +153,53 @@ pub async fn handle(request: Request<Vec<u8>>) -> Response<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    async fn serve_chunk(response: &'static [u8]) -> (String, tokio::task::JoinHandle<String>) {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let url = format!("http://{}/audio", listener.local_addr().unwrap());
+        let request = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = Vec::new();
+            let mut buffer = [0; 1024];
+            while !request.ends_with(b"\r\n\r\n") {
+                let received = stream.read(&mut buffer).await.unwrap();
+                assert!(received > 0);
+                request.extend_from_slice(&buffer[..received]);
+            }
+            stream.write_all(response).await.unwrap();
+            stream.shutdown().await.unwrap();
+            String::from_utf8(request).unwrap().to_ascii_lowercase()
+        });
+        (url, request)
+    }
+
+    #[tokio::test]
+    async fn forwards_a_later_audio_range_beyond_the_first_mib() {
+        let (url, request) = serve_chunk(
+            b"HTTP/1.1 206 Partial Content\r\nContent-Range: bytes 1048576-1048579/3200000\r\nContent-Type: audio/mp4\r\nContent-Length: 4\r\nConnection: close\r\n\r\naac!",
+        ).await;
+        let response = fetch_chunk(&url, Some("bytes=1048576-")).await;
+        assert!(request.await.unwrap().contains("\r\nrange: bytes=1048576-2097151\r\n"));
+        assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
+        assert_eq!(response.headers()[header::CONTENT_RANGE], "bytes 1048576-1048579/3200000");
+        assert_eq!(response.headers()[header::CONTENT_TYPE], "audio/mp4");
+        assert_eq!(response.body(), b"aac!");
+    }
+
+    #[tokio::test]
+    async fn signals_expired_sources_and_interrupted_transfers() {
+        for (upstream, expected) in [
+            (&b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"[..], StatusCode::FORBIDDEN),
+            (&b"HTTP/1.1 206 Partial Content\r\nContent-Length: 8\r\nConnection: close\r\n\r\ncut"[..], StatusCode::BAD_GATEWAY),
+        ] {
+            let (url, request) = serve_chunk(upstream).await;
+            let response = fetch_chunk(&url, Some("bytes=100-107")).await;
+            assert_eq!(response.status(), expected);
+            assert_eq!(response.headers()[header::ACCESS_CONTROL_ALLOW_ORIGIN], "*");
+            request.await.unwrap();
+        }
+    }
 
     #[test]
     fn acepta_solo_urls_de_googlevideo() {

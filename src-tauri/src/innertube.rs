@@ -1,10 +1,11 @@
-//! Cliente de la API interna de YouTube usado para el audio en Android.
+//! Cliente de la API interna de YouTube para catálogo y audio.
 //!
 //! Usa VISIONOS para player, WEB para búsquedas, next para Mix y browse
 //! para listas. visitorData se obtiene de YouTube y se conserva temporalmente.
 //! Los parsers buscan objetos por nombre para tolerar cambios de estructura.
 
-use std::sync::{Mutex, OnceLock};
+use std::sync::OnceLock;
+use tokio::sync::Mutex;
 use std::time::Duration;
 
 use serde_json::{json, Value};
@@ -36,7 +37,7 @@ const CONSENT_COOKIE: &str = "SOCS=CAI; PREF=hl=es&gl=ES";
 /// Cuanto se reutiliza un visitorData antes de pedir otro.
 const SESSION_TTL_SECS: u64 = 6 * 3600;
 
-/// Formato de audio por calidad, igual que con yt-dlp: el mejor AAC, o en
+/// Formato de audio por calidad: el mejor disponible, o en
 /// ahorro de datos lo mejor que no pase de ~72 kbps.
 const SAVER_MAX_BPS: u64 = 72_000;
 
@@ -76,10 +77,13 @@ pub(crate) async fn site_session(
     version_fallback: &str,
     force: bool,
 ) -> Result<Session, String> {
+    // Las consultas paralelas de canciones y artista comparten la misma
+    // apertura de sesión en vez de descargar dos veces la página inicial.
+    let mut cached = slot.lock().await;
     if !force {
-        if let Some(s) = slot.lock().ok().and_then(|s| s.clone()) {
+        if let Some(s) = cached.as_ref() {
             if now_secs().saturating_sub(s.fetched_at) < SESSION_TTL_SECS {
-                return Ok(s);
+                return Ok(s.clone());
             }
         }
     }
@@ -102,9 +106,7 @@ pub(crate) async fn site_session(
         ytcfg_value(&html, "INNERTUBE_CLIENT_VERSION").unwrap_or_else(|| version_fallback.to_string());
 
     let s = Session { visitor, web_version, fetched_at: now_secs() };
-    if let Ok(mut slot) = slot.lock() {
-        *slot = Some(s.clone());
-    }
+    *cached = Some(s.clone());
     Ok(s)
 }
 
@@ -142,13 +144,24 @@ pub(crate) async fn post_to(
         request = request.header(*name, *value);
     }
 
-    let response = request.body(body.to_string()).send().await.map_err(net_error)?;
-    let status = response.status();
-    let text = response.text().await.map_err(net_error)?;
-    if !status.is_success() {
-        return Err(format!("HTTP {status} en {endpoint}"));
+    let request = request.body(body.to_string());
+    let mut response = request.try_clone().expect("cuerpo JSON clonable").send().await.map_err(net_error)?;
+    if !response.status().is_success() {
+        return Err(format!("HTTP {} en {endpoint}", response.status()));
     }
-    serde_json::from_str(&text).map_err(|e| format!("respuesta no valida de {endpoint}: {e}"))
+    let bytes = match response.bytes().await {
+        // Una respuesta cortada puede llegar con cabeceras válidas. Se repite
+        // una sola lectura del catálogo, nunca un bucle de reintentos.
+        Err(error) if (error.is_body() || error.is_decode()) && !error.is_timeout() => {
+            response = request.send().await.map_err(net_error)?;
+            if !response.status().is_success() {
+                return Err(format!("HTTP {} en {endpoint}", response.status()));
+            }
+            response.bytes().await
+        }
+        result => result,
+    }.map_err(net_error)?;
+    serde_json::from_slice(&bytes).map_err(|e| format!("respuesta no valida de {endpoint}: {e}"))
 }
 
 async fn post_web(endpoint: &str, mut body: Value, s: &Session) -> Result<Value, String> {
@@ -328,22 +341,28 @@ async fn pick_playable_audio(player: &Value, saver: bool) -> Result<String, Stri
     if !webm { return Ok(url); }
     let length = parsed.query_pairs().find(|(key, _)| key == "clen")
         .and_then(|(_, value)| value.parse::<u64>().ok());
-    for start in [0, 1 << 20] {
-        if length.is_some_and(|n| start >= n) { break; }
+    // Ambos rangos son independientes y comparten el mismo presupuesto de
+    // tiempo. El segundo detecta fuentes que solo entregan el comienzo.
+    let rejected = async |start: u64| {
+        if length.is_some_and(|n| start >= n) { return false; }
         let end = length.map_or(start + 1023, |n| (start + 1023).min(n - 1));
         let result = http().get(&url).header("User-Agent", AUDIO_USER_AGENT)
             .header("Range", format!("bytes={start}-{end}"))
             .timeout(Duration::from_secs(2)).send().await;
-        if let Ok(response) = result {
-            if matches!(response.status().as_u16(), 403 | 410) {
-                return pick_audio(player, saver, true).map(|(url,_)| url)
-                    .ok_or_else(|| "ERROR: el servidor rechazó el stream de audio; vuelve a intentarlo".to_string());
-            }
-            // Only consume the explicitly requested tiny partial response.
-            if response.status() == reqwest::StatusCode::PARTIAL_CONTENT && response.content_length().is_some_and(|n| n <= 1024) {
-                let _ = response.bytes().await;
-            }
+        let Ok(response) = result else { return false };
+        if matches!(response.status().as_u16(), 403 | 410) {
+            return true;
         }
+        if response.status() == reqwest::StatusCode::PARTIAL_CONTENT
+            && response.content_length().is_some_and(|n| n <= 1024) {
+            let _ = response.bytes().await;
+        }
+        false
+    };
+    let (first, later) = tokio::join!(rejected(0), rejected(1 << 20));
+    if first || later {
+        return pick_audio(player, saver, true).map(|(url, _)| url)
+            .ok_or_else(|| "ERROR: el servidor rechazó el stream de audio; vuelve a intentarlo".to_string());
     }
     Ok(url)
 }
@@ -357,21 +376,25 @@ mod delivery_tests {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
-            for (index, stream) in listener.incoming().take(2).enumerate() {
+            let mut initial_range = false;
+            let mut later_range = false;
+            for stream in listener.incoming().take(2) {
                 let mut stream = stream.unwrap();
                 stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
                 let mut request = [0; 4096];
                 let count = stream.read(&mut request).unwrap();
                 let request = String::from_utf8_lossy(&request[..count]).to_lowercase();
-                if index == 0 {
-                    assert!(request.contains("bytes=0-1023"));
+                if request.contains("bytes=0-1023") {
+                    initial_range = true;
                     stream.write_all(b"HTTP/1.1 206 Partial Content\r\nContent-Length: 1024\r\nConnection: close\r\n\r\n").unwrap();
                     stream.write_all(&[0;1024]).unwrap();
                 } else {
                     assert!(request.contains("bytes=1048576-1049599"));
+                    later_range = true;
                     stream.write_all(b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").unwrap();
                 }
             }
+            assert!(initial_range && later_range);
         });
         let player = json!({"streamingData":{"adaptiveFormats":[
             {"mimeType":"audio/webm","bitrate":160000,"url":format!("http://{address}/audio?mime=audio/webm&clen=2000000")},
@@ -428,9 +451,17 @@ async fn player(id: &str, s: &Session) -> Result<Value, String> {
     .await
 }
 
-/// La URL de audio y los metadatos de un video (o de lo primero que salga al
-/// buscar el texto, como hace yt-dlp con `ytsearch1:`).
-pub async fn resolve_track(query: &str, saver: bool) -> Result<TrackInfo, String> {
+/// Acepta un enlace, un ID o el primer vídeo de una consulta.
+pub async fn resolve_video_id(query: &str) -> Result<String, String> {
+    if let Some(id) = video_id(query) {
+        return Ok(id);
+    }
+    search_tracks(query, 1).await?.into_iter().next().map(|track| track.id)
+        .ok_or_else(|| "No encontré esa canción. Prueba con otras palabras.".to_string())
+}
+
+#[cfg(test)]
+async fn resolve_track(query: &str, saver: bool) -> Result<TrackInfo, String> {
     resolve_track_with_format(query, saver, false).await
 }
 
@@ -439,15 +470,7 @@ pub async fn resolve_track_with_format(
     saver: bool,
     aac_only: bool,
 ) -> Result<TrackInfo, String> {
-    let id = match video_id(query) {
-        Some(id) => id,
-        None => search_tracks(query, 1)
-            .await?
-            .into_iter()
-            .next()
-            .map(|t| t.id)
-            .ok_or_else(|| "No encontré esa canción. Prueba con otras palabras.".to_string())?,
-    };
+    let id = resolve_video_id(query).await?;
 
     let mut s = session(false).await?;
     let mut response = player(&id, &s).await?;
@@ -545,26 +568,80 @@ fn parse_panel_videos(response: &Value) -> Vec<SearchResult> {
         .collect()
 }
 
-fn parse_playlist_videos(response: &Value) -> Vec<SearchResult> {
-    find_all(response, "playlistVideoRenderer")
-        .into_iter()
-        .filter_map(|v| {
-            let id = v.get("videoId")?.as_str()?;
-            let title = v.get("title").and_then(text);
-            let uploader = v.get("shortBylineText").and_then(text);
-            let duration = v
-                .get("lengthSeconds")
-                .and_then(|l| l.as_str().and_then(|s| s.parse().ok()).or_else(|| l.as_f64()))
-                .or_else(|| v.get("lengthText").and_then(text).and_then(|t| clock_to_secs(&t)));
-            Some(track(id, title, uploader, duration))
-        })
-        .collect()
+fn playlist_renderer(row: &Value) -> Option<SearchResult> {
+    if row.get("isPlayable").and_then(Value::as_bool) == Some(false) {
+        return None;
+    }
+    let id = row.get("videoId")?.as_str()?;
+    let title = row.get("title").and_then(text)?;
+    let uploader = row.get("shortBylineText").and_then(text);
+    let duration = row
+        .get("lengthSeconds")
+        .and_then(|l| l.as_str().and_then(|s| s.parse().ok()).or_else(|| l.as_f64()))
+        .or_else(|| row.get("lengthText").and_then(text).and_then(|t| clock_to_secs(&t)));
+    Some(track(id, Some(title), uploader, duration))
 }
 
-fn continuation_token(response: &Value) -> Option<String> {
-    find_all(response, "continuationCommand")
-        .into_iter()
-        .find_map(|c| c.get("token")?.as_str().map(str::to_string))
+fn playlist_lockup(row: &Value) -> Option<SearchResult> {
+    if row.get("contentType")?.as_str()? != "LOCKUP_CONTENT_TYPE_VIDEO" {
+        return None;
+    }
+    let id = row.pointer("/rendererContext/commandContext/onTap/innertubeCommand/watchEndpoint/videoId")?.as_str()?;
+    let meta = row.pointer("/metadata/lockupMetadataViewModel")?;
+    let title = meta.pointer("/title/content")?.as_str()?;
+    let uploader = meta.pointer("/metadata/contentMetadataViewModel/metadataRows/0/metadataParts/0/text/content")
+        .and_then(Value::as_str).map(str::to_owned);
+    let image = row.pointer("/contentImage/thumbnailViewModel");
+    let duration = image.and_then(|image| {
+        find_all(image, "thumbnailBadgeViewModel").into_iter()
+            .filter_map(|badge| badge.get("text")?.as_str())
+            .find_map(clock_to_secs)
+    });
+    Some(track(id, Some(title.to_owned()), uploader, duration))
+}
+
+/// Lee ambos formatos en el orden de la página, sin incluir los vídeos que
+/// aparecen en el menú interno de una fila.
+fn parse_playlist_videos(response: &Value) -> Vec<SearchResult> {
+    fn rows(value: &Value, out: &mut Vec<SearchResult>) {
+        match value {
+            Value::Array(values) => values.iter().for_each(|value| rows(value, out)),
+            Value::Object(values) => {
+                if let Some(row) = values.get("playlistVideoRenderer") {
+                    out.extend(playlist_renderer(row));
+                } else if let Some(row) = values.get("lockupViewModel") {
+                    out.extend(playlist_lockup(row));
+                } else {
+                    values.values().for_each(|value| rows(value, out));
+                }
+            }
+            _ => {}
+        }
+    }
+    let mut out = Vec::new();
+    rows(response, &mut out);
+    out
+}
+
+fn continuation_token(response: &Value) -> Option<&str> {
+    [
+        ("continuationItemViewModel", "/continuationCommand/innertubeCommand/continuationCommand/token"),
+        ("continuationItemRenderer", "/continuationEndpoint/continuationCommand/token"),
+        ("nextContinuationData", "/continuation"),
+    ].into_iter().find_map(|(model, path)| {
+        find_all(response, model).into_iter().find_map(|row| row.pointer(path)?.as_str())
+    })
+}
+
+fn browse_content(response: &Value, next_page: bool) -> &Value {
+    if next_page {
+        for key in ["onResponseReceivedActions", "onResponseReceivedEndpoints", "continuationContents"] {
+            if let Some(content) = response.get(key).filter(|v| v.as_array().is_none_or(|a| !a.is_empty())) {
+                return content;
+            }
+        }
+    }
+    response.pointer("/contents/twoColumnBrowseResultsRenderer/tabs").unwrap_or(response)
 }
 
 fn playlist_title(response: &Value) -> Option<String> {
@@ -604,26 +681,27 @@ async fn list_mix(list: &str, limit: usize, s: &Session) -> Result<(Option<Strin
 async fn list_browse(list: &str, limit: usize, s: &Session) -> Result<(Option<String>, Vec<SearchResult>), String> {
     let first = post_web("browse", json!({ "browseId": format!("VL{list}") }), s).await?;
     let title = playlist_title(&first);
-    let mut tracks = parse_playlist_videos(&first);
-    let mut token = continuation_token(&first);
+    let mut tracks = Vec::new();
+    let mut video_ids = std::collections::HashSet::new();
+    let mut visited = std::collections::HashSet::new();
+    let mut response = first;
 
-    // Cada pagina trae ~100; el tope evita dar vueltas con una respuesta rara.
-    let mut pages = 0;
-    while let Some(t) = token.take() {
-        if tracks.len() >= limit || pages >= 20 {
+    // Limitar la paginación incluso si el servidor devuelve tokens nuevos
+    // sin llegar al final. Los duplicados no consumen el cupo de la lista.
+    let max_pages = limit.div_ceil(50).clamp(20, 100);
+    for page in 0..max_pages {
+        let content = browse_content(&response, page > 0);
+        tracks.extend(parse_playlist_videos(content).into_iter().filter(|t| video_ids.insert(t.id.clone())));
+        if tracks.len() >= limit {
             break;
         }
-        let next = post_web("browse", json!({ "continuation": t }), s).await?;
-        let more = parse_playlist_videos(&next);
-        if more.is_empty() {
-            break;
+        let Some(token) = continuation_token(content) else { break };
+        if !visited.insert(token.to_owned()) || page + 1 == max_pages {
+            return Err("YouTube no permitió completar esta lista. Vuelve a intentarlo.".into());
         }
-        tracks.extend(more);
-        token = continuation_token(&next);
-        pages += 1;
+        response = post_web("browse", json!({ "continuation": token }), s).await?;
     }
 
-    let mut tracks = dedupe(tracks);
     tracks.truncate(limit);
     Ok((title, tracks))
 }
@@ -739,7 +817,48 @@ mod tests {
         });
         assert_eq!(playlist_title(&list).as_deref(), Some("Mi lista"));
         assert_eq!(parse_playlist_videos(&list)[0].duration, Some(237.0));
-        assert_eq!(continuation_token(&list).as_deref(), Some("TOK"));
+        assert_eq!(continuation_token(&list), Some("TOK"));
+    }
+
+    #[test]
+    fn playlist_models_preserve_order_and_read_only_their_continuation() {
+        let response = json!({
+            "onResponseReceivedActions": [{"appendContinuationItemsAction": {"continuationItems": [
+                {"lockupViewModel": {
+                    "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+                    "metadata": {"lockupMetadataViewModel": {"title": {"content": "Primera"}}},
+                    "rendererContext": {"commandContext": {"onTap": {"innertubeCommand": {
+                        "watchEndpoint": {"videoId": "first"}
+                    }}}}
+                }},
+                {"playlistVideoRenderer": {"videoId": "second", "title": {"simpleText": "Segunda"}}},
+                {"playlistVideoRenderer": {"videoId": "private", "isPlayable": false, "title": {"simpleText": "Privada"}}},
+                {"continuationItemViewModel": {"continuationCommand": {"innertubeCommand": {
+                    "continuationCommand": {"token": "next-page"}
+                }}}}
+            ]}}],
+            "contents": {"continuationCommand": {"token": "wrong-section"}}
+        });
+        let content = browse_content(&response, true);
+        let tracks = parse_playlist_videos(content);
+        assert_eq!(tracks.iter().map(|track| track.id.as_str()).collect::<Vec<_>>(), ["first", "second"]);
+        assert_eq!(continuation_token(content), Some("next-page"));
+    }
+
+    /// Usa una lista pública de subidas que supera la primera página.
+    #[tokio::test]
+    #[ignore]
+    async fn lista_larga_en_vivo() {
+        let url = "https://www.youtube.com/playlist?list=UUqECaJ8Gagnn7YCbPEzWH6g";
+        let (title, tracks) = list_playlist(url, 130).await.unwrap();
+        println!("lista: {title:?} · {} vídeos", tracks.len());
+        assert!(title.is_some());
+        assert_eq!(tracks.len(), 130);
+        let (_, first_page) = list_playlist(url, 5).await.unwrap();
+        assert_eq!(
+            tracks.iter().take(5).map(|track| &track.id).collect::<Vec<_>>(),
+            first_page.iter().map(|track| &track.id).collect::<Vec<_>>()
+        );
     }
 
     /// Contra YouTube de verdad: `cargo test innertube -- --ignored --nocapture`.

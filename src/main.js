@@ -1,3 +1,4 @@
+import { mark_navigation, queue_badge, side_player_tab, start_section } from "./js/rust-core.js";
 import { createPlaybackDiagnostics, initPlaybackDiagnostics } from "./js/playback-diagnostics.js";
 import { iosQueueWindow, resolveIOSQueue } from "./js/ios-queue.js";
 import { runtime, WEB } from "./js/platform.js";
@@ -53,14 +54,13 @@ import * as playerBar from "./js/playerbar.js";
 import { setSearchView } from "./js/loading.js";
 
 import { prefetchTrack, resolveTrack, searchSongs, searchTracks } from "./js/search.js";
-import { appendUniqueTracks } from "./js/progressive-search.js";
+import { appendUniqueTracks } from "./js/search-merge.js";
 import { rankSearch } from "./js/searchrank.js";
 import * as settings from "./js/settings.js";
 import { initPlatformUi } from "./js/platform-ui.js";
 import { toast } from "./js/toast.js";
 import { haptic } from "./js/haptics.js";
 import { feedback, initFeedbackSettings } from "./js/feedback.js";
-import { checkNow, installedVersion, onUpdated } from "./js/updater.js";
 import * as user from "./js/user.js";
 import {
   setBusy,
@@ -89,6 +89,7 @@ const MOBILE = document.documentElement.dataset.platform === "android";
 const ANDROID = MOBILE && !WEB && !IOS;
 const NATIVE_PLAYER = ANDROID || IOS;
 const diagnostics = createPlaybackDiagnostics();
+results.onRender(elapsed => diagnostics.measure("libraryRender", elapsed));
 const viewMemory = MOBILE ? createViewMemory([els.resultsList, els.home, els.artist, els.settings, els.discover, els.summary]) : null;
 
 /** Segundos del fundido final del temporizador para dormir. */
@@ -568,6 +569,7 @@ function guardarSesion() {
 
   const persisted = session.save({
     queue: queue.snapshot(),
+    repeat: queue.repeatMode(),
     track,
     time: Number.isFinite(time) ? time : 0,
     picks: discovery.getPicks(),
@@ -592,7 +594,8 @@ function restaurarSesion() {
   const saved = session.load();
   if (!saved) return;
 
-  queue.restore(saved.queue);
+  if (!queue.restore(saved.queue)) return;
+  if (["off", "all", "one"].includes(saved.repeat)) queue.setRepeat(saved.repeat);
   // Discard legacy automatic suggestions without touching the selected track
   // or anything the listener added manually.
   if (ANDROID) {
@@ -672,10 +675,10 @@ function anterior() {
 
 /** "Salir" en la bandeja: guardar lo que suena y cerrar. */
 async function salir() {
-  cerrarEscucha(false);
+  await cerrarEscucha(false);
   guardarSesion();
   await prefs.flush();
-  await invoke("quit_app").catch(() => {});
+  await invoke("quit_app").catch(error => toast(`No se pudo guardar antes de salir. ${error}`, { tone: "error" }));
 }
 
 // --- Transiciones --------------------------------------------------------
@@ -1634,13 +1637,9 @@ function renderPanel() {
   libraryTools.hide();
   const listOpen = activeTab === "lists" && openListId !== null;
 
-  for (const button of document.querySelectorAll(".tab[data-tab]")) {
-    const current = button.dataset.tab === activeTab && !listOpen;
-    button.setAttribute("aria-current", current ? "page" : "false");
-  }
-
+  mark_navigation(document.body, activeTab, listOpen);
   const total = queue.all().length;
-  els.queueCount.textContent = total > 0 ? String(total) : "";
+  queue_badge(els.queueCount, total);
 
   lists.renderSidebar(playlists, listOpen ? openListId : null);
   settings.show(activeTab === "settings");
@@ -1667,28 +1666,18 @@ function renderPanel() {
     case "results":
       lists.hideHead();
       setView("Buscar", searching ? "Buscando..." : resumenBusqueda());
-      pintarPistas(
-        lastResults,
-        {
-          // El artista que se busca, si lo es: un clic y a su página.
-          lead: lastArtistHit ? artistView.artistHit(lastArtistHit) : null,
-          // Primero lo del artista de la canción, después lo demás.
-          dividers:
-            lastSearchSplit > 0
-              ? [
-                  { at: 0, text: `De ${lastSearchArtist}` },
-                  { at: lastSearchSplit, text: "Otros resultados" },
-                ]
-              : [],
-        },
-        searching
+      results.renderSearch(lastResults, {
+        lead: lastArtistHit ? artistView.artistHit(lastArtistHit) : null,
+        split: lastSearchSplit > 0 ? lastSearchSplit : null,
+        artist: lastSearchArtist,
+        empty: searching
           ? "Buscando..."
           : searchError
-            ? 'Puedes reintentar la búsqueda o cambiar las palabras.'
-          : lastQuery
-            ? "No encontré nada con eso. Prueba con otras palabras."
-            : "Escribe arriba el nombre de una canción o pega un enlace de YouTube.",
-      );
+            ? "Puedes reintentar la búsqueda o cambiar las palabras."
+            : lastQuery
+              ? "No encontré nada con eso. Prueba con otras palabras."
+              : "Escribe arriba el nombre de una canción o pega un enlace de YouTube.",
+      });
       break;
 
     case "discover":
@@ -1710,7 +1699,7 @@ function renderPanel() {
     case "history":
       lists.hideHead();
       setView("Reciente", "Lo último que escuchaste");
-      pintarPistas(lastHistory, {}, "Aún no has escuchado nada.");
+      results.render(lastHistory, { rustRows: true, empty: "Aún no has escuchado nada." });
       break;
 
     case "lists":
@@ -1800,8 +1789,7 @@ function borrarColaAnadida() {
 
 /** "A continuación", en la columna de lo que suena. */
 function renderUpNext() {
-  const i = queue.currentIndex();
-  const siguientes = queue.all().slice(i + 1, i + 1 + UPNEXT_COUNT);
+  const siguientes = queue.upNext(UPNEXT_COUNT);
 
   let vacio = "Aquí verás lo que viene después.";
   if (playing.track) {
@@ -1862,7 +1850,14 @@ async function buscarResultados(query) {
     } else {
       // Combinar antes de pintar evita poner versiones ajenas por encima
       // del artista solo porque una de las fuentes respondió primero.
-      const [music, videos] = await Promise.allSettled([searchSongs(query), searchTracks(query)]);
+      const musicRequest = searchSongs(query).then(songs => {
+        if (songs.length && mine === searchId && activeTab === "results" && !document.hidden) {
+          const candidate = rankSearch([], songs, query).tracks[0];
+          if (candidate) prefetchTrack(candidate.watch_url);
+        }
+        return songs;
+      });
+      const [music, videos] = await Promise.allSettled([musicRequest, searchTracks(query)]);
       if (mine !== searchId) return;
       const songs = music.status === "fulfilled" ? music.value : [];
       if (videos.status === "rejected" && songs.length === 0) throw videos.reason;
@@ -2109,7 +2104,7 @@ function pestanaInicial() {
   const { startTab, hiddenTabs, tabOrder } = prefs.get("layout");
   const wanted = startTab === "last" ? prefs.get("interface.lastTab") : startTab;
   // Si está oculta, la primera que se vea.
-  return hiddenTabs.includes(wanted) ? tabOrder.find((t) => !hiddenTabs.includes(t)) : wanted;
+  return start_section(wanted, tabOrder, hiddenTabs);
 }
 
 // Una pestaña que se oculta mientras está abierta cede el sitio a la primera visible.
@@ -2125,14 +2120,7 @@ prefs.on("layout.hiddenTabs", (hidden) => {
 function mostrarPestanaLateral(tab) {
   const letra = tab === "lyrics";
 
-  els.upnextTab.setAttribute("aria-selected", String(!letra));
-  els.lyricsTab.setAttribute("aria-selected", String(letra));
-  els.upnextTab.tabIndex = letra ? -1 : 0;
-  els.lyricsTab.tabIndex = letra ? 0 : -1;
-  els.upnextPanel.hidden = letra;
-  els.upnextList.hidden = letra;
-  els.upnextMore.hidden = letra;
-  els.lyrics.hidden = !letra;
+  side_player_tab(els.upnextTab, els.lyricsTab, els.upnextPanel, els.upnextList, els.upnextMore, els.lyrics, letra);
 
   if (letra) lyrics.tick(player.currentTime());
 }
@@ -2324,7 +2312,7 @@ home.initHome({
 queue.onChange(() => {
   if (NATIVE_PLAYER && !playing.loading) syncNativeQueue();
   setQueueControls({ hasPrev: queue.hasPrev(), hasNext: queue.hasNext() });
-  els.queueCount.textContent = queue.all().length > 0 ? String(queue.all().length) : "";
+  queue_badge(els.queueCount, queue.all().length);
 
   // Sin nada cargado, el play arranca la cola (o retoma la sesión anterior):
   // se enciende en cuanto hay algo.
@@ -2405,7 +2393,7 @@ player.on("pause", () => {
     recovery.pause(); recoveryNotice.hidden = true;
   }
 });
-player.on("play", () => { if (!playing.loading && !recovery.intent) { recovery.intent = true; recovery.buffering(); } });
+player.on("play", () => { if (!playing.loading && !recovery.intent) { recovery.resume(); } });
 
 // Registrar la escucha completa y reproducir la siguiente pista.
 player.on("ended", async () => {
@@ -2442,7 +2430,7 @@ player.on("ended", async () => {
 
 player.on("intent", (play) => {
   if (!play) { recovery.pause(); ++requestId; playing.loading = false; recoveryNotice.hidden = true; setEngine("idle"); }
-  else if (!recovery.intent) { recovery.intent = true; recovery.attempts = 0; recovery.buffering(); }
+  else if (!recovery.intent) { recovery.resume(true); }
 });
 player.on("error", () => recovery.fail());
 
@@ -2597,6 +2585,11 @@ settings.initSettings();
 initPlaybackDiagnostics(diagnostics, {
   startup: performance.now(),
   getVersion: () => invoke("app_version"),
+  setNativeEnabled: enabled => WEB ? Promise.resolve() : invoke("set_desktop_diagnostics", { enabled }),
+  getNativeSamples: () => WEB ? Promise.resolve({}) : invoke("desktop_audio_samples"),
+  getBuildInfo: () => WEB
+    ? Promise.resolve({ system: "web", webview: "Browser" })
+    : invoke("desktop_build_info"),
   snapshot: () => ({
     engine: IOS ? "AVQueuePlayer" : ANDROID ? "Media3" : "HTMLMediaElement",
     phase: recovery.state,
@@ -2641,6 +2634,10 @@ people.initPeople({
 els.incognitoToggle.addEventListener("change", () => ponerIncognito(els.incognitoToggle.checked));
 els.incognitoChip.addEventListener("click", () => ponerIncognito(false));
 
+if (!WEB) listen("quit-save-failed", ({ payload }) =>
+  toast(`No se pudo guardar antes de salir. ${payload}`, { tone: "error" })
+).catch(() => {});
+
 // "Abrir al iniciar Windows" vive en el registro, y el usuario puede quitarlo
 // desde el Administrador de tareas: el ajuste se pone al día con lo real.
 invoke("get_autostart")
@@ -2648,32 +2645,6 @@ invoke("get_autostart")
     if (real !== prefs.get("system.autostart")) prefs.set("system.autostart", real);
   })
   .catch(() => {});
-
-// La versión solo se pide al abrir la vista por primera vez: preguntársela al
-// binario cuesta ~1 s porque arranca PyInstaller.
-settings.onOpen(async () => {
-  settings.setVersion(await installedVersion());
-});
-
-settings.onUpdate(async () => {
-  settings.setUpdating(true);
-  setStatus("Buscando actualización del motor de reproducción…", "busy");
-
-  try {
-    const version = await checkNow();
-
-    if (version) {
-      settings.setVersion(version);
-      setStatus("Motor de reproducción actualizado.", "ok");
-    } else {
-      setStatus("El motor de reproducción ya está al día.", "ok");
-    }
-  } catch (error) {
-    setStatus(friendlyError(error, "No se pudo buscar la actualización. Inténtalo más tarde."), "error");
-  } finally {
-    settings.setUpdating(false);
-  }
-});
 
 settings.onClear(async () => {
   await clearHistory();
@@ -2688,19 +2659,14 @@ settings.onFullscreen(alternarPantallaCompleta);
 if (!NATIVE_PLAYER) {
   appUpdate.initAppUpdate({
     beforeInstall: async () => {
-      cerrarEscucha(false);
+      recovery.pause();
+      player.pause();
+      await cerrarEscucha(false);
       await guardarSesion();
       await prefs.flush();
     },
   });
 }
-
-// Registrar las actualizaciones de yt-dlp en consola. La versión instalada
-// se muestra en Ajustes › Sistema.
-onUpdated((version) => {
-  console.log(`yt-dlp actualizado a ${version}`);
-  settings.setVersion(version);
-});
 
 // The assistant controls this player's queue, never another media application.
 if (PLATFORM === "linux") {
@@ -2744,3 +2710,7 @@ if (PLATFORM === "linux") {
     },
   }) }).catch(error => console.warn("Voice bridge:", error));
 }
+
+
+// El arranque nativo incluye la preparación del WebView y del motor Wasm.
+if (!WEB) invoke("desktop_ui_ready").catch(() => {});

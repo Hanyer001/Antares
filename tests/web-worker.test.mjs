@@ -15,7 +15,10 @@ function worker() {
   const previousScript = new Response("Módulo anterior");
   const caches = new Map([
     [prefix + "oldest", new Map()],
-    [prefix + "previous", new Map([[scope + "assets/chunk-OLD.js", previousScript]])],
+    [prefix + "previous", new Map([
+      [scope + "assets/chunk-OLD.js", previousScript],
+      [scope + "engine/antares_core_bg-a1b2.wasm", new Response("Rust anterior")],
+    ])],
     [prefix + "current", new Map([["./index.html", shell]])],
     ["other-app", new Map()],
   ]);
@@ -65,4 +68,6 @@ test("al activar una versión, una pestaña anterior conserva acceso a sus módu
   assert.equal(w.caches.has("other-app"), true);
   const script = await responseFor(w, "assets/chunk-OLD.js", { destination: "script" });
   assert.equal(await script.text(), "Módulo anterior");
+  const wasm = await responseFor(w, "engine/antares_core_bg-a1b2.wasm");
+  assert.equal(await wasm.text(), "Rust anterior");
 });

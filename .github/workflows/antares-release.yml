@@ -1,0 +1,80 @@
+name: Preparar entrega firmada de Antares
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: Notas de esta versión
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  delivery:
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: aarch64-apple-darwin
+            updater: darwin-aarch64
+          - runner: windows-2025
+            target: x86_64-pc-windows-msvc
+            updater: windows-x86_64
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Preparar herramientas
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal
+          rustup default 1.99.1
+          rustup target add wasm32-unknown-unknown "${{ matrix.target }}"
+          cargo install wasm-bindgen-cli --version 0.2.130 --locked
+          cargo install tauri-cli --version 2.11.4 --locked
+          npm ci
+      - name: Verificar y probar la revisión
+        run: |
+          cargo run --locked -p antares-build -- release-check
+          cargo test --locked -p antares -p antares-core --lib
+          cargo test --locked -p antares-build
+          npm test
+      - name: Compilar entrega firmada
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          NOTES: ${{ inputs.notes }}
+          DESKTOP_TARGET: ${{ matrix.target }}
+          UPDATE_TARGET: ${{ matrix.updater }}
+        run: |
+          : "${TAURI_SIGNING_PRIVATE_KEY:?Configura la clave de actualización}"
+          node -e 'require("node:fs").writeFileSync(process.env.RUNNER_TEMP + "/notes.md", process.env.NOTES)'
+          output="$RUNNER_TEMP/antares-delivery"
+          if [ "$RUNNER_OS" = macOS ]; then
+            : "${APPLE_CERTIFICATE:?Configura el certificado de Apple}"
+            : "${APPLE_CERTIFICATE_PASSWORD:?Configura la contraseña del certificado}"
+            sh scripts/release-macos.sh "$RUNNER_TEMP/notes.md" "$output"
+          else
+            cargo tauri build --target "$DESKTOP_TARGET" --bundles nsis
+            artifact="src-tauri/target/$DESKTOP_TARGET/release/bundle/nsis"
+            set -- "$artifact"/Antares_*-setup.exe
+            [ "$#" -eq 1 ] && [ -f "$1" ]
+            cargo run --locked -p antares-build -- release-stage "$UPDATE_TARGET" "$1" "$output" "$RUNNER_TEMP/notes.md"
+          fi
+      - uses: actions/upload-artifact@v6
+        with:
+          name: entrega-${{ matrix.updater }}-${{ github.sha }}
+          path: ${{ runner.temp }}/antares-delivery/
+          if-no-files-found: error

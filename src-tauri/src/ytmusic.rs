@@ -2,7 +2,8 @@
 //! Usa next para identificar artista y álbum de una pista, y browse para sus páginas.
 //! El audio se resuelve por separado a partir del identificador del vídeo.
 
-use std::sync::{Mutex, OnceLock};
+use std::sync::OnceLock;
+use tokio::sync::Mutex;
 
 use serde::Serialize;
 use serde_json::{json, Value};

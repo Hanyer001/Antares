@@ -4,7 +4,11 @@
 import { groupLists } from "./library-model.js";
 import { els } from "./dom.js";
 import { icon, iconButton } from "./icons.js";
-import { iconArt, coverArt } from "./results.js";
+import { iconArt, coverArt, renderLibrary } from "./results.js";
+import { LibraryView, playlist_count_label as countLabel } from "./rust-core.js";
+
+export { countLabel };
+const sidebar = new LibraryView();
 
 const handlers = {
   onOpen: () => {},
@@ -25,104 +29,47 @@ export function on(name, cb) {
   handlers[`on${name[0].toUpperCase()}${name.slice(1)}`] = cb;
 }
 
-export function countLabel(count) {
-  if (count === 0) return "Vacía";
-  return `${count} ${count === 1 ? "canción" : "canciones"}`;
-}
-
-// --- Vista general -------------------------------------------------------
-
-function buildListRow(playlist) {
-  const li = document.createElement("li");
-  li.className = "result result--list";
-  li.dataset.id = playlist.id;
-  li.tabIndex = 0;
-  li.setAttribute("role", "button");
-
-  // La carátula de una lista es la de su primera canción. "Me gusta" lleva
-  // siempre su corazón, para encontrarla de un vistazo.
-  const cover = playlist.cover || playlist.tracks[0]?.thumbnail;
-  let art;
-
-  if (cover && !playlist.system) {
-    art = coverArt(cover);
-  } else {
-    art = iconArt(playlist.system ? "heart" : "list");
-    if (playlist.system) art.classList.add("result__art--likes");
-  }
-
-  const text = document.createElement("div");
-  text.className = "result__text";
-
-  const title = document.createElement("span");
-  title.className = "result__title";
-  title.textContent = playlist.name;
-
-  const by = document.createElement("span");
-  by.className = "result__by";
-  by.textContent = [countLabel(playlist.tracks.length), playlist.pinned ? "Fijada" : null, playlist.folder, playlist.rules ? "Inteligente" : null, playlist.description].filter(Boolean).join(" · ");
-
-  text.append(title, by);
-
-  const chevron = document.createElement("span");
-  chevron.className = "result__chevron";
-  const arrow = icon("back");
-  chevron.append(arrow);
-
-  li.append(art, text, chevron);
-
-  const open = () => handlers.onOpen(playlist.id);
-  li.addEventListener("click", open);
-  li.addEventListener("keydown", (event) => {
-    if (event.target !== li) return;
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    open();
-  });
-
-  return li;
+function model(playlists) {
+  return playlists.map(playlist => ({
+    id: playlist.id,
+    name: playlist.name,
+    count: playlist.tracks.length,
+    pinned: Boolean(playlist.pinned),
+    system: Boolean(playlist.system),
+    smart: Boolean(playlist.rules),
+    folder: playlist.folder,
+    description: playlist.description,
+  }));
 }
 
 export function renderOverview(playlists) {
-  els.resultsList.replaceChildren(...playlists.map(buildListRow));
+  renderLibrary(model(playlists));
+  els.resultsList.querySelectorAll(".result--list").forEach((row, index) => {
+    const playlist = playlists[index];
+    const cover = playlist.cover || playlist.tracks[0]?.thumbnail;
+    const art = cover && !playlist.system ? coverArt(cover) : iconArt(playlist.system ? "heart" : "list");
+    if (playlist.system) art.classList.add("result__art--likes");
+    row.prepend(art);
+    row.querySelector(".result__chevron").append(icon("back"));
+
+    const open = () => handlers.onOpen(playlist.id);
+    row.addEventListener("click", open);
+    row.addEventListener("keydown", event => {
+      if (event.target !== row || (event.key !== "Enter" && event.key !== " ")) return;
+      event.preventDefault();
+      open();
+    });
+  });
 }
 
-// --- Barra lateral -------------------------------------------------------
-
-/**
- * Las listas en la barra lateral: a un clic desde cualquier vista.
- *
- * @param {Array} playlists
- * @param {string|null} activeId La lista abierta ahora, para marcarla.
- */
 export function renderSidebar(playlists, activeId) {
-  const items = groupLists(playlists).map((playlist) => {
-    const li = document.createElement("li");
-
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "side-list" + (playlist.system ? " side-list--likes" : "");
-    button.setAttribute("aria-current", String(playlist.id === activeId));
-    button.title = [playlist.folder, playlist.name].filter(Boolean).join(" / ");
-
-    button.append(icon(playlist.system ? "heart" : "list"));
-
-    const name = document.createElement("span");
-    name.className = "side-list__name";
-    name.textContent = (playlist.pinned ? "★ " : "") + playlist.name;
-
-    const count = document.createElement("span");
-    count.className = "side-list__count";
-    count.textContent = String(playlist.tracks.length);
-
-    button.append(name, count);
+  const grouped = groupLists(playlists);
+  sidebar.render(els.sidebarLists, JSON.stringify(model(grouped)), true, activeId ?? undefined);
+  els.sidebarLists.querySelectorAll(".side-list").forEach((button, index) => {
+    const playlist = grouped[index];
+    button.prepend(icon(playlist.system ? "heart" : "list"));
     button.addEventListener("click", () => handlers.onOpen(playlist.id));
-
-    li.append(button);
-    return li;
   });
-
-  els.sidebarLists.replaceChildren(...items);
 }
 
 // --- Cabecera del panel --------------------------------------------------

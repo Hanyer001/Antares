@@ -1,0 +1,19 @@
+[package]
+name = "antares-ui"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+antares-core = { path = "../antares-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+js-sys = "0.3"
+wasm-bindgen = "=0.2.130"
+leptos = { version = "0.8", features = ["csr"] }
+web-sys = { version = "0.3", features = ["CssStyleDeclaration", "DomTokenList", "HtmlElement", "HtmlButtonElement", "HtmlInputElement", "HtmlImageElement", "HtmlSelectElement", "HtmlTextAreaElement", "NodeList", "ScrollIntoViewOptions", "ScrollBehavior", "ScrollLogicalPosition", "Storage", "Window"] }
+unicode-normalization = "0.1"
+regex = "1"

@@ -1,6 +1,6 @@
 import { runtime } from "./platform.js";
 // Lectura, actualización y notificaciones de preferencias.
-// Rust las persiste en settings.json; prefs-schema.js define su validación.
+// Rust valida, migra y persiste los ajustes; prefs-schema.js adapta las llamadas.
 //
 // Ejemplo: prefs.set("sound.crossfade", 6) guarda el valor y avisa
 // a los suscriptores de prefs.on("sound", callback).

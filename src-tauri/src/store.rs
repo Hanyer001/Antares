@@ -40,7 +40,7 @@ impl Store {
         let mut searches: HashMap<String, Vec<SearchResult>> =
             read_json(&dir.join(SEARCHES_FILE)).unwrap_or_default();
 
-        // Las busquedas guardadas antes de forzar UTF-8 en yt-dlp traen las
+        // Las busquedas guardadas con versiones antiguas del catálogo traen las
         // tildes rotas ("�"). No caducan nunca, asi que sin esto se verian mal
         // para siempre; tiradas, se repiten bien la proxima vez.
         searches.retain(|_, results| !results.iter().any(has_broken_text));
@@ -53,8 +53,7 @@ impl Store {
         }
     }
 
-    #[cfg(any(mobile, test, feature = "web"))]
-    pub(crate) fn flush_mobile(&self) -> Result<(), String> {
+    pub(crate) fn flush(&self) -> Result<(), String> {
         self.history_file.save_sync(self.history()).map_err(|e| e.to_string())?;
         self.searches_file.save_sync(self.searches.lock().map_err(|_| "busquedas bloqueadas")?.clone()).map_err(|e| e.to_string())
     }
@@ -335,18 +334,18 @@ mod tests {
         let live = Store::load(a.clone());
         live.record(candidato("old", "Usuario A"));
         live.put_search("only-a", &[candidato("old", "Usuario A")]);
-        live.flush_mobile().unwrap();
+        live.flush().unwrap();
         let other = Store::load(b.clone());
         other.record(candidato("new", "Usuario B"));
         other.put_search("only-b", &[candidato("new", "Usuario B")]);
-        other.flush_mobile().unwrap();
+        other.flush().unwrap();
 
         live.reload_mobile(b.clone()).unwrap();
         assert_eq!(live.history()[0].track.id, "new");
         assert!(live.get_search("only-a").is_none());
         assert!(live.get_search("only-b").is_some());
         live.record(candidato("next", "Otra de B"));
-        live.flush_mobile().unwrap();
+        live.flush().unwrap();
         assert_eq!(Store::load(a.clone()).history()[0].track.id, "old");
         assert_eq!(Store::load(b).history().len(), 2);
 

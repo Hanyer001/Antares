@@ -44,3 +44,20 @@ test("el diagnóstico ignora credenciales y URLs y borra muestras al desactivarl
   assert.deepEqual(monitor.report(snapshot).milliseconds, {});
   assert.equal(monitor.report(snapshot).lastInterruption, null);
 });
+
+test("el diagnóstico agrega p95 y mediana sin incorporar datos libres del equipo", () => {
+  const monitor = createPlaybackDiagnostics();
+  monitor.enable(true);
+  for (let value = 1; value <= 20; value++) monitor.measure("search", value);
+  const report = monitor.report({
+    system: "macos", architecture: "aarch64", webview: "WKWebView",
+    revision: "f".repeat(40), modified: true, user: "secret",
+  });
+  assert.deepEqual(report.samples.search, { count: 20, medianMs: 10.5, p95Ms: 19 });
+  assert.equal(report.system, "macos");
+  assert.equal(report.webview, "WKWebView");
+  assert.equal(report.modified, true);
+  assert.ok(!JSON.stringify(report).includes("secret"));
+  monitor.enable(false);
+  assert.deepEqual(monitor.report({}).samples, {});
+});

@@ -333,8 +333,6 @@ async function invoke(command, args = {}) {
   if (command === "plugin:player|haptic") { navigator.vibrate?.(12); return; }
   if (command === "take_voice_requests") return [];
   if (command === "notify_track") return; // Media Session muestra la pista sin pedir notificaciones.
-  if (command === "ytdlp_version") return "InnerTube · servidor web";
-  if (command === "update_ytdlp") throw new Error("El motor se actualiza con el servidor de Antares.");
   if (command === "check_app_update") {
     const registration = await navigator.serviceWorker?.getRegistration();
     await registration?.update();

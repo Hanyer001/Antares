@@ -1,34 +1,30 @@
 # Desarrollo
 
-## Windows
+## Herramientas
 
-Instala Node.js 22 o posterior, npm y Rust con el toolchain MSVC. Tauri requiere Microsoft C++ Build Tools con la carga **Desarrollo para el escritorio con C++** y el runtime WebView2. Consulta los [prerrequisitos oficiales](https://v2.tauri.app/start/prerequisites/) para la instalación.
+La app nativa se compila con Cargo. En Windows instala el toolchain MSVC de Rust, Microsoft C++ Build Tools con **Desarrollo para el escritorio con C++** y WebView2. Consulta los [prerrequisitos de Tauri](https://v2.tauri.app/start/prerequisites/) para cada sistema.
 
-```powershell
-git clone https://github.com/Hanyer001/Antares.git
-cd Antares
-npm ci
+Desde la raíz del repositorio:
+
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install tauri-cli --version 2.11.4 --locked
+cargo install wasm-bindgen-cli --version 0.2.130 --locked
+cargo tauri dev
 ```
 
-Descarga `yt-dlp.exe` de sus [releases oficiales](https://github.com/yt-dlp/yt-dlp/releases/latest), crea `src-tauri/binaries/` y copia el archivo como `yt-dlp-x86_64-pc-windows-msvc.exe`. El sufijo corresponde al target de Rust que Tauri usa para el ejecutable auxiliar. Se conserva para búsquedas y listas. Desde 0.3.2, la extracción de audio en Windows usa `rusty_ytdl`, incluido con su parche de cliente YouTube en `src-tauri/vendor/rusty_ytdl/`.
+`cargo run --locked -p antares-build` genera el núcleo WebAssembly en `src/engine/`. Tauri, la PWA y las pruebas lo generan antes de usarlo. Si invocas `cargo check` o `cargo test` para Tauri directamente desde una copia nueva, genera el núcleo primero.
 
-```powershell
-npm run dev
-```
-
-El frontend se sirve desde `src/`. No hay un framework ni una compilación separada de JavaScript. Las llamadas a Rust usan `window.__TAURI__`, disponible dentro de la aplicación.
-
-## Comandos habituales
+Node.js 22+ y `npm ci` se usan para las pruebas JavaScript y el empaquetado de la PWA. La interfaz nativa se sirve desde `src/` y llama a Rust mediante `window.__TAURI__`.
 
 | Comando desde la raíz | Función |
 | --- | --- |
-| `npm run dev` | Abre Tauri en desarrollo. |
-| `npm test` | Ejecuta las pruebas de JavaScript. |
-| `npm run check:rust` | Comprueba el backend sin generar un instalador. |
-| `npm run test:rust` | Ejecuta las pruebas del backend. |
-| `npm run tauri -- --help` | Muestra los comandos de la CLI de Tauri. |
-
-Las dependencias JavaScript y Rust están fijadas mediante `package-lock.json` y `Cargo.lock`. Los comandos de Rust necesitan el ejecutable auxiliar de yt-dlp para la configuración de escritorio.
+| `cargo tauri dev` | Abre Tauri en desarrollo. |
+| `cargo tauri build` | Compila y empaqueta la app nativa. |
+| `npm test` | Ejecuta las pruebas de JavaScript con WebAssembly. |
+| `npm run web:build` | Empaqueta la PWA. |
+| `cargo test --locked -p antares --lib` | Prueba el backend nativo. |
+| `cargo test --locked -p antares-web-api` | Prueba la API web. |
 
 ## Pruebas
 
@@ -46,7 +42,7 @@ La prueba de firma de actualizaciones necesita un paquete ya publicado; está do
 
 ## Android
 
-El proyecto nativo está en `src-tauri/gen/android/`. La configuración `tauri.android.conf.json` elimina el ejecutable auxiliar de escritorio. El audio usa ExoPlayer mediante `PlaybackService.kt` y `PlayerPlugin.kt`.
+El proyecto nativo está en `src-tauri/gen/android/`. El audio usa ExoPlayer mediante `PlaybackService.kt` y `PlayerPlugin.kt`.
 
 El script `scripts/build-android.ps1` espera esta instalación local:
 
@@ -61,20 +57,13 @@ También necesita los targets Rust `aarch64-linux-android` y `armv7-linux-androi
 
 El script compila Rust para ambas arquitecturas y copia las bibliotecas al proyecto Android antes de ejecutar Gradle. Evita depender de la creación de enlaces simbólicos en Windows. Los comandos que generan APK se encuentran en [publicación](releases.md). El SDK usado es Android 36 y el mínimo de la app es Android 7 (API 24). Para el APK de pruebas optimizado y las diferencias entre plataformas, consulta [Android](android.md).
 
-## Diagnóstico de audio
+## Diagnóstico de catálogo y audio
 
-El siguiente script compara el extractor externo de yt-dlp como referencia; no mide la extracción nativa que usa Windows desde 0.3.2:
+Las siguientes pruebas consultan YouTube y su CDN. Ejecuta las de red en serie para facilitar el diagnóstico.
 
-```powershell
-.\scripts\benchmark-ytdlp.ps1 "radiohead creep"
-```
-
-Para probar InnerTube en escritorio:
-
-```powershell
-$env:ANTARES_SOURCE = "innertube"
-npm run dev
-Remove-Item Env:ANTARES_SOURCE
+```sh
+cargo test --locked -p antares-web-api innertube::tests -- --ignored --nocapture --test-threads=1
+cargo test --locked -p antares --lib audio_de_escritorio_y_recuperacion_aac_en_vivo -- --ignored --nocapture
 ```
 
 ## Organización y nombres

@@ -1,0 +1,87 @@
+name: Validar Antares de escritorio
+on:
+  workflow_dispatch:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  desktop:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: aarch64-apple-darwin
+            bundle: app
+          - runner: windows-2025
+            target: x86_64-pc-windows-msvc
+            bundle: nsis
+    defaults:
+      run:
+        shell: bash
+    env:
+      RUST_VERSION: '1.99.1'
+      WASM_BINDGEN_VERSION: '0.2.130'
+      TAURI_CLI_VERSION: '2.11.4'
+      DESKTOP_TARGET: ${{ matrix.target }}
+      DESKTOP_BUNDLE: ${{ matrix.bundle }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Preparar herramientas
+        run: |
+          rustup toolchain install "$RUST_VERSION" --profile minimal
+          rustup default "$RUST_VERSION"
+          rustup target add wasm32-unknown-unknown "$DESKTOP_TARGET"
+          cargo install wasm-bindgen-cli --version "$WASM_BINDGEN_VERSION" --locked
+          cargo install tauri-cli --version "$TAURI_CLI_VERSION" --locked
+          npm ci
+      - name: Comprobar versiones de la entrega
+        run: cargo run --locked -p antares-build -- release-check
+      - name: Probar escritorio y cliente
+        run: |
+          cargo test --locked -p antares -p antares-core --lib
+          cargo test --locked -p antares-build
+          npm test
+      - name: Empaquetar candidato
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            export APPLE_SIGNING_IDENTITY=-
+          fi
+          cargo tauri build --target "$DESKTOP_TARGET" --bundles "$DESKTOP_BUNDLE" \
+            --config '{"bundle":{"createUpdaterArtifacts":false}}'
+          git diff --exit-code -- Cargo.lock
+      - name: Identificar artefacto
+        run: |
+          bundle="src-tauri/target/$DESKTOP_TARGET/release/bundle"
+          mkdir desktop-artifacts
+          if [ "$RUNNER_OS" = macOS ]; then
+            artifact=desktop-artifacts/Antares-macOS-arm64.zip
+            ditto -c -k --sequesterRsrc --keepParent "$bundle/macos/Antares.app" "$artifact"
+          else
+            artifact=desktop-artifacts/Antares-Windows-x64-Setup.exe
+            set -- "$bundle"/nsis/*-setup.exe
+            [ "$#" -eq 1 ] && [ -f "$1" ]
+            cp "$1" "$artifact"
+          fi
+          {
+            git rev-parse HEAD
+            node -p 'require("./src-tauri/tauri.conf.json").version'
+            printf '%s\n' "$DESKTOP_TARGET"
+            rustc -V
+            cargo tauri -V
+            wasm-bindgen -V
+            node -v
+            node -e 'for (const file of process.argv.slice(1)) console.log(require("node:crypto").hash("sha256", require("node:fs").readFileSync(file)), file)' Cargo.lock "$artifact"
+          } > desktop-artifacts/revision.txt
+      - uses: actions/upload-artifact@v6
+        with:
+          name: Antares-${{ matrix.target }}-${{ github.sha }}
+          path: desktop-artifacts/
+          if-no-files-found: error

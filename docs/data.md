@@ -1,6 +1,6 @@
 # Datos y copias de seguridad
 
-En Windows, los datos de Antares se guardan en `%APPDATA%\com.hanyer.antares\`, fuera del código y de la instalación. El usuario principal usa ese directorio; los demás tienen su carpeta `users/<id>/`.
+Los datos de Antares están fuera de la instalación. En Windows se guardan en `%APPDATA%\com.hanyer.antares\` y en macOS en `~/Library/Application Support/com.hanyer.antares/`. El perfil principal usa ese directorio. Los demás usan `users/<id>/`.
 
 | Archivo o carpeta | Contenido |
 | --- | --- |
@@ -16,7 +16,7 @@ En Windows, los datos de Antares se guardan en `%APPDATA%\com.hanyer.antares\`, 
 | `*.json.bak` | Versión anterior válida de cada archivo de datos. |
 | `users.json` | Usuarios y selección activa. |
 | `related.json` | Caché compartida de Mix de YouTube. |
-| `updater.json` / `bin/` | Estado de actualización y copia local de yt-dlp. |
+| `updater.json` / `bin/` de versiones anteriores | Archivos históricos del motor externo. La app actual deja de consultarlos. |
 
 La cola, posición de reproducción y preferencias de momentos también usan almacenamiento del WebView separado por usuario. Las copias completas incluyen ese estado. Las URLs temporales de audio no se guardan en las listas ni se exportan.
 
@@ -27,6 +27,8 @@ En **Ajustes → Tus datos → Copia completa** puedes guardar una copia o selec
 Antares crea una copia interna a los 30 segundos de abrir y la actualiza cada 15 minutos. Conserva los últimos siete días con actividad, con una copia por día.
 
 Antes de restaurar se valida el contenido y se muestra una vista previa. La restauración guarda un respaldo de los datos actuales y se aplica al reiniciar, antes de cargar la biblioteca. Si se interrumpe, vuelve a intentarse en el siguiente arranque.
+
+En macOS y Windows, al restaurar una copia completa se conservan el inicio automático, el arranque oculto y los atajos globales del perfil de destino. La posición de la ventana queda fuera del formato de copia.
 
 Cada copia corresponde al usuario activo. Para respaldar varias personas, crea una copia desde cada usuario.
 

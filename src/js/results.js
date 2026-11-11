@@ -3,6 +3,7 @@
 // recibe los eventos de selección.
 
 import { els } from "./dom.js";
+import { LibraryView, SearchView, UpNextView } from "./rust-core.js";
 import { displayThumbnail } from "./thumbnails.js";
 import { createHoverPrefetch } from "./scroll-activity.js";
 import { formatTime } from "./format.js";
@@ -16,7 +17,7 @@ import { createBatchRenderer } from './batch-render.js';
  * no lance procesos, y lo bastante corto para que quien está leyendo una fila
  * llegue al clic con la URL ya lista.
  */
-const HOVER_PREFETCH_MS = 400;
+const HOVER_PREFETCH_MS = 250;
 
 let currentId = null;
 let playbackState = "idle";
@@ -26,6 +27,8 @@ const hoverPrefetch = createHoverPrefetch();
 let dragFrom = null;
 const touchLists = new WeakSet();
 const batches = new WeakMap();
+const searchView = new SearchView();
+const libraryView = new LibraryView();
 
 /**
  * Las listas donde se han pintado filas: la del panel y la de la página de un
@@ -44,7 +47,10 @@ const handlers = {
   onUpNext: () => {},
   onPlayNext: () => {},
   onArtist: () => {},
+  onRender: () => {},
 };
+
+export function onRender(callback) { handlers.onRender = callback; }
 
 /**
  * Clic en el artista de una fila: recibe la pista y el enlace pulsado (para
@@ -342,13 +348,6 @@ function buildRow(track, { removeLabel, reorderable, count, playNext, minReorder
   li.tabIndex = 0;
   li.setAttribute("role", "button");
 
-  const art = coverArt(track.thumbnail);
-  const state = document.createElement("span");
-  state.className = "result__state";
-  state.setAttribute("aria-hidden", "true");
-  state.hidden = true;
-  art.append(state);
-
   const text = document.createElement("div");
   text.className = "result__text";
 
@@ -356,16 +355,33 @@ function buildRow(track, { removeLabel, reorderable, count, playNext, minReorder
   title.className = "result__title";
   title.textContent = track.title || "Sin título";
   title.title = title.textContent;
-
-  text.append(title, buildBy(track));
+  text.append(title);
 
   const time = document.createElement("span");
   time.className = "result__time";
   time.textContent = formatTime(track.duration);
 
-  const actions = buildActions(track, removeLabel, playNext);
-  li.append(art, text, time, actions);
+  li.append(text, time);
+  bindRow(li, track, { removeLabel, playNext });
   if (reorderable && position >= minReorderIndex) makeReorderable(li, position, count, minReorderIndex);
+  return li;
+}
+
+/** Controles compartidos por la fila de Leptos y las demás pantallas. */
+function bindRow(li, track, { removeLabel, playNext }) {
+  const art = coverArt(track.thumbnail);
+  const state = document.createElement("span");
+  state.className = "result__state";
+  state.setAttribute("aria-hidden", "true");
+  state.hidden = true;
+  art.append(state);
+
+  const selectionBox = li.querySelector(':scope > input[type="checkbox"]');
+  if (selectionBox) selectionBox.after(art);
+  else li.prepend(art);
+  li.querySelector(".result__text").append(buildBy(track));
+  const actions = buildActions(track, removeLabel, playNext);
+  li.append(actions);
 
   // Clic derecho: el mismo menú que el botón "Más", como en Spotify.
   li.addEventListener("contextmenu", (event) => {
@@ -387,7 +403,6 @@ function buildRow(track, { removeLabel, reorderable, count, playNext, minReorder
 
   hoverPrefetch.bind(li, () => handlers.onHover(track), HOVER_PREFETCH_MS);
 
-  return li;
 }
 
 /**
@@ -412,16 +427,42 @@ export function render(tracks, opts = {}) {
   renderInto(els.resultsList, tracks, opts);
 }
 
-/** Añade la segunda fuente sin desmontar las imágenes ni quitar el foco. */
-export function appendSearchResults(tracks) {
-  const rows = [...els.resultsList.querySelectorAll('.result--track')];
-  if (!rows.length || rows.length > tracks.length || rows.some((row,i) => row.dataset.id !== tracks[i]?.id)) return false;
-  for (let i=rows.length;i<tracks.length;i++) {
-    const row = buildRow(tracks[i], {removeLabel:null,reorderable:false,playNext:true,count:tracks.length}, i);
+/** Leptos dibuja Buscar sobre la misma lista para conservar estilos y navegación. */
+export function renderSearch(tracks, { lead, split, artist, empty }) {
+  const list = els.resultsList;
+  hoverPrefetch.cancel();
+  batches.get(list)?.stop();
+  searchView.clear();
+  libraryView.clear();
+  list.replaceChildren(...(lead ? [lead] : []));
+  searchView.render(list, JSON.stringify({
+    rows: trackRows(tracks),
+    split, artist, empty,
+  }));
+  for (const row of list.querySelectorAll(":scope > .result--track")) {
+    bindRow(row, tracks[Number(row.dataset.position)], { playNext: true });
     updateRowState(row);
-    els.resultsList.append(row);
   }
-  return true;
+  list.setAttribute("aria-busy", "false");
+  if (tracks.length) list.dispatchEvent(new Event("antares:rows-ready", { bubbles: true }));
+}
+
+function trackRows(tracks, selected) {
+  return tracks.map(track => ({
+    id: String(track.id), title: track.title || "Sin título", duration: formatTime(track.duration),
+    selected: selected?.has(track.id),
+  }));
+}
+
+export function renderLibrary(rows) {
+  const list = els.resultsList;
+  hoverPrefetch.cancel();
+  batches.get(list)?.stop();
+  searchView.clear();
+  libraryView.clear();
+  list.replaceChildren();
+  libraryView.render(list, JSON.stringify(rows), false);
+  list.setAttribute("aria-busy", "false");
 }
 
 function buildDivider({ text, action }) {
@@ -447,7 +488,7 @@ function buildDivider({ text, action }) {
 export function renderInto(
   list,
   tracks,
-  { removeLabel = null, reorderable = false, playNext = true, dividers = [], lead = null, minReorderIndex = 0 } = {},
+  { removeLabel = null, reorderable = false, playNext = true, dividers = [], lead = null, minReorderIndex = 0, rustRows = false, empty = "", selection = null } = {},
 ) {
   if(document.documentElement.dataset.platform==='android' && list===els.resultsList && !touchLists.has(list)){
     touchLists.add(list);
@@ -463,13 +504,40 @@ export function renderInto(
   const batch = batches.get(list);
   batch.stop();
   lists.add(list);
+  if (list === els.resultsList) {
+    searchView.clear();
+    libraryView.clear();
+  }
   list.replaceChildren();
   if (lead) list.append(lead);
 
   const all = tracks ?? [];
   const opts = { removeLabel, reorderable, playNext, count: all.length, minReorderIndex };
   const separators = new Map(dividers.map(divider => [divider.at, divider]));
+  const renderStarted = performance.now();
   batch.render(all, (tracks, start) => {
+    if (rustRows) {
+      const lastRow = list.lastElementChild;
+      searchView.append(list, JSON.stringify({ rows: trackRows(tracks, selection?.ids), empty }), start);
+      let nextRow = lastRow ? lastRow.nextElementSibling : list.firstElementChild;
+      tracks.forEach((track, index) => {
+        const row = nextRow;
+        nextRow = row.nextElementSibling;
+        const position = start + index;
+        bindRow(row, track, opts);
+        if (selection) {
+          const box = row.querySelector('input[type="checkbox"]');
+          box.addEventListener("click", event => event.stopPropagation());
+          box.addEventListener("change", () => {
+            row.classList.toggle("is-selected", box.checked);
+            selection.onChange(track.id, box.checked);
+          });
+        }
+        if (reorderable && position >= minReorderIndex) makeReorderable(row, position, all.length, minReorderIndex);
+        updateRowState(row);
+      });
+      return;
+    }
     const fragment = document.createDocumentFragment();
     tracks.forEach((track, index) => {
       const position = start + index;
@@ -480,12 +548,15 @@ export function renderInto(
     list.append(fragment);
   }, { size: all.length > 120 ? 60 : Math.max(1, all.length), progress(done, total) {
     list.setAttribute('aria-busy', String(done < total));
+    if (done === total) handlers.onRender(performance.now() - renderStarted);
     list.dispatchEvent(new Event('antares:rows-ready', { bubbles: true }));
   } });
 }
 
 /** Un mensaje en lugar de filas, para una lista vacía. */
 export function renderEmpty(message, { lead = null } = {}) {
+  searchView.clear();
+  libraryView.clear();
   hoverPrefetch.cancel();
   batches.get(els.resultsList)?.stop();
   els.resultsList.setAttribute('aria-busy', 'false');
@@ -513,6 +584,7 @@ export function rowAt(position) {
  *                                 cola": llevan su título, como en Spotify.
  * @param {string} [opts.context]  Qué se escuchaba, para el título del resto.
  */
+const upNextView = new UpNextView();
 let upNextSignature = null;
 export function renderUpNext(tracks, emptyText, { queued = 0, context = null } = {}) {
   // Navegar no cambia la cola. Conservar filas, imágenes y foco mientras sus
@@ -520,59 +592,13 @@ export function renderUpNext(tracks, emptyText, { queued = 0, context = null } =
   const signature = JSON.stringify([tracks, emptyText, queued, context]);
   if (signature === upNextSignature) return;
   upNextSignature = signature;
-  if (tracks.length === 0) {
-    const li = document.createElement("li");
-    li.className = "upnext__empty";
-    li.textContent = emptyText;
-    els.upnextList.replaceChildren(li);
-    return;
-  }
-
-  const heading = (text) => {
-    const li = document.createElement("li");
-    li.className = "upnext__heading";
-    li.textContent = text;
-    return li;
-  };
-
-  const rows = tracks.flatMap((track, i) => {
-    const li = document.createElement("li");
-    const before = [];
-    if (queued > 0 && i === 0) before.push(heading("Siguiente en la cola"));
-    if (queued > 0 && i === queued) before.push(heading(context ? `Siguiente de «${context}»` : "Después"));
-
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "upnext__item";
-    button.title = track.title || "";
-
-    const art = document.createElement("img");
-    art.className = "upnext__art";
-    art.alt = "";
-    art.loading = "lazy";
-    art.decoding = "async";
-    if (track.thumbnail) art.src = displayThumbnail(track.thumbnail, 40);
-
-    const text = document.createElement("span");
-    text.className = "upnext__text";
-
-    const title = document.createElement("span");
-    title.className = "upnext__name";
-    title.textContent = track.title || "Sin título";
-
-    const by = document.createElement("span");
-    by.className = "upnext__by";
-    by.textContent = track.uploader || "";
-
-    text.append(title, by);
-    button.append(art, text);
-    button.addEventListener("click", () => handlers.onUpNext(track));
-
-    li.append(button);
-    return [...before, li];
+  const rows = tracks.map(({ title, uploader, thumbnail }) => ({
+    title, uploader, thumbnail: thumbnail ? displayThumbnail(thumbnail, 40) : null,
+  }));
+  upNextView.render(els.upnextList, JSON.stringify(rows), queued, context ?? undefined, emptyText);
+  els.upnextList.querySelectorAll(".upnext__item").forEach((button, i) => {
+    button.addEventListener("click", () => handlers.onUpNext(tracks[i]));
   });
-
-  els.upnextList.replaceChildren(...rows);
 }
 
 /** Icono en lugar de carátula, para filas que no son pistas (las listas). */
@@ -589,6 +615,8 @@ export function setVisible(visible) {
   document.body.classList.toggle("has-results", visible);
 
   if (!visible) {
+    searchView.clear();
+    libraryView.clear();
     batches.get(els.resultsList)?.stop();
     els.resultsList.removeAttribute("aria-busy");
     hoverPrefetch.cancel();

@@ -1,7 +1,11 @@
 // Referencias compartidas a los elementos de index.html.
 // El módulo se carga después de analizar el documento.
 
+import { mount_navigation, mount_search_controls } from "./rust-core.js";
+
 const $ = (selector) => document.querySelector(selector);
+mount_search_controls($("#search-form"));
+mount_navigation($("#tabs"));
 
 export const els = {
   // Búsqueda
@@ -18,8 +22,6 @@ export const els = {
 
   // Ajustes
   settings: $("#settings"),
-  engineVersion: $("#engine-version"),
-  updateButton: $("#update-button"),
   historyCount: $("#history-count"),
   clearHistoryButton: $("#clear-history-button"),
   fullscreenButton: $("#fullscreen-button"),

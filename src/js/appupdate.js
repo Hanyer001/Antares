@@ -43,11 +43,21 @@ async function install(update) {
     const text = total
       ? `Descargando Antares ${update.version}… ${Math.round((downloaded / total) * 100)} % (${mb(total)})`
       : `Descargando Antares ${update.version}… ${mb(downloaded)}`;
-    toast(text, { tone: "busy", key: "app-update" });
+    toast(text, {
+      tone: "busy", key: "app-update",
+      ...(!update.web ? { action: { label: "Cancelar", onClick: () => invoke("cancel_app_update").catch(() => {}) } } : {}),
+    });
   });
 
   try {
-    // Lo que suena y la sesión se guardan antes: el instalador cierra la app.
+    if (!update.web) {
+      toast("Descargando y verificando la actualización…", {
+        tone: "busy", key: "app-update",
+        action: { label: "Cancelar", onClick: () => invoke("cancel_app_update").catch(() => {}) },
+      });
+      await invoke("download_app_update");
+    }
+    // Guardar la posición después de descargar, justo antes de instalar.
     await beforeInstall();
     await invoke("install_app_update");
   } catch (error) {

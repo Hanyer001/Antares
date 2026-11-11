@@ -74,8 +74,7 @@ impl Playlists {
         }
     }
 
-    #[cfg(any(mobile, feature = "web"))]
-    pub(crate) fn flush_mobile(&self) -> Result<(), String> {
+    pub(crate) fn flush(&self) -> Result<(), String> {
         self.file.save_sync(self.lists.lock().map_err(|_| "listas bloqueadas")?.clone()).map_err(|e| e.to_string())
     }
     #[cfg(any(mobile, feature = "web"))]

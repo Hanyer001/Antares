@@ -58,7 +58,6 @@ function renderRows() {
   if (!pl) {
     const filtered = groupLists(allLists, query, folder);
     lists.renderOverview(filtered);
-    if (!filtered.length) results.renderEmpty("No hay listas que coincidan.");
     return;
   }
   const tracks = visibleTracks(pl);
@@ -67,20 +66,21 @@ function renderRows() {
     return;
   }
   const editable = !pl.system && !pl.rules;
-  results.render(tracks, { removeLabel: pl.rules ? null : pl.system ? "Quitar de Me gusta" : "Quitar de la lista", reorderable: editable && !query && !selecting });
-  if (!tracks.length) results.renderEmpty(pl.rules ? "Ninguna canción cumple las reglas todavía. Puedes editarlas." : query ? "No hay canciones que coincidan." : "Esta lista está vacía.");
-  if (selecting) {
-    for (const row of els.resultsList.querySelectorAll(".result[data-id]")) {
-      const box = node("input"); box.type = "checkbox"; box.checked = selected.has(row.dataset.id);
-      box.setAttribute("aria-label", `Seleccionar ${tracks.find(t=>t.id===row.dataset.id)?.title || "canción"}`);
-      box.addEventListener("click", e => e.stopPropagation());
-      box.addEventListener("change", () => {
-        if (box.checked) selected.add(row.dataset.id); else selected.delete(row.dataset.id);
-        row.classList.toggle("is-selected", box.checked); renderBulk();
-      });
-      row.classList.add("result--selectable"); row.classList.toggle("is-selected", box.checked); row.prepend(box);
-    }
-  }
+  results.render(tracks, {
+    rustRows: true,
+    selection: selecting ? {
+      ids: selected,
+      onChange(id, checked) {
+        if (checked) selected.add(id);
+        else selected.delete(id);
+        renderBulk();
+      },
+    } : null,
+    removeLabel: pl.rules ? null : pl.system ? "Quitar de Me gusta" : "Quitar de la lista",
+    reorderable: editable && !query && !selecting,
+    empty: pl.rules ? "Ninguna canción cumple las reglas todavía. Puedes editarlas."
+      : query ? "No hay canciones que coincidan." : "Esta lista está vacía.",
+  });
   renderBulk();
 }
 function renderBulk() {

@@ -2,6 +2,7 @@ import { runtime } from "./platform.js";
 // Aplica el diseño mediante atributos y variables CSS.
 // Gestiona el tamaño de las columnas y los modos mini y escucha.
 
+import { arrange_navigation } from "./rust-core.js";
 import { els } from "./dom.js";
 import * as prefs from "./prefs.js";
 import { SCHEMA } from "./prefs-schema.js";
@@ -25,7 +26,6 @@ const CONSOLE_PARTS = {
 let mini = false;
 let focus = false;
 let focusReturn = null;
-const handlers = { change: () => {} };
 
 // --- Aplicar -------------------------------------------------------------
 
@@ -45,24 +45,8 @@ function apply() {
   root.style.setProperty("--sidebar-pref", `${layout.sidebarWidth}px`);
   root.style.setProperty("--nowplaying-pref", `${layout.nowplayingWidth}px`);
 
-  applyTabs(layout);
+  arrange_navigation(els.tabs, layout.tabOrder, layout.hiddenTabs);
   refreshDesktopShell();
-}
-
-/** Orden y visibilidad de las pestañas: se mueven los botones de verdad. */
-function applyTabs(layout) {
-  const buttons = new Map(
-    [...els.tabs.querySelectorAll(".tab[data-tab]")].map((b) => [b.dataset.tab, b]),
-  );
-
-  for (const id of layout.tabOrder) {
-    const button = buttons.get(id);
-    if (!button) continue;
-    els.tabs.append(button);
-    button.hidden = layout.hiddenTabs.includes(id);
-    // Con la barra en solo iconos, el nombre va en el tooltip.
-    button.title = button.textContent.trim();
-  }
 }
 
 function applyLyrics() {
@@ -186,7 +170,6 @@ export async function setMini(enabled) {
     root.toggleAttribute("data-mini", mini);
   }
   refreshDesktopShell();
-  handlers.change();
 }
 
 /**
@@ -202,16 +185,10 @@ export function setFocus(enabled) {
   root.toggleAttribute("data-focus", focus);
   els.focusButton.setAttribute("aria-pressed", String(focus));
   refreshDesktopShell();
-  handlers.change();
   if (root.dataset.platform !== 'android') {
     if (focus) { enterSurface(document.querySelector('.nowplaying')); els.modeExit.focus({preventScroll:true}); }
     else if (focusReturn?.isConnected && focusReturn.getClientRects().length) focusReturn.focus({preventScroll:true});
   }
-}
-
-/** Aviso al entrar o salir de un modo (main.js ajusta la letra, etc.). */
-export function onModeChange(callback) {
-  handlers.change = callback;
 }
 
 // --- Arranque ------------------------------------------------------------

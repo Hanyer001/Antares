@@ -1,7 +1,7 @@
 // Arranque de Tauri en escritorio y Android.
 // Registra comandos, carga el estado y configura la bandeja y el protocolo de audio.
 
-// En movil sobra lo de escritorio (modo mini, bandeja, yt-dlp...): compila
+// En movil sobra lo de escritorio (modo mini, bandeja…): compila
 // pero no se usa, y sin esto cada pieza daria un aviso.
 // MSVC imprime "Creando biblioteca" como progreso; Rust lo presenta como warning.
 // Suprimimos esa categoria en MSVC. Los errores del enlazador siguen fallando.
@@ -12,6 +12,10 @@
 #[cfg(target_os = "android")]
 mod android_playback;
 mod app_update;
+mod desktop;
+mod diagnostics;
+#[cfg(all(test, desktop))]
+mod desktop_benchmark;
 mod audio_proxy;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod audio_http;
@@ -22,6 +26,8 @@ mod cache;
 mod commands;
 mod home;
 mod importer;
+#[cfg(desktop)]
+mod desktop_audio;
 mod innertube;
 mod lyrics;
 mod playlists;
@@ -33,10 +39,8 @@ mod stats;
 mod store;
 #[cfg(windows)]
 mod thumbbar;
-mod track;
-mod updater;
+use antares_core::track;
 mod users;
-mod ytdlp;
 mod ytmusic;
 
 use std::time::Duration;
@@ -59,7 +63,7 @@ use users::Users;
 pub const TRAY_ID: &str = "antares";
 
 /// Cuantas favoritas se precalientan al arrancar, y cuando. La espera deja
-/// pasar primero el arranque de la ventana y la comprobacion de yt-dlp.
+/// dejar primero que arranque la ventana.
 const WARM_SEEDS: usize = 6;
 const WARM_DELAY: Duration = Duration::from_secs(4);
 
@@ -138,6 +142,7 @@ pub fn remove_tray(app: &AppHandle) {
 
 /// Reiniciar sin dejar el icono viejo en la bandeja (ver `remove_tray`).
 pub fn restart_clean(app: &AppHandle) -> Result<(), String> {
+    commands::flush_data(app)?;
     #[cfg(target_os = "macos")]
     if let Some(bundle) = std::env::current_exe().ok().and_then(|path| {
         let macos = path.parent()?;
@@ -186,6 +191,11 @@ fn request_quit(app: &AppHandle) {
     let handle = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(QUIT_GRACE);
+        if let Err(error) = commands::flush_data(&handle) {
+            show_window(&handle);
+            let _ = handle.emit("quit-save-failed", error);
+            return;
+        }
         remove_tray(&handle);
         handle.exit(0);
     });
@@ -273,10 +283,9 @@ fn macos_menu(app: &AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
 }
 
 /// Lo que en escritorio se hace al arrancar y en movil no existe: la ventana
-/// (zoom, barra de titulo, arrancar oculta), yt-dlp y su actualizador, y la
-/// bandeja.
+/// (zoom, barra de titulo, arrancar oculta) y la bandeja.
 #[cfg(desktop)]
-fn setup_desktop(app: &tauri::App, base: std::path::PathBuf, settings: &Settings) {
+fn setup_desktop(app: &tauri::App, settings: &Settings) {
     if let Some(window) = app.get_webview_window("main") {
         if settings.zoom() != 1.0 {
             let _ = window.set_zoom(settings.zoom());
@@ -297,32 +306,12 @@ fn setup_desktop(app: &tauri::App, base: std::path::PathBuf, settings: &Settings
         }
     }
 
-    // Antes que nada: sin esto, `find_ytdlp` no sabria donde buscar la copia
-    // que mantiene el actualizador.
-    ytdlp::set_data_dir(base.clone());
-
-    // Paga el arranque de PyInstaller mientras el usuario aun no ha escrito
-    // nada, para que no lo pague la primera busqueda.
-    if !source::native() {
-        ytdlp::warm_up();
-    }
-
     // Sin bandeja la app sigue funcionando: solo se pierde el icono.
     if let Err(e) = build_tray(app) {
         eprintln!("No se pudo crear el icono de la bandeja: {e}");
+        // Un arranque oculto necesita una bandeja desde la que volver.
+        show_window(app.handle());
     }
-
-    // Comprobacion de version en segundo plano. Nunca bloquea el arranque ni
-    // interrumpe nada: si no hay red, se queda como estaba.
-    let handle = app.handle().clone();
-    std::thread::spawn(move || match updater::check(&base, false) {
-        Ok(updater::Outcome::Updated(version)) => {
-            println!("yt-dlp actualizado a {version}");
-            let _ = handle.emit("ytdlp-updated", version);
-        }
-        Ok(updater::Outcome::UpToDate) => {}
-        Err(e) => eprintln!("No se pudo comprobar la version de yt-dlp: {e}"),
-    });
 }
 
 // ---------------------------------------------------------------------------
@@ -352,6 +341,7 @@ fn warm_related(handle: AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let started = std::time::Instant::now();
     let builder = tauri::Builder::default();
 
     #[cfg(target_os = "macos")]
@@ -425,6 +415,10 @@ pub fn run() {
 
     builder
         .plugin(tauri_plugin_notification::init())
+        .manage(diagnostics::Startup {
+            started,
+            reported: std::sync::atomic::AtomicBool::new(false),
+        })
         .manage(voice_bridge::Bridge::default())
         .manage(AppCache::default())
         .manage(LyricsCache::default())
@@ -455,7 +449,7 @@ pub fn run() {
                 .unwrap_or_else(|_| std::path::PathBuf::from("."));
 
             // Lo de cada persona sale de su carpeta (ver `users`); lo que no es
-            // de nadie (la cache de los Mix, yt-dlp) se queda en la raiz.
+            // de nadie (la cache de los Mix) se queda en la raiz.
             let users = Users::load(&base);
             let dir = users.data_dir(&base);
             app.manage(commands::UsersState::new(base.clone(), users));
@@ -465,15 +459,13 @@ pub fn run() {
             app.manage(Store::load(dir.clone()));
             app.manage(Stats::load(dir.clone()));
             app.manage(Playlists::load(dir.clone()));
-            app.manage(Related::load(base.clone()));
+            app.manage(Related::load(base));
 
             let settings = Settings::load(dir);
-            ytdlp::set_data_saver(settings.data_saver());
+            source::set_data_saver(settings.data_saver());
 
             #[cfg(desktop)]
-            setup_desktop(app, base, &settings);
-            #[cfg(mobile)]
-            let _ = base;
+            setup_desktop(app, &settings);
 
             app.manage(settings);
             #[cfg(desktop)]
@@ -534,6 +526,11 @@ pub fn run() {
             commands::export_file,
             commands::get_home,
             commands::get_platform,
+            desktop::desktop_capabilities,
+            diagnostics::desktop_build_info,
+            diagnostics::desktop_ui_ready,
+            diagnostics::set_desktop_diagnostics,
+            diagnostics::desktop_audio_samples,
             commands::global_shortcuts_available,
             commands::set_mini_mode,
             commands::set_global_shortcuts,
@@ -547,17 +544,17 @@ pub fn run() {
             commands::set_tray_tooltip,
             commands::set_thumbbar,
             commands::quit_app,
-            commands::update_ytdlp,
-            commands::ytdlp_version,
             app_update::app_version,
             app_update::check_app_update,
-            app_update::install_app_update
+            app_update::install_app_update,
+            app_update::download_app_update,
+            app_update::cancel_app_update
         ])
         .build(tauri::generate_context!())
         .expect("Error al ejecutar Tauri")
         .run(|app, event| {
             #[cfg(target_os = "macos")]
-            if let tauri::RunEvent::Reopen { has_visible_windows: false, .. } = &event {
+            if let tauri::RunEvent::Reopen { .. } = &event {
                 show_window(app);
             }
             // Por si se sale por un camino que no paso por `remove_tray`.

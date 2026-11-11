@@ -40,6 +40,8 @@ $supported=@{
 }
 $targets=@($Architectures | ForEach-Object {if(-not $supported.ContainsKey($_)){throw "Arquitectura no admitida: $_"};$supported[$_]})
 $llvm=Join-Path $env:NDK_HOME "toolchains\llvm\prebuilt\windows-x86_64\bin"
+& cargo run --locked --manifest-path (Join-Path $root "Cargo.toml") -p antares-build
+if($LASTEXITCODE -ne 0){throw "No se pudo compilar el núcleo WebAssembly."}
 foreach($target in $targets) {
   $prefix=$target.triple.Replace('-','_')
   [Environment]::SetEnvironmentVariable("CC_$prefix",(Join-Path $llvm $target.clang),"Process")

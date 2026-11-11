@@ -1,6 +1,9 @@
 //! Per-user, local command bridge. Never accepts code, paths or arbitrary URLs.
-use serde::{Deserialize, Serialize};
+#[cfg(any(target_os = "linux", test))]
+use serde::Deserialize;
+use serde::Serialize;
 use std::{collections::VecDeque, sync::{mpsc, Mutex}};
+#[cfg(target_os = "linux")]
 use tauri::{Emitter, Manager};
 
 #[derive(Clone, Serialize)]
@@ -8,9 +11,11 @@ pub struct Request { id: String, command: String, query: String }
 struct Job { request: Request, reply: mpsc::Sender<serde_json::Value> }
 #[derive(Default)]
 pub struct Bridge { jobs: Mutex<VecDeque<Job>>, active: Mutex<Option<Job>> }
+#[cfg(any(target_os = "linux", test))]
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Input { command: String, #[serde(default)] query: String }
+#[cfg(any(target_os = "linux", test))]
 impl Input {
     fn valid(&self) -> bool {
         match self.command.as_str() {

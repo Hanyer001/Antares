@@ -23,7 +23,7 @@ export function formatTime(seconds) {
  */
 export function describeOrigin({ cached, safe }) {
   if (cached) return "caché";
-  return safe ? "yt-dlp/seguro" : "yt-dlp/rápido";
+  return safe ? "Rust/recuperación" : "Rust/directo";
 }
 
 /** Casos conocidos, con lo que se le dice al usuario. */
@@ -41,7 +41,7 @@ const KNOWN_ERRORS = [
  * programas, trazas, códigos del sistema. Los mensajes que Rust escribe para
  * la interfaz ("Ponle un nombre a la lista.") no llevan nada de esto.
  */
-const TECHNICAL = /yt-dlp|ytdlp|\bERROR\b|HTTP|os error|fallo interno|sidecar|pyinstaller|stderr|traceback|panicked|bloquead|\binvoke\b|TypeError|ReferenceError|NotAllowedError|NotSupportedError|AbortError|\.rs:|\.js:\d|0x[0-9a-f]+/i;
+const TECHNICAL = /\bERROR\b|HTTP|os error|fallo interno|stderr|traceback|panicked|bloquead|\binvoke\b|TypeError|ReferenceError|NotAllowedError|NotSupportedError|AbortError|\.rs:|\.js:\d|0x[0-9a-f]+/i;
 
 /**
  * Un error, dicho para una persona: los conocidos con su explicación, los

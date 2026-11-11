@@ -44,6 +44,7 @@ async function applyGlobal() {
 }
 
 function onKeyDown(event) {
+  if (event.defaultPrevented || event.isComposing) return;
   const combo = comboFromEvent(event);
   if (!combo) return;
 
@@ -51,8 +52,9 @@ function onKeyDown(event) {
   const action = Object.keys(local).find((name) => local[name] === combo);
   if (!action || !actions[action]) return;
 
+  if (event.repeat && !["seekForward", "seekBack", "volumeUp", "volumeDown"].includes(action)) return;
   const target = event.target;
-  const typing = target.closest?.("input, textarea, select, dialog, .menu");
+  const typing = target.closest?.('input, textarea, select, dialog, .menu, [contenteditable]:not([contenteditable="false"])');
   if (typing && !EVEN_WHILE_TYPING.has(action)) return;
 
   // Espacio o Intro sobre una fila o tarjeta ya sirven para elegirla.

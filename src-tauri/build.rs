@@ -1,6 +1,17 @@
 use tauri_build::{Attributes, DefaultPermissionRule, InlinedPlugin};
 
 fn main() {
+    println!("cargo:rerun-if-env-changed=ANTARES_BUILD_REVISION");
+    println!("cargo:rerun-if-changed=../.git/HEAD");
+    println!("cargo:rerun-if-changed=../.git/refs");
+    let revision = std::env::var("ANTARES_BUILD_REVISION").ok().or_else(|| {
+        let output = std::process::Command::new("git").args(["rev-parse", "HEAD"]).output().ok()?;
+        output.status.success().then(|| String::from_utf8_lossy(&output.stdout).trim().to_owned())
+    }).filter(|s| s.len() == 40 && s.bytes().all(|c| c.is_ascii_hexdigit())).unwrap_or_else(|| "unknown".into());
+    println!("cargo:rustc-env=ANTARES_REVISION={revision}");
+    let modified = std::process::Command::new("git").args(["status", "--porcelain"]).output()
+        .map(|output| !output.status.success() || !output.stdout.is_empty()).unwrap_or(true);
+    println!("cargo:rustc-env=ANTARES_MODIFIED={modified}");
     println!("cargo:rustc-env=ANTARES_TARGET={}", std::env::var("TARGET").expect("Cargo target"));
     // El reproductor nativo de Android (PlayerPlugin.kt) es un plugin definido
     // dentro de la app. Tauri solo deja a la interfaz llamar a las órdenes de

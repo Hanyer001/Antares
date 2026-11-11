@@ -114,6 +114,18 @@ test("repetir todo vuelve al principio al acabar", () => {
   assert.equal(q.prev().id, "t2", "anterior desde la primera va a la última");
 });
 
+test("A continuación limita la vista y no repite las pistas ya escuchadas", () => {
+  q.setRepeat("all");
+  q.load(pistas(4), 1);
+  q.playNext({ id: "manual" });
+
+  assert.deepEqual(idsDe(q.upNext(2)), ["manual", "t2"]);
+  assert.deepEqual(idsDe(q.upNext(0)), []);
+  q.pointAt("t3");
+  assert.deepEqual(q.upNext(6), []);
+  assert.equal(q.peekNext().id, "t0");
+});
+
 test("repetir todo con aleatorio rebaraja sin repetir la última como primera", () => {
   for (let i = 0; i < 200; i++) {
     q.setShuffle(false);

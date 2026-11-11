@@ -1,6 +1,7 @@
 // Estado visual de la interfaz: mensajes, indicadores y metadatos de la pista.
 // Los controles de audio se gestionan en player.js.
 
+import { console_queue } from "./rust-core.js";
 import { els } from "./dom.js";
 import { toast } from "./toast.js";
 import { setPlaybackState } from "./results.js";
@@ -57,8 +58,7 @@ export function setTransportEnabled(enabled) {
  * pista cargada ambos siguen apagados, y es correcto que se vea.
  */
 export function setQueueControls({ hasPrev, hasNext }) {
-  els.prev.disabled = !hasPrev;
-  els.next.disabled = !hasNext;
+  console_queue(els.prev, els.next, hasPrev, hasNext);
 }
 
 /**

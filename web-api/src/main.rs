@@ -56,9 +56,7 @@ mod innertube;
 #[allow(dead_code)]
 #[path = "../../src-tauri/src/lyrics.rs"]
 mod lyrics;
-#[allow(dead_code)]
-#[path = "../../src-tauri/src/track.rs"]
-mod track;
+use antares_core::track;
 #[allow(dead_code)]
 #[path = "../../src-tauri/src/ytmusic.rs"]
 mod ytmusic;

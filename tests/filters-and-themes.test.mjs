@@ -105,7 +105,7 @@ test("los errores técnicos no llegan a la pantalla", () => {
   const quiet = console.warn;
   console.warn = () => {};
   try {
-    assert.equal(friendlyError("yt-dlp fallo: ERROR: [youtube] abc: HTTP Error 403", "Genérico"), "Genérico");
+    assert.equal(friendlyError("ERROR: [youtube] abc: HTTP Error 403", "Genérico"), "Genérico");
     assert.equal(friendlyError(new TypeError("x is undefined"), "Genérico"), "Genérico");
     assert.equal(friendlyError("usuarios bloqueados", "Genérico"), "Genérico");
     assert.equal(friendlyError(""), "Algo no salió bien. Inténtalo de nuevo.");

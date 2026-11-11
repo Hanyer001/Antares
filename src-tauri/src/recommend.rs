@@ -186,7 +186,7 @@ impl Tuning {
     }
 
     pub fn allows(&self, track: &SearchResult) -> bool {
-        if crate::source::native() && !is_music(track) { return false; }
+        if crate::source::music_only() && !is_music(track) { return false; }
         if let Some(d) = track.duration {
             if d < self.min_duration_secs || d > self.max_duration_secs {
                 return false;

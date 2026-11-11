@@ -12,17 +12,3 @@ export function appendUniqueTracks(current, incoming) {
     seen.add(track.id); if (key) looks.add(key); return true;
   })];
 }
-
-/** Publica cada fuente en cuanto responde; un fallo no oculta la otra. */
-export async function progressiveSearch(sources, onUpdate) {
-  let tracks = [];
-  const errors = [];
-  await Promise.all(sources.map(source => Promise.resolve(source).then(incoming => {
-    const next = appendUniqueTracks(tracks, incoming ?? []);
-    if (next.length === tracks.length) return;
-    tracks = next;
-    onUpdate(tracks);
-  }, error => errors.push(error))));
-  if (!tracks.length && errors.length === sources.length) throw errors[0];
-  return tracks;
-}

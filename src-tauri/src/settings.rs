@@ -78,8 +78,7 @@ impl Settings {
         Ok(())
     }
 
-    #[cfg(any(mobile, feature = "web"))]
-    pub(crate) fn flush_mobile(&self) -> Result<(), String> {
+    pub(crate) fn flush(&self) -> Result<(), String> {
         if let Some(value) = self.value.lock().map_err(|_| "ajustes bloqueados")?.clone() {
             self.file.save_sync(value).map_err(|e| e.to_string())?;
         }

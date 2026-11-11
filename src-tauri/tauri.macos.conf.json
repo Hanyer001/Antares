@@ -5,12 +5,6 @@
       "app",
       "dmg"
     ],
-    "createUpdaterArtifacts": false,
-    "externalBin": [],
-    "macOS": {
-      "files": {
-        "MacOS/yt-dlp": "binaries/yt-dlp-macos"
-      }
-    }
+    "createUpdaterArtifacts": false
   }
 }

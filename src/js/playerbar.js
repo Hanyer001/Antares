@@ -1,10 +1,9 @@
 // Barra de reproducción basada en el estado y los controles de nowstate.js.
 // Su aspecto se aplica mediante atributos de <html> y CSS.
 
-import { formatTime } from "./format.js";
+import { PlayerView, volume_action } from "./rust-core.js";
 import * as now from "./nowstate.js";
 import * as prefs from "./prefs.js";
-import { clampRatio, timeline, keyboardSeek } from "./timeline.js";
 
 const SCRUB_STEPS = 1000;
 const root = document.documentElement;
@@ -12,16 +11,9 @@ const $ = (id) => document.getElementById(id);
 
 let bar;
 let scrub;
-let scrubbing = false;
-let lastArt = null;
-let position = timeline(0, null);
-let trackKey = '';
-let cancelled = false;
+let view;
 let tip;
 let hovering = false;
-let pointerX = 0;
-let previewCurrent = 0;
-let gestureKey = '';
 const identity = s => JSON.stringify([s.revision, s.title, s.artist]);
 
 /** La barra solo en escritorio: en Android ya hay reproductor abajo. */
@@ -60,35 +52,9 @@ function applyPrefs() {
 }
 
 function render(s) {
-  bar.classList.toggle("is-playing", s.playing);
-  bar.classList.toggle("is-loading", s.loading);
-  bar.classList.toggle("is-empty", !s.hasTrack);
-
-  $("pbar-title").textContent = s.title || "Sin reproducción";
-  $("pbar-title").title = s.title;
-  const artist = $("pbar-artist");
-  artist.textContent = s.artist;
-  artist.hidden = !s.artist;
-  artist.disabled = !s.hasTrack;
-
-  const nextKey = identity(s);
-  if (nextKey !== trackKey) {
-    if (scrubbing) cancelled = true;
-    scrubbing = false;
-    trackKey = nextKey;
+  if (view.render(JSON.stringify(s), identity(s))) {
     renderTime(now.position());
-    if (tip) tip.hidden = true;
-  }
-
-  if (s.artwork !== lastArt) {
-    lastArt = s.artwork;
-    const img = $("pbar-art");
-    bar.classList.remove('has-art');
-    img.onload = () => bar.classList.toggle('has-art', img.getAttribute('src') === lastArt);
-    img.onerror = () => bar.classList.remove('has-art');
-    if (s.artwork) img.src = s.artwork;
-    else img.removeAttribute("src");
-    if (img.complete && img.naturalWidth) bar.classList.add('has-art');
+    tip.hidden = true;
   }
 
   // El álbum se pide una vez por canción (y queda en caché): si no llega, no
@@ -100,48 +66,6 @@ function render(s) {
     if (s.title) loadAlbum(key, s.title);
   }
 
-  for (const b of bar.querySelectorAll("[data-act]")) {
-    const act = b.dataset.act;
-    if (act === "toggle") {
-      b.disabled = !s.hasTrack;
-      b.setAttribute("aria-label", s.playing ? "Pausar" : "Reproducir");
-      b.title = b.getAttribute("aria-label");
-    } else if (act === "prev") b.disabled = !s.hasPrev;
-    else if (act === "next") b.disabled = !s.hasNext;
-    else if (act === "like") {
-      b.disabled = !s.canRate;
-      b.classList.toggle("is-on", s.liked);
-      b.title = s.liked ? "Quitar de Me gusta" : "Me gusta";
-      b.setAttribute('aria-label', b.title);
-      b.setAttribute('aria-pressed', String(s.liked));
-    } else if (act === "dislike") {
-      b.disabled = !s.canRate;
-      b.classList.toggle("is-on", s.disliked);
-      b.setAttribute('aria-label', s.disliked ? 'Quitar «No me gusta»' : 'No me gusta');
-      b.setAttribute('aria-pressed', String(s.disliked));
-    } else if (act === "shuffle") {
-      b.classList.toggle("is-on", s.shuffle);
-      b.setAttribute('aria-pressed', String(s.shuffle));
-    }
-    else if (act === "repeat") {
-      b.classList.toggle("is-on", s.repeat !== "off");
-      b.classList.toggle("is-one", s.repeat === "one");
-      b.title = { off: "Repetir: no", all: "Repetir: toda la cola", one: "Repetir: esta canción" }[s.repeat];
-      b.setAttribute('aria-label', b.title);
-      b.setAttribute('aria-pressed', String(s.repeat !== 'off'));
-    } else if (act === "more" || act === 'expand') b.disabled = !s.hasTrack;
-    else if (act === 'mute') {
-      b.setAttribute('aria-label', s.muted ? 'Activar sonido' : 'Silenciar');
-      b.setAttribute('aria-pressed', String(s.muted));
-      b.title = b.getAttribute('aria-label');
-    }
-  }
-
-  bar.classList.toggle("is-muted", s.muted);
-  const vol = $("pbar-volume");
-  if (document.activeElement !== vol) vol.value = String(Math.round(s.volume * 100));
-  vol.style.setProperty("--level", `${s.muted ? 0 : s.volume * 100}%`);
-  vol.setAttribute('aria-valuetext', s.muted ? 'Silenciado' : `${Math.round(s.volume * 100)} %`);
 }
 
 /**
@@ -162,28 +86,14 @@ async function loadAlbum(key, title, tries = 8) {
 
 function renderTime({ current, duration }) {
   if (document.hidden || bar.hidden) return;
-  position = timeline(current, duration);
-  $("pbar-total").textContent = formatTime(position.duration);
-  scrub.disabled = !position.duration;
-  if (!position.duration && tip) tip.hidden = true;
-  if (!position.duration && scrubbing) { scrubbing = false; cancelled = true; }
-  if (!scrubbing) paintPosition(position.ratio);
-}
-
-function paintPosition(ratio) {
-  ratio = clampRatio(ratio);
-  scrub.value = String(Math.round(ratio * SCRUB_STEPS));
-  scrub.style.setProperty('--played', `${(ratio * 100).toFixed(2)}%`);
-  previewCurrent = position.duration ? ratio * position.duration : 0;
-  const time = formatTime(previewCurrent);
-  $('pbar-current').textContent = time;
-  scrub.setAttribute('aria-valuetext', position.duration ? `${time} de ${formatTime(position.duration)}` : 'Duración no disponible');
+  view.update_time(current, duration ?? NaN);
+  if (scrub.disabled) tip.hidden = true;
 }
 
 function showTip(ratio, x) {
   if (!tip || scrub.disabled || bar.hidden) return;
   const rect = scrub.getBoundingClientRect();
-  tip.textContent = formatTime(clampRatio(ratio) * position.duration);
+  tip.textContent = view.preview_label(ratio);
   tip.hidden = false;
   tip.style.left = `${Math.max(40, Math.min(innerWidth - 40, x ?? rect.left + 6 + ratio * (rect.width - 12)))}px`;
   const above = rect.top > 48;
@@ -208,6 +118,11 @@ export function initPlayerBar({ enabled = true, handlers = {}, album } = {}) {
   prefs.on("player", applyPrefs);
   if (!available) return;
 
+  view = new PlayerView(bar, false);
+  const art = $("pbar-art");
+  art.addEventListener("load", () => bar.classList.toggle("has-art", art.naturalWidth > 0));
+  art.addEventListener("error", () => bar.classList.remove("has-art"));
+
   tip = document.createElement('output'); tip.className = 'pbar-tooltip'; tip.hidden = true;
   tip.setAttribute('aria-hidden', 'true'); document.body.append(tip);
 
@@ -218,57 +133,55 @@ export function initPlayerBar({ enabled = true, handlers = {}, album } = {}) {
     acts[button.dataset.act]?.(button);
   });
 
-  // La posición: se ve moverse mientras se arrastra, y salta al soltar.
-  scrub.addEventListener("pointerdown", () => { scrubbing = true; cancelled = false; gestureKey = identity(now.snapshot()); });
+  const currentTrack = () => identity(now.snapshot());
+  const cancel = () => { view.reset(true); tip.hidden = true; };
+  scrub.addEventListener("pointerdown", () => view.begin(currentTrack()));
   scrub.addEventListener("input", () => {
-    if (cancelled) return;
-    if (!scrubbing) gestureKey = identity(now.snapshot());
-    scrubbing = true;
-    paintPosition(Number(scrub.value) / SCRUB_STEPS);
-    showTip(Number(scrub.value) / SCRUB_STEPS);
+    view.input(currentTrack());
+    const preview = view.preview_ratio();
+    if (preview != null) showTip(preview);
   });
   scrub.addEventListener("change", () => {
-    // Leer ahora también cubre metadatos recién cambiados cuyo aviso agrupado
-    // todavía no ha llegado: un gesto viejo no debe saltar en la pista nueva.
-    if (cancelled || gestureKey !== identity(now.snapshot())) { scrubbing = false; renderTime(now.position()); return; }
-    const ratio = clampRatio(Number(scrub.value) / SCRUB_STEPS);
-    scrubbing = false;
+    const ratio = view.commit(currentTrack());
+    if (ratio == null) renderTime(now.position());
+    else acts.seek(ratio);
+  });
+  scrub.addEventListener("keydown", event => {
+    if (event.key === "Escape") { cancel(); return; }
+    const ratio = view.seek_key(event.key);
+    if (ratio == null) return;
+    event.preventDefault();
     acts.seek(ratio);
+    showTip(ratio);
   });
-  scrub.addEventListener('keydown', event => {
-    if (event.key === 'Escape') {
-      cancelled = true; scrubbing = false; paintPosition(position.ratio); tip.hidden = true; return;
-    }
-    const ratio = keyboardSeek(event.key, previewCurrent, position.duration);
-    if (ratio === null) return;
-    event.preventDefault(); cancelled = false; scrubbing = false;
-    paintPosition(ratio); acts.seek(ratio); showTip(ratio);
-  });
-  scrub.addEventListener('pointercancel', () => { cancelled = true; scrubbing = false; paintPosition(position.ratio); tip.hidden = true; });
-  scrub.addEventListener('pointermove', event => {
-    hovering = true; pointerX = event.clientX;
+  scrub.addEventListener("pointercancel", cancel);
+  scrub.addEventListener("pointermove", event => {
+    hovering = true;
     const rect = scrub.getBoundingClientRect();
-    showTip(scrubbing ? Number(scrub.value) / SCRUB_STEPS : (pointerX - rect.left - 6) / Math.max(1, rect.width - 12), pointerX);
+    const pointer = (event.clientX - rect.left - 6) / Math.max(1, rect.width - 12);
+    showTip(view.preview_ratio() ?? pointer, event.clientX);
   });
-  scrub.addEventListener('pointerleave', () => { hovering = false; if (!scrubbing && document.activeElement !== scrub) tip.hidden = true; });
-  scrub.addEventListener('focus', () => showTip(Number(scrub.value) / SCRUB_STEPS));
-  scrub.addEventListener('blur', () => { scrubbing = false; cancelled = false; paintPosition(position.ratio); tip.hidden = true; });
-  window.addEventListener('resize', () => { tip.hidden = true; });
-  document.addEventListener('pointerup', () => {
-    // También cubre soltar fuera del rango; el evento change nativo confirma.
-    scrubbing = false;
+  scrub.addEventListener("pointerleave", () => {
+    hovering = false;
+    if (view.preview_ratio() == null && document.activeElement !== scrub) tip.hidden = true;
+  });
+  scrub.addEventListener("focus", () => showTip(scrub.valueAsNumber / SCRUB_STEPS));
+  scrub.addEventListener("blur", () => { view.reset(false); tip.hidden = true; });
+  window.addEventListener("resize", () => { tip.hidden = true; });
+  document.addEventListener("pointerup", () => {
+    view.end();
     if (!hovering && document.activeElement !== scrub) tip.hidden = true;
   });
 
   const vol = $("pbar-volume");
-  vol.addEventListener("input", () => acts.setVolume(Number(vol.value) / 100));
+  vol.addEventListener("input", () => acts.setVolume(volume_action(vol.valueAsNumber, 0)));
   // La rueda sobre el volumen, como en la consola.
   bar.querySelector(".pbar__volume").addEventListener(
     "wheel",
     (event) => {
       event.preventDefault();
-      const step = prefs.get("behavior.volumeStep") / 100;
-      acts.setVolume(clampRatio(Number(vol.value) / 100 + (event.deltaY < 0 ? step : -step)));
+      const step = prefs.get("behavior.volumeStep");
+      acts.setVolume(volume_action(vol.valueAsNumber, event.deltaY < 0 ? step : -step));
     },
     { passive: false },
   );

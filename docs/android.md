@@ -46,7 +46,7 @@ Las funciones propias de ventanas de Windows (bandeja, mini ventana, inicio con 
 
 En Ajustes → Android, **Ahorro de recursos** está activado inicialmente y la precarga opcional desactivada. El ahorro reduce animaciones y desenfoque y evita el segundo decodificador de los fundidos. Los controles de tiempo y los efectos visuales dejan de actualizarse cuando se oculta la actividad. El temporizador mantiene su reloj en el servicio, sin un intervalo web en segundo plano.
 
-El reproductor mantiene un búfer de 15–30 segundos. Resuelve las fuentes cuando se abren y usa la caché Rust; no extrae anticipadamente toda la cola. Android no incluye rusty_ytdl/Boa ni ejecuta yt-dlp. Las carátulas de fondo se limitan a 1280 píxeles. El ahorro de datos existente sigue siendo un ajuste separado para la calidad del stream.
+El reproductor mantiene un búfer de 15–30 segundos. Resuelve las fuentes cuando se abren y usa la caché Rust; no extrae anticipadamente toda la cola. Android obtiene el audio por InnerTube y lo entrega a Media3. Las carátulas de fondo se limitan a 1280 píxeles. El ahorro de datos existente sigue siendo un ajuste separado para la calidad del stream.
 
 Estas medidas reducen trabajo innecesario; no equivalen a una medición de batería. La continuidad con Wi-Fi, las restricciones del fabricante, auriculares, interrupciones de audio y efectos deben verificarse en dispositivos reales.
 
